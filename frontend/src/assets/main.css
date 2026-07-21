@@ -1,0 +1,390 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #FC841B;
+  --color-brand-dark: #E26F10;
+  --color-brand-light: #FFF2E6;
+  --color-brand-secondary: #0252B3;
+  --color-brand-secondary-dark: #013F8A;
+  --color-brand-accent: #0188EA;
+  --color-brand-orange: #FC841B;
+  --color-brand-orange-light: #FFF2E6;
+  --color-bg: #f4f7fb;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-text: #172033;
+  --color-text-muted: #64748b;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  color: #172033;
+  background: #f4f7fb;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+html {
+  background: #f4f7fb;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  background: #f4f7fb;
+  color: #172033;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Ukuran teks kontrol dibuat lebih ringkas daripada teks konten. */
+button {
+  font-size: 0.65625rem;
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  font-size: 0.6875rem;
+}
+
+input::placeholder,
+textarea::placeholder {
+  font-size: inherit;
+}
+
+.button-text-xs {
+  font-size: 0.5rem;
+}
+
+button:not(:disabled),
+select:not(:disabled) {
+  cursor: pointer;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: 160ms;
+  transition-timing-function: ease;
+}
+
+::selection {
+  color: #0b3a72;
+  background: #cfe4ff;
+}
+
+:focus-visible {
+  outline: 3px solid rgb(9 124 222 / 24%);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #cbd5e1;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+  background-clip: padding-box;
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at 86% 4%, rgb(252 132 27 / 8%), transparent 27rem),
+    radial-gradient(circle at 45% 110%, rgb(2 82 179 / 6%), transparent 28rem),
+    #f4f7fb;
+}
+
+.app-main {
+  background-image:
+    linear-gradient(rgb(148 163 184 / 5%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(148 163 184 / 5%) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.shadow-card {
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 3%),
+    0 8px 24px rgb(15 23 42 / 4%);
+}
+
+.shadow-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 2px 4px rgb(15 23 42 / 4%),
+    0 16px 32px rgb(15 23 42 / 8%);
+}
+
+.bg-brand-gradient {
+  background: linear-gradient(135deg, #0252B3 0%, #0188EA 100%);
+}
+
+.font-num {
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+}
+
+table thead th {
+  letter-spacing: 0.075em;
+}
+
+table tbody tr {
+  transition: background-color 140ms ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  border-color: #dce3ec;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-brand) !important;
+  box-shadow: 0 0 0 3px rgb(252 132 27 / 10%) !important;
+}
+
+@keyframes growUp {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+.bar-anim {
+  transform-origin: bottom;
+  animation: growUp 0.5s ease-out forwards;
+}
+
+@keyframes dashDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+.ring-anim {
+  animation: dashDraw 0.8s ease-out forwards;
+}
+
+.modal-backdrop {
+  background: rgb(10 18 32 / 62%);
+  backdrop-filter: blur(8px);
+}
+
+@keyframes slideInRight {
+  from { transform: translate3d(24px, 0, 0); opacity: 0; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+
+.toast-anim {
+  animation: slideInRight 0.25s ease-out;
+}
+
+@media (max-width: 639px) {
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   Glassmorphism Theme Overrides
+   ============================================================ */
+
+/* Translucent floating color bubbles on shell background */
+.app-shell {
+  position: relative;
+  background: #f1f5fa;
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(252, 132, 27, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 90% 10%, rgba(2, 82, 179, 0.1) 0%, transparent 45%),
+    radial-gradient(circle at 50% 80%, rgba(1, 136, 234, 0.08) 0%, transparent 40%);
+  overflow: hidden;
+}
+
+/* Semi-transparent Glass Cards */
+.shadow-card {
+  background: rgba(255, 255, 255, 0.55) !important;
+  backdrop-filter: blur(20px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(120%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.55) !important;
+  box-shadow: 
+    0 8px 32px 0 rgba(31, 38, 135, 0.03),
+    inset 0 1px 1px rgba(255, 255, 255, 0.8) !important;
+}
+
+.shadow-card-hover:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.65) !important;
+  border-color: rgba(255, 255, 255, 0.75) !important;
+  box-shadow: 
+    0 12px 40px 0 rgba(31, 38, 135, 0.06),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Glass Header */
+header {
+  background: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(20px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(120%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Dark Glass Sidebar */
+aside {
+  background: rgba(11, 20, 37, 0.8) !important;
+  backdrop-filter: blur(24px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(130%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Glass Input & Select Controls (Global & Scoped .form-control) */
+input:not([type="checkbox"]):not([type="radio"]):not(.form-control-static),
+select,
+textarea,
+.form-control {
+  background: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  color: #000000 !important; /* Pure black text for high readability */
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not(.form-control-static):focus,
+select:focus,
+textarea:focus,
+.form-control:focus {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border-color: var(--color-brand) !important;
+  box-shadow: 0 0 0 3px rgb(252 132 27 / 15%) !important;
+}
+
+/* Custom placeholder styling for glass controls */
+input::placeholder,
+textarea::placeholder,
+.form-control::placeholder {
+  color: #475569 !important; /* Darker slate gray for solid readability */
+  opacity: 1 !important;
+}
+
+/* Glassmorphism for read-only / locked input controls */
+input[readonly],
+input[readonly].form-control,
+.bg-slate-50,
+.form-control.bg-slate-50 {
+  background: rgba(241, 245, 249, 0.5) !important;
+  color: #334155 !important; /* Clear dark slate gray for locked data */
+  border-color: rgba(226, 232, 240, 0.5) !important;
+  cursor: not-allowed !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+/* Glassmorphism for custom SearchableSelect triggers & panels */
+div.relative > button.text-left.h-10.w-full {
+  background: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  color: #000000 !important;
+}
+
+div.relative > button.text-left.h-10.w-full span[class*="text-[#9CA3AF]"],
+div.relative > button.text-left.h-10.w-full span[class*="text-slate-400"] {
+  color: #475569 !important; /* Make dropdown placeholder dark gray */
+}
+
+div.relative > button.text-left.h-10.w-full:focus {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border-color: var(--color-brand) !important;
+  box-shadow: 0 0 0 3px rgb(252 132 27 / 15%) !important;
+}
+
+div.relative > div.absolute {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(20px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(120%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.08) !important;
+}
+
+/* Glass Modals */
+.modal-backdrop {
+  background: rgba(10, 18, 32, 0.4) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+.modal-panel {
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(24px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(120%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 
+    0 24px 64px rgba(0, 0, 0, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+}
+
+.modal-panel > div:first-child {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Donut Chart SVG & Circle Opacity / Background Fixes */
+svg,
+svg.w-full.h-full {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+svg circle {
+  opacity: 1 !important;
+  stroke-opacity: 1 !important;
+}
+
+

@@ -1,0 +1,32 @@
+{
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "pg": "^8.22.0"
+  },
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "REST API untuk monitoring aset IT",
+  "main": "src/server.js",
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "db:setup": "node src/config/setupDatabase.js",
+    "migrate": "node src/config/setupDatabase.js --no-seed",
+    "seed": "node src/config/setupDatabase.js",
+    "db:check": "node src/config/checkSchema.js",
+    "test": "node --test",
+    "check": "node --check src/server.js && node --check src/app.js && node --check src/config/setupDatabase.js && node --check src/config/checkSchema.js && node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module"
+}

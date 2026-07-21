@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Daftar Aset IT - AssetWise ITAM</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-high": "#e7e8ea",
+                      "surface-container-lowest": "#ffffff",
+                      "inverse-surface": "#2e3132",
+                      "primary-fixed": "#dae2ff",
+                      "primary": "#003d9b",
+                      "background": "#f8f9fb",
+                      "on-secondary-fixed-variant": "#374763",
+                      "on-error-container": "#93000a",
+                      "secondary-fixed-dim": "#b7c7e8",
+                      "inverse-primary": "#b2c5ff",
+                      "surface-tint": "#0c56d0",
+                      "inverse-on-surface": "#f0f1f3",
+                      "secondary": "#4f5f7b",
+                      "surface-container": "#edeef0",
+                      "outline": "#737685",
+                      "surface-variant": "#e1e2e4",
+                      "on-surface": "#191c1e",
+                      "on-primary-fixed": "#001848",
+                      "on-primary-fixed-variant": "#0040a2",
+                      "primary-container": "#0052cc",
+                      "tertiary-container": "#a33500",
+                      "surface": "#f8f9fb",
+                      "primary-fixed-dim": "#b2c5ff",
+                      "on-secondary-container": "#51617e",
+                      "on-tertiary-container": "#ffc6b2",
+                      "on-secondary-fixed": "#091c35",
+                      "tertiary-fixed-dim": "#ffb59b",
+                      "tertiary-fixed": "#ffdbcf",
+                      "on-primary-container": "#c4d2ff",
+                      "tertiary": "#7b2600",
+                      "on-background": "#191c1e",
+                      "surface-dim": "#d9dadc",
+                      "on-tertiary": "#ffffff",
+                      "error": "#ba1a1a",
+                      "on-secondary": "#ffffff",
+                      "on-surface-variant": "#434654",
+                      "on-error": "#ffffff",
+                      "secondary-fixed": "#d6e3ff",
+                      "error-container": "#ffdad6",
+                      "on-tertiary-fixed": "#380d00",
+                      "surface-container-highest": "#e1e2e4",
+                      "secondary-container": "#cdddff",
+                      "on-tertiary-fixed-variant": "#812800",
+                      "on-primary": "#ffffff",
+                      "surface-container-low": "#f3f4f6",
+                      "outline-variant": "#c3c6d6",
+                      "surface-bright": "#f8f9fb"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "base": "4px",
+                      "gutter": "20px",
+                      "sm": "8px",
+                      "xl": "32px",
+                      "md": "16px",
+                      "xs": "4px",
+                      "lg": "24px",
+                      "container-max": "1440px"
+              },
+              "fontFamily": {
+                      "display-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-sm": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "title-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-sm": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display-lg-mobile": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-sm": [
+                              "Plus Jakarta Sans"
+                      ]
+              },
+              "fontSize": {
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-sm": [
+                              "11px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "title-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-sm": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex antialiased">
+<!-- SideNavBar -->
+<nav class="bg-surface-container-lowest text-primary fixed top-0 left-0 bottom-0 w-[260px] z-40 border-r border-outline-variant flex flex-col h-full py-md">
+<div class="px-gutter mb-lg">
+<div class="flex items-center gap-sm">
+<img class="w-8 h-8 object-cover rounded" data-alt="A clean, modern geometric logo design representing an enterprise IT asset management system. High contrast, professional corporate color palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDE84qZ0ffpUvzCgICMtboBF-5GVSGzUZDOjF1_XVlA5F2P7VchD4Br2DI69oNpha5-MPsahhkNGoVafMw3-PSKOGNsbigq5OwPgTIUzH1976jIY4AdCqtgbcZvRXrmW6Kfk4HcFVi7J_KkG6kM9Pjcr2jrHXv6f6TzdE987QcwV6WFj6iyYzpaSVT4lZCZ_I37vG9Mni95vQzVwx7ZuNcafNyul2FxZLg-RsHIzhI4zHb0zzVJBMeroILeKOK5HcxG1uCZkNbbZ1o"/>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-black text-primary">ITAM System</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Enterprise Resource</p>
+</div>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto">
+<ul class="flex flex-col gap-xs px-sm">
+<li>
+<a class="flex items-center gap-md px-sm py-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high transition-all duration-150 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                        Dashboard
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-md px-sm py-sm rounded-DEFAULT bg-primary-fixed text-on-primary-fixed-variant border-l-4 border-primary font-bold font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="laptop_mac">laptop_mac</span>
+                        Aset IT
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-md px-sm py-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high transition-all duration-150 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="badge">badge</span>
+                        Karyawan
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-md px-sm py-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high transition-all duration-150 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+                        Pengguna
+                    </a>
+</li>
+</ul>
+</div>
+<div class="mt-auto px-sm border-t border-outline-variant pt-sm">
+<ul class="flex flex-col gap-xs">
+<li>
+<a class="flex items-center gap-md px-sm py-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high transition-all duration-150 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+                        Bantuan
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-md px-sm py-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high transition-all duration-150 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+                        Keluar
+                    </a>
+</li>
+</ul>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col ml-[260px] min-w-0">
+<!-- TopNavBar -->
+<header class="bg-surface-container-lowest text-primary fixed top-0 right-0 left-[260px] z-30 border-b border-outline-variant flex justify-between items-center h-16 px-gutter w-auto">
+<div class="flex items-center gap-md w-full max-w-xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="search">search</span>
+<input class="w-full bg-surface-container border border-outline-variant rounded-DEFAULT py-sm pl-[36px] pr-sm text-body-sm font-body-sm focus:border-primary focus:ring-0 focus:outline-none placeholder:text-on-surface-variant transition-colors duration-200" placeholder="Cari Hostname atau Serial Number..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="p-sm rounded-full text-on-surface-variant hover:bg-surface-container transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-sm rounded-full text-on-surface-variant hover:bg-surface-container transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<img class="w-8 h-8 rounded-full object-cover ml-sm border border-outline-variant" data-alt="A highly detailed professional portrait of a corporate IT administrator in a bright, modern office setting. Sharp focus, professional lighting, corporate attire." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1JmC_30Frgb1bqpyUv9WXfQs9rCw3P1OIrX48xL4T7K6ulla8df2rxYCaQhhxONdyTM8X7unJ8iW5KYxy_mvewdYLCPTnzMkvQmNk1eYckpHZa9sFE5PBhkKZv0H7CNFaBfM8NVETQ8nKY5KABbtKLxUBpqfLOt7ckzacLOoek3hOQkNJMQiQlkfsrC2-m8NKw2V7uno0JiT5PJD5V8ybfUjWa1m2tyzZucL7rh3078YQwoxSEc0fv_4BQXW9Cmmi6j1dK6IIjWk"/>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="flex-1 mt-16 p-lg max-w-[1440px] mx-auto w-full">
+<div class="flex flex-col gap-lg h-full">
+<!-- Header & Actions -->
+<div class="flex justify-between items-end">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-background">Daftar Aset IT</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Kelola dan pantau seluruh inventaris perangkat keras perusahaan.</p>
+</div>
+<div class="flex gap-md">
+<button class="flex items-center gap-xs px-md py-sm bg-surface-container-lowest border border-secondary text-secondary rounded-DEFAULT font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span>
+                            Export Data
+                        </button>
+<button class="flex items-center gap-xs px-md py-sm bg-primary-container text-on-primary rounded-DEFAULT font-label-md text-label-md hover:bg-primary transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="add">add</span>
+                            Tambah Aset Baru
+                        </button>
+</div>
+</div>
+<!-- Filters -->
+<div class="bg-surface-container-lowest p-md border border-outline-variant rounded-lg flex flex-wrap gap-md items-center">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="filter_list">filter_list</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Filter:</span>
+</div>
+<select class="bg-surface-container border border-outline-variant rounded-DEFAULT py-xs px-sm text-body-sm font-body-sm focus:border-primary focus:ring-0">
+<option value="">Tipe Perangkat</option>
+<option value="laptop">Laptop</option>
+<option value="desktop">Desktop</option>
+<option value="monitor">Monitor</option>
+</select>
+<select class="bg-surface-container border border-outline-variant rounded-DEFAULT py-xs px-sm text-body-sm font-body-sm focus:border-primary focus:ring-0">
+<option value="">Status</option>
+<option value="tersedia">Tersedia</option>
+<option value="digunakan">Digunakan</option>
+<option value="perbaikan">Perbaikan</option>
+</select>
+<select class="bg-surface-container border border-outline-variant rounded-DEFAULT py-xs px-sm text-body-sm font-body-sm focus:border-primary focus:ring-0">
+<option value="">Brand</option>
+<option value="lenovo">Lenovo</option>
+<option value="hp">HP</option>
+<option value="dell">Dell</option>
+<option value="apple">Apple</option>
+</select>
+</div>
+<!-- Data Table -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden flex-1 flex flex-col">
+<div class="overflow-x-auto flex-1">
+<table class="w-full text-left border-collapse min-w-[1000px]">
+<thead class="bg-surface-container-low font-label-md text-label-md text-on-surface-variant border-b border-outline-variant sticky top-0">
+<tr>
+<th class="py-md px-md w-[20%]">Hostname</th>
+<th class="py-md px-md w-[15%]">Serial Number</th>
+<th class="py-md px-md w-[15%]">Brand/Model</th>
+<th class="py-md px-md w-[10%]">Status</th>
+<th class="py-md px-md w-[15%]">Kondisi</th>
+<th class="py-md px-md w-[20%]">Pemegang</th>
+<th class="py-md px-md w-[5%] text-right">Aksi</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm text-on-background divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low transition-colors h-[52px]">
+<td class="py-sm px-md font-medium text-primary">NB-ENG-001</td>
+<td class="py-sm px-md font-mono text-xs text-on-surface-variant">PF2XYZ12</td>
+<td class="py-sm px-md">Lenovo ThinkPad T14</td>
+<td class="py-sm px-md">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-primary-fixed text-on-primary-fixed-variant text-[10px] font-bold tracking-wide">DIGUNAKAN</span>
+</td>
+<td class="py-sm px-md">
+<span class="flex items-center gap-xs text-on-surface-variant">
+<span class="w-2 h-2 rounded-full bg-[#10b981]"></span> Baik
+                                        </span>
+</td>
+<td class="py-sm px-md flex items-center gap-sm">
+<img class="w-6 h-6 rounded-full object-cover" data-alt="Small avatar portrait of an Asian male software engineer in a bright office." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIHTg4uADDfOCar8jiA1re1HrDT9Rz43l4JX-emZ_cPiFJl-BtzqOm2WPmtuDuDCl34cqaGd-McfY_kTmLSmOrMfvjXNeLAO-E8em4mUS7eJYAQUjDYOXJAeeJOhYk11A4OIz8dpIlwegP85lTPoK-SOdNPqPmIGijFkpsLZdHHgAdJf-YSaJL2_ZS7MANbdw4itTEkrWdN-eoZ1fqnt8DnP4xmPtTnrmSIaZeYKq_BcE5zrB9XNcNnUsY-i31RqiLhPlnd3kvOhg"/>
+                                        Budi Santoso
+                                    </td>
+<td class="py-sm px-md text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[18px]" data-icon="more_vert">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low transition-colors h-[52px]">
+<td class="py-sm px-md font-medium text-primary">NB-MKT-045</td>
+<td class="py-sm px-md font-mono text-xs text-on-surface-variant">5CG1234567</td>
+<td class="py-sm px-md">HP ProBook 440 G8</td>
+<td class="py-sm px-md">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-surface-container-highest text-on-surface-variant text-[10px] font-bold tracking-wide">TERSEDIA</span>
+</td>
+<td class="py-sm px-md">
+<span class="flex items-center gap-xs text-on-surface-variant">
+<span class="w-2 h-2 rounded-full bg-[#10b981]"></span> Baik
+                                        </span>
+</td>
+<td class="py-sm px-md text-on-surface-variant italic">
+                                        IT Inventory
+                                    </td>
+<td class="py-sm px-md text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[18px]" data-icon="more_vert">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low transition-colors h-[52px]">
+<td class="py-sm px-md font-medium text-primary">DSK-FIN-012</td>
+<td class="py-sm px-md font-mono text-xs text-on-surface-variant">1B2C3D4</td>
+<td class="py-sm px-md">Dell OptiPlex 7090</td>
+<td class="py-sm px-md">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-error-container text-on-error-container text-[10px] font-bold tracking-wide">PERBAIKAN</span>
+</td>
+<td class="py-sm px-md">
+<span class="flex items-center gap-xs text-error">
+<span class="w-2 h-2 rounded-full bg-error"></span> Rusak Ringan
+                                        </span>
+</td>
+<td class="py-sm px-md text-on-surface-variant italic">
+                                        IT Support
+                                    </td>
+<td class="py-sm px-md text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[18px]" data-icon="more_vert">more_vert</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="border-t border-outline-variant p-sm flex justify-between items-center bg-surface-container-lowest">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Menampilkan 1-3 dari 124 aset</span>
+<div class="flex gap-xs">
+<button class="p-xs text-on-surface-variant hover:bg-surface-container rounded-DEFAULT disabled:opacity-50"><span class="material-symbols-outlined text-[18px]" data-icon="chevron_left">chevron_left</span></button>
+<button class="p-xs text-on-surface-variant hover:bg-surface-container rounded-DEFAULT"><span class="material-symbols-outlined text-[18px]" data-icon="chevron_right">chevron_right</span></button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-low text-secondary block w-full border-t border-outline-variant ml-[0px] mt-auto py-sm px-gutter flex justify-between items-center">
+<p class="font-label-sm text-label-sm">© 2024 IT Asset Management System. All rights reserved.</p>
+<div class="flex gap-md font-label-sm text-label-sm">
+<a class="text-on-surface-variant hover:text-primary transition-opacity duration-200" href="#">Kebijakan Privasi</a>
+<a class="text-on-surface-variant hover:text-primary transition-opacity duration-200" href="#">Ketentuan Layanan</a>
+<a class="text-on-surface-variant hover:text-primary transition-opacity duration-200" href="#">Kontak IT</a>
+</div>
+</footer>
+</div>
+</body></html>
