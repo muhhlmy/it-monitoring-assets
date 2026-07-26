@@ -5,10 +5,12 @@
 // ============================================================
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useApi } from '../composables/useApi.js'
+import { useAuth } from '../composables/useAuth.js'
 import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 
 const { get, post, put, del } = useApi()
+const { isSuperAdmin } = useAuth()
 
 // ── State Utama ──────────────────────────────────────────────
 const users        = ref([])
@@ -40,9 +42,11 @@ const form = ref(emptyForm())
 
 // ── Options ──────────────────────────────────────────────────
 const roleOptions = ['superadmin', 'admin', 'teknisi', 'user']
-const availableRoleOptions = computed(() => [
-  ...new Set([form.value.role, ...roleOptions, ...users.value.map((user) => user.role)].filter(Boolean)),
-])
+const availableRoleOptions = computed(() => {
+  // Admin tidak bisa membuat superadmin
+  const options = isSuperAdmin.value ? roleOptions : roleOptions.filter(r => r !== 'superadmin')
+  return [...new Set([form.value.role, ...options, ...users.value.map((user) => user.role)].filter(Boolean))]
+})
 
 // ── Filter Logic ─────────────────────────────────────────────
 const filteredUsers = computed(() => {
@@ -120,7 +124,6 @@ async function saveUser() {
   const email = form.value.email.trim()
   const role = form.value.role.trim()
 
-  // Validasi: password wajib untuk pengguna baru
   if (!nama || !email || !role) {
     modalError.value = 'Nama, email, dan role wajib diisi.'
     isSubmitting.value = false
@@ -131,7 +134,7 @@ async function saveUser() {
     isSubmitting.value = false
     return
   }
-  if (modalMode.value === 'add' && Array.from(form.value.password).length < 8) {
+  if (form.value.password && Array.from(form.value.password).length < 8) {
     modalError.value = 'Password minimal harus terdiri dari 8 karakter.'
     isSubmitting.value = false
     return
@@ -142,8 +145,8 @@ async function saveUser() {
       await post('/api/users', { nama, email, password: form.value.password, role })
       toast('Pengguna baru berhasil ditambahkan!')
     } else {
-      // Saat edit, hanya kirim field yang tidak sensitif (password dikosongkan jika tidak diubah)
       const updatePayload = { nama, email, role, is_active: form.value.is_active }
+      if (form.value.password) updatePayload.password = form.value.password
       await put(`/api/users/${selectedUser.value.id}`, updatePayload)
       toast('Data pengguna berhasil diperbarui!')
     }
@@ -193,7 +196,6 @@ function getInitial(nama) {
   return (nama || '?').charAt(0).toUpperCase()
 }
 
-// Warna avatar berdasarkan huruf pertama
 function getAvatarColor(nama) {
   const colors = [
     'bg-[#D1FAE5] text-[#065F46]',
@@ -211,6 +213,9 @@ function resetFilters() {
   searchQuery.value = ''
   filterRole.value  = ''
 }
+
+// Fungsi helper untuk mengecek apakah role adalah superadmin
+const isRoleSuperAdmin = (r) => (r || '').trim().toLowerCase() === 'superadmin' || (r || '').trim().toLowerCase() === 'super admin'
 
 onMounted(fetchUsers)
 onBeforeUnmount(() => window.clearTimeout(toastTimer))
@@ -353,19 +358,21 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
 
               <!-- Aksi -->
               <td class="px-5 py-3">
-                <div class="flex items-center justify-end gap-1">
+                <div class="flex items-center justify-end gap-1.5">
                   <button
+                    v-if="isSuperAdmin || !isRoleSuperAdmin(user.role)"
                     @click="openEdit(user)"
                     :aria-label="`Edit ${user.nama || 'pengguna'}`"
-                    class="w-8 h-8 rounded-lg bg-[#F3F4F6] hover:bg-[#DBEAFE] text-[#6B7280] hover:text-[#3B82F6] flex items-center justify-center transition-colors"
+                    class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#E8F7FF] text-[#49BEFF] hover:bg-[#49BEFF] hover:text-white transition-all"
                     title="Edit"
                   >
                     <span aria-hidden="true" class="material-symbols-outlined text-[16px]">edit</span>
                   </button>
                   <button
+                    v-if="isSuperAdmin && !isRoleSuperAdmin(user.role)"
                     @click="openDelete(user)"
                     :aria-label="`Hapus ${user.nama || 'pengguna'}`"
-                    class="w-8 h-8 rounded-lg bg-[#F3F4F6] hover:bg-[#FEE2E2] text-[#6B7280] hover:text-[#EF4444] flex items-center justify-center transition-colors"
+                    class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FDEDE8] text-[#FA896B] hover:bg-[#FA896B] hover:text-white transition-all"
                     title="Hapus"
                   >
                     <span aria-hidden="true" class="material-symbols-outlined text-[16px]">delete</span>
@@ -418,7 +425,8 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
         <div class="flex flex-col gap-1.5">
           <label for="user-name" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">Nama Lengkap *</label>
           <input id="user-name" v-model="form.nama" required autofocus type="text" autocomplete="name"
-            class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
+            :disabled="modalMode === 'edit' && !isSuperAdmin"
+            class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             placeholder="Nama lengkap pengguna" />
         </div>
 
@@ -426,40 +434,38 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
         <div class="flex flex-col gap-1.5">
           <label for="user-email" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">Email *</label>
           <input id="user-email" v-model="form.email" required type="email" autocomplete="email"
-            class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
+            :disabled="modalMode === 'edit' && !isSuperAdmin"
+            class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             placeholder="email@perusahaan.com" />
         </div>
 
-        <!-- Password (hanya saat tambah baru) -->
-        <div v-if="modalMode === 'add'" class="flex flex-col gap-1.5">
-          <label for="user-password" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">Password *</label>
-          <input id="user-password" v-model="form.password" required minlength="8" type="password" autocomplete="new-password"
+        <!-- Password -->
+        <div class="flex flex-col gap-1.5">
+          <label for="user-password" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">{{ modalMode === 'add' ? 'Password *' : 'Password Baru' }}</label>
+          <input id="user-password" v-model="form.password" :required="modalMode === 'add'" minlength="8" type="password" autocomplete="new-password"
             class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
-            placeholder="Password login" />
+            :placeholder="modalMode === 'add' ? 'Password login' : 'Kosongkan jika tidak ingin mengubah'" />
+          <span v-if="modalMode === 'edit'" class="text-[10px] text-[#6B7280]">Isi field ini hanya jika ingin mengubah password. Minimal 8 karakter.</span>
         </div>
 
         <!-- Role -->
         <div class="flex flex-col gap-1.5">
           <label for="user-role" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">Role Akses *</label>
           <select id="user-role" v-model="form.role" required
-            class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand transition-all">
+            :disabled="modalMode === 'edit' && !isSuperAdmin"
+            class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand transition-all disabled:opacity-60 disabled:cursor-not-allowed">
             <option v-for="r in availableRoleOptions" :key="r" :value="r">{{ r.toUpperCase() }}</option>
           </select>
         </div>
 
         <!-- Status akun saat edit -->
-        <label v-if="modalMode === 'edit'" class="flex items-center justify-between gap-4 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2.5">
+        <label v-if="modalMode === 'edit' && isSuperAdmin && !isRoleSuperAdmin(selectedUser?.role)" class="flex items-center justify-between gap-4 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2.5">
           <span>
             <span class="block text-[11px] font-bold uppercase tracking-wide text-[#374151]">Status Akun</span>
             <span class="block text-[10px] text-[#6B7280]">Pengguna nonaktif tidak dihitung sebagai akun aktif.</span>
           </span>
           <input v-model="form.is_active" type="checkbox" class="h-4 w-4 shrink-0 accent-brand" />
         </label>
-
-        <!-- Info edit -->
-        <div v-if="modalMode === 'edit'" class="bg-[#FEF3C7] border border-[#FDE68A] rounded-lg px-3 py-2 text-[11px] text-[#92400E]">
-          Password tidak ditampilkan dan tidak akan diubah pada form edit ini.
-        </div>
 
         <!-- Footer -->
         <div class="flex items-center justify-end gap-3 pt-2 border-t border-[#F3F4F6]">

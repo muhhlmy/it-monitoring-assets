@@ -58,10 +58,7 @@ SELECT
     k.nik,
     k.nama_karyawan,
     k.departemen,
-    CASE
-        WHEN a.id_karyawan IS NOT NULL THEN k.lokasi_kerja
-        ELSE a.lokasi_aset
-    END AS lokasi_kerja,
+    a.lokasi_aset AS lokasi_kerja,
     a.tipe_perangkat,
     a.merek,
     a.model,
@@ -103,3 +100,58 @@ CREATE TABLE IF NOT EXISTS log_audit_login (
     browser VARCHAR(255),
     dibuat_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ============================================================
+-- Tabel riwayat_pemakaian_aset
+-- Mencatat setiap periode penugasan aset ke karyawan.
+-- Digunakan untuk fitur "Device Cycle" per karyawan.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS riwayat_pemakaian_aset (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_aset         BIGINT NULL,               -- NULL jika aset dihapus dari sistem
+    label_aset      VARCHAR(100) NOT NULL,
+    nomor_seri      VARCHAR(100),
+    tipe_perangkat  VARCHAR(50),
+    merek           VARCHAR(100),
+    model           VARCHAR(100),
+    id_karyawan     BIGINT NULL,               -- NULL jika karyawan dihapus dari sistem
+    nik             VARCHAR(30) NOT NULL,
+    nama_karyawan   VARCHAR(150) NOT NULL,
+    tanggal_mulai   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    tanggal_selesai TIMESTAMP NULL,            -- NULL = masih aktif digunakan saat ini
+    catatan         TEXT,
+    dibuat_pada     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_riwayat_aset
+        FOREIGN KEY (id_aset) REFERENCES aset_ti (id_aset) ON DELETE SET NULL,
+    CONSTRAINT fk_riwayat_karyawan
+        FOREIGN KEY (id_karyawan) REFERENCES karyawan (id_karyawan) ON DELETE SET NULL
+);
+
+-- Backfill: Buat record awal dari assignment yang sudah aktif.
+-- Menggunakan aset_ti.dibuat_pada sebagai estimasi tanggal_mulai.
+-- Hanya dijalankan sekali; ON CONFLICT menggunakan id_aset + id_karyawan yang masih aktif.
+INSERT INTO riwayat_pemakaian_aset
+    (id_aset, label_aset, nomor_seri, tipe_perangkat, merek, model,
+     id_karyawan, nik, nama_karyawan, tanggal_mulai, catatan)
+SELECT
+    a.id_aset,
+    a.label_aset,
+    a.nomor_seri,
+    a.tipe_perangkat,
+    a.merek,
+    a.model,
+    k.id_karyawan,
+    k.nik,
+    k.nama_karyawan,
+    a.dibuat_pada,
+    'Data historis (backfill otomatis saat migrasi)'
+FROM aset_ti AS a
+JOIN karyawan AS k ON k.id_karyawan = a.id_karyawan
+WHERE NOT EXISTS (
+    SELECT 1 FROM riwayat_pemakaian_aset r
+    WHERE r.id_aset = a.id_aset
+      AND r.id_karyawan = k.id_karyawan
+      AND r.tanggal_selesai IS NULL
+);
+

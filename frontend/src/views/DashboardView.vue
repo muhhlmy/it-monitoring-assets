@@ -14,6 +14,7 @@ const router = useRouter()
 
 // ── State ────────────────────────────────────────────────────
 const stats     = ref(null)
+const recentTickets = ref([])
 const isLoading = ref(true)
 const isExporting = ref(false)
 const error     = ref('')
@@ -196,7 +197,14 @@ async function fetchStats() {
   isLoading.value = true
   error.value     = ''
   try {
-    stats.value = await get('/api/assets/stats')
+    const [statsRes, ticketStatsRes] = await Promise.all([
+      get('/api/assets/stats'),
+      get('/api/tickets/stats').catch(() => null)
+    ])
+    stats.value = statsRes
+    if (ticketStatsRes && Array.isArray(ticketStatsRes.recentTickets)) {
+      recentTickets.value = ticketStatsRes.recentTickets
+    }
   } catch (e) {
     error.value = e instanceof Error && e.message
       ? e.message
@@ -240,6 +248,22 @@ function getStatusBadgeType(status) {
   return 'default'
 }
 
+function getTicketStatusBadgeType(status) {
+  const s = (status || '').toLowerCase()
+  if (s === 'open') return 'success'
+  if (s === 'pending') return 'warning'
+  if (s === 'closed') return 'default'
+  return 'info'
+}
+
+function getPriorityBadgeType(prio) {
+  const p = (prio || '').toLowerCase()
+  if (p === 'urgent') return 'danger'
+  if (p === 'high') return 'warning'
+  if (p === 'medium') return 'info'
+  return 'default'
+}
+
 function formatDate(iso) {
   if (!iso) return '-'
   const date = new Date(iso)
@@ -251,7 +275,7 @@ onMounted(fetchStats)
 </script>
 
 <template>
-  <div class="flex flex-col gap-5 sm:gap-6">
+  <div class="flex flex-col gap-6">
 
     <!-- ═══════════════════════════════════════════
          LOADING
@@ -263,7 +287,7 @@ onMounted(fetchStats)
       aria-live="polite"
     >
       <div
-        class="w-8 h-8 border-4 border-[#E5E7EB] border-t-brand rounded-full animate-spin"
+        class="w-10 h-10 border-4 border-[#E5EAEF] border-t-[#5D87FF] rounded-full animate-spin"
         aria-hidden="true"
       ></div>
       <span class="sr-only">Memuat statistik dashboard…</span>
@@ -274,15 +298,16 @@ onMounted(fetchStats)
          ═══════════════════════════════════════════ -->
     <div
       v-else-if="error"
-      class="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-[13px] font-medium flex flex-wrap items-center gap-2"
+      class="bg-[#FDEDE8] border border-[#FA896B]/30 text-[#FA896B] rounded-2xl px-5 py-4 text-sm font-semibold flex items-center justify-between gap-3"
       role="alert"
-      aria-live="assertive"
     >
-      <span class="material-symbols-outlined text-[18px]" aria-hidden="true">error</span>
-      <span class="min-w-0 flex-1">{{ error }}</span>
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-[22px]">error</span>
+        <span>{{ error }}</span>
+      </div>
       <button
         type="button"
-        class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+        class="rounded-xl bg-white px-4 py-2 text-xs font-bold text-[#FA896B] border border-[#FA896B]/30 shadow-xs hover:bg-[#FA896B] hover:text-white transition-all"
         @click="fetchStats"
       >
         Coba lagi
@@ -294,365 +319,182 @@ onMounted(fetchStats)
          ═══════════════════════════════════════════ -->
     <template v-else-if="stats">
 
-      <!-- ─── ROW 1: 4 Stat Cards ────────────────────────────── -->
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <!-- ─── ROW 1: Hero Banner + Pastel Stat Cards ────────── -->
+      <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
 
-        <!-- Total Aset (ESB orange gradient card) -->
-        <div class="relative min-h-[148px] overflow-hidden rounded-[20px] bg-gradient-to-br from-[#FAA425] to-[#FC841B] p-5 text-white lg:col-span-1 shadow-[0_8px_32px_0_rgba(252,132,27,0.22)] border border-white/10">
-          <!-- Decorative circle -->
-          <div class="absolute -right-5 -top-7 h-28 w-28 rounded-full border-[18px] border-white/[0.07]"></div>
-          <div class="absolute -bottom-16 -left-8 h-36 w-36 rounded-full bg-white/[0.06] blur-sm"></div>
-          <div class="relative">
-            <p class="mb-2 text-[10px] font-bold uppercase tracking-[0.13em] text-white/65">Total Aset IT</p>
-            <p class="font-num text-[38px] font-extrabold leading-none tracking-[-0.04em]">{{ totalAssets }}</p>
-            <p class="mt-1.5 text-[10px] font-medium text-white/60">Unit terdaftar dalam sistem</p>
-            <div class="flex gap-2 mt-4">
-              <button
-                type="button"
-                class="rounded-lg bg-white px-3.5 py-2 text-[10px] font-bold text-brand-dark shadow-sm hover:-translate-y-0.5 hover:bg-[#F7FAFF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                @click="goToAddAsset"
-              >
-                + Tambah
-              </button>
-              <button
-                type="button"
-                class="rounded-lg border border-white/15 bg-white/10 px-3.5 py-2 text-[10px] font-bold text-white backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/20 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                :disabled="isExporting"
-                :aria-busy="isExporting"
-                @click="exportAssets"
-              >
-                {{ isExporting ? 'Menyiapkan…' : 'Export ↗' }}
-              </button>
+        <!-- Total Aset (Modernize Royal Blue Gradient Hero Card) -->
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#5D87FF] to-[#4570EA] p-6 text-white sm:col-span-2 shadow-lg shadow-blue-500/20 border border-white/10 flex flex-col justify-between">
+          <!-- Decorative SVG circle pattern -->
+          <div class="absolute -right-8 -top-8 h-40 w-40 rounded-full border-[24px] border-white/10"></div>
+          <div class="absolute -bottom-16 -left-8 h-44 w-44 rounded-full bg-white/10 blur-md"></div>
+          
+          <div class="relative z-10">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-widest text-white/80">TOTAL ASET IT</span>
+              <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-md">
+                <span class="material-symbols-outlined text-[18px]">inventory_2</span>
+              </span>
             </div>
+            <p class="font-num mt-3 text-[42px] font-black leading-none tracking-tight">{{ totalAssets }}</p>
+            <p class="mt-1 text-[12px] font-medium text-white/80">Unit terdaftar dalam sistem perusahaan</p>
+          </div>
+
+          <div class="relative z-10 flex gap-3 mt-6">
+            <button
+              type="button"
+              class="rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-[#5D87FF] shadow-sm hover:bg-[#ECF2FF] transition-all"
+              @click="goToAddAsset"
+            >
+              + Tambah Aset
+            </button>
+            <button
+              type="button"
+              class="rounded-xl border border-white/30 bg-white/15 px-4 py-2.5 text-xs font-bold text-white backdrop-blur-md hover:bg-white/25 disabled:opacity-50 transition-all"
+              :disabled="isExporting"
+              @click="exportAssets"
+            >
+              {{ isExporting ? 'Menyiapkan…' : 'Export CSV ↗' }}
+            </button>
           </div>
         </div>
 
         <!-- Card: Digunakan -->
-        <div class="shadow-card shadow-card-hover flex min-h-[148px] flex-col gap-1 rounded-[20px] border border-[#E8EDF3] bg-white p-5">
-          <div class="flex items-center justify-between mb-1">
-            <p class="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide">Digunakan</p>
-            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ECFDF5]">
-              <span class="material-symbols-outlined text-[#10B981] text-[16px]" aria-hidden="true">check_circle</span>
+        <div class="shadow-card shadow-card-hover flex flex-col justify-between rounded-2xl border border-[#C3F3E8] bg-[#EDFBF7] p-5">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#13DEB9]">Digunakan</span>
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#13DEB9] shadow-xs">
+              <span class="material-symbols-outlined text-[20px]">check_circle</span>
             </div>
           </div>
-          <p class="font-num mt-2 text-[32px] font-extrabold leading-none text-[#172033]">{{ countDipakai }}</p>
-          <div class="flex items-center gap-2 mt-1">
-            <div
-              class="flex-1 h-1.5 bg-[#F3F4F6] rounded-full overflow-hidden"
-              role="progressbar"
-              aria-label="Persentase aset digunakan"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              :aria-valuenow="pctDipakai"
-            >
-              <div class="h-full bg-[#10B981] rounded-full transition-all duration-700" :style="{ width: pctDipakai + '%' }"></div>
+          <div class="mt-4">
+            <p class="font-num text-[30px] font-extrabold text-[#2A3547] leading-none">{{ countDipakai }}</p>
+            <div class="flex items-center gap-2 mt-3">
+              <div class="flex-1 h-2 bg-white rounded-full overflow-hidden">
+                <div class="h-full bg-[#13DEB9] rounded-full transition-all duration-500" :style="{ width: pctDipakai + '%' }"></div>
+              </div>
+              <span class="text-[11px] font-bold text-[#13DEB9]">{{ pctDipakai }}%</span>
             </div>
-            <span class="text-[10px] font-bold text-[#10B981]">{{ pctDipakai }}%</span>
           </div>
         </div>
 
         <!-- Card: Tersedia -->
-        <div class="shadow-card shadow-card-hover flex min-h-[148px] flex-col gap-1 rounded-[20px] border border-[#E8EDF3] bg-white p-5">
-          <div class="flex items-center justify-between mb-1">
-            <p class="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide">Tersedia</p>
-            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-light">
-              <span class="material-symbols-outlined text-brand text-[16px]" aria-hidden="true">inventory_2</span>
-            </div>
-          </div>
-          <p class="font-num mt-2 text-[32px] font-extrabold leading-none text-[#172033]">{{ countTersedia }}</p>
-          <div class="flex items-center gap-2 mt-1">
-            <div
-              class="flex-1 h-1.5 bg-[#F3F4F6] rounded-full overflow-hidden"
-              role="progressbar"
-              aria-label="Persentase aset tersedia"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              :aria-valuenow="pctTersedia"
-            >
-              <div class="h-full bg-brand rounded-full transition-all duration-700" :style="{ width: pctTersedia + '%' }"></div>
-            </div>
-            <span class="text-[10px] font-bold text-brand">{{ pctTersedia }}%</span>
-          </div>
-        </div>
-
-        <!-- Card: Pengguna aktif -->
-        <div class="shadow-card shadow-card-hover flex min-h-[148px] flex-col gap-1 rounded-[20px] border border-[#E8EDF3] bg-white p-5">
-          <div class="flex items-center justify-between mb-1">
-            <p class="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide">Pengguna Aktif</p>
-            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F4F0FF]">
-              <span class="material-symbols-outlined text-[#8B5CF6] text-[16px]" aria-hidden="true">group</span>
-            </div>
-          </div>
-          <p class="font-num mt-2 text-[32px] font-extrabold leading-none text-[#172033]">{{ activeUsers }}</p>
-          <p class="text-[10px] text-[#9CA3AF] mt-1">{{ activeUsersCaption }}</p>
-        </div>
-
-      </div>
-
-      <!-- ─── ROW 2: Grafik Tipe + Donut Status + Aset Terbaru ─ -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-        <!-- Grafik Bar — Distribusi per Tipe (span 5) -->
-        <div class="shadow-card flex flex-col gap-5 rounded-[20px] border border-[#E8EDF3] bg-white p-5 lg:col-span-5 sm:p-6">
+        <div class="shadow-card shadow-card-hover flex flex-col justify-between rounded-2xl border border-[#C8EDFF] bg-[#E8F7FF] p-5">
           <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-[14px] font-extrabold tracking-[-0.015em] text-[#172033]">Distribusi Tipe Perangkat</h3>
-              <p class="text-[11px] text-[#9CA3AF] mt-0.5">Jumlah aset per kategori perangkat</p>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#49BEFF]">Tersedia</span>
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#49BEFF] shadow-xs">
+              <span class="material-symbols-outlined text-[20px]">inventory_2</span>
             </div>
-            <div class="text-[11px] text-[#9CA3AF] font-medium">{{ totalAssets }} unit</div>
           </div>
-
-          <!-- Bar Chart: horizontal bars -->
-          <div class="flex flex-col gap-3 mt-1">
-            <div v-if="typeBreakdown.length === 0" class="text-[12px] text-[#9CA3AF] text-center py-4">
-              Tidak ada data tipe perangkat
-            </div>
-            <div
-              v-for="(item, i) in typeBreakdown"
-              :key="i"
-              class="flex items-center gap-3"
-            >
-              <!-- Label -->
-              <div class="w-28 shrink-0 text-[11px] font-semibold text-[#374151] truncate">{{ item.label }}</div>
-              <!-- Bar -->
-              <div class="flex-1 h-6 bg-[#F3F4F6] rounded-full overflow-hidden relative">
-                <div
-                  class="h-full rounded-full flex items-center pl-2 text-[10px] font-bold text-white transition-all duration-500"
-                  :class="[
-                    i === 0 ? 'bg-brand' :
-                    i === 1 ? 'bg-[#111827]' :
-                    i === 2 ? 'bg-brand-dark' :
-                    i === 3 ? 'bg-[#F59E0B]' :
-                    i === 4 ? 'bg-[#8B5CF6]' : 'bg-[#6B7280]'
-                  ]"
-                  :style="{ width: Math.max(item.pct, 8) + '%' }"
-                >
-                  {{ item.count }}
-                </div>
+          <div class="mt-4">
+            <p class="font-num text-[30px] font-extrabold text-[#2A3547] leading-none">{{ countTersedia }}</p>
+            <div class="flex items-center gap-2 mt-3">
+              <div class="flex-1 h-2 bg-white rounded-full overflow-hidden">
+                <div class="h-full bg-[#49BEFF] rounded-full transition-all duration-500" :style="{ width: pctTersedia + '%' }"></div>
               </div>
-              <!-- Persen -->
-              <div class="w-10 text-right text-[10px] font-bold text-[#6B7280]">{{ item.pct }}%</div>
+              <span class="text-[11px] font-bold text-[#49BEFF]">{{ pctTersedia }}%</span>
             </div>
           </div>
         </div>
 
-        <!-- Donut Chart — Status Aset (span 3) -->
-        <div class="shadow-card flex flex-col gap-4 rounded-[20px] border border-[#E8EDF3] bg-white p-5 lg:col-span-3 sm:p-6">
-          <div>
-            <h3 class="text-[14px] font-extrabold tracking-[-0.015em] text-[#172033]">Status Aset</h3>
-            <p class="text-[11px] text-[#9CA3AF] mt-0.5">Proporsi status seluruh aset</p>
-          </div>
-
-          <!-- SVG Donut -->
-          <div class="flex items-center justify-center py-2">
-            <div class="relative w-32 h-32">
-              <svg
-                viewBox="0 0 36 36"
-                class="w-full h-full -rotate-90"
-                role="img"
-                aria-labelledby="dashboard-status-chart-title dashboard-status-chart-description"
-              >
-                <title id="dashboard-status-chart-title">Distribusi status aset</title>
-                <desc id="dashboard-status-chart-description">
-                  {{ statusChartDescription || 'Belum ada data status aset' }}
-                </desc>
-                <!-- Background track -->
-                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#F3F4F6" stroke-width="3" />
-                <circle
-                  v-for="segment in statusChartSegments"
-                  :key="segment.key"
-                  cx="18" cy="18" r="15.9" fill="none"
-                  :stroke="segment.color" stroke-width="3"
-                  :stroke-dasharray="`${segment.pct} ${100 - segment.pct}`"
-                  :stroke-dashoffset="-segment.offset"
-                  class="transition-all duration-700"
-                />
-              </svg>
-              <!-- Center text -->
-              <div class="absolute inset-0 flex flex-col items-center justify-center" aria-hidden="true">
-                <span class="text-[22px] font-black text-[#111827] leading-none font-num">{{ totalAssets || statusChartTotal }}</span>
-                <span class="text-[9px] text-[#9CA3AF] leading-none mt-0.5">Total</span>
-              </div>
+        <!-- Card: Maintenance & Warning -->
+        <div class="shadow-card shadow-card-hover flex flex-col justify-between rounded-2xl border border-[#FCE6BE] bg-[#FEF5E5] p-5">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#FFAE1F]">Maintenance</span>
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#FFAE1F] shadow-xs">
+              <span class="material-symbols-outlined text-[20px]">build</span>
             </div>
           </div>
-
-          <!-- Legend -->
-          <div class="flex flex-col gap-1.5" aria-label="Legenda status aset">
-            <div
-              v-for="item in statusItems"
-              :key="item.key"
-              class="flex items-center justify-between text-[11px]"
-            >
-              <div class="flex items-center gap-1.5">
-                <span
-                  class="w-2.5 h-2.5 rounded-sm"
-                  :style="{ backgroundColor: item.color }"
-                  aria-hidden="true"
-                ></span>
-                <span class="text-[#374151]">{{ item.label }}</span>
-              </div>
-              <span class="font-bold text-[#111827]">{{ item.count }}</span>
-            </div>
+          <div class="mt-4">
+            <p class="font-num text-[30px] font-extrabold text-[#2A3547] leading-none">{{ countMaintenance }}</p>
+            <p class="text-[11px] font-medium text-[#FFAE1F] mt-2">{{ countRusak }} unit kondisi rusak</p>
           </div>
         </div>
 
-        <!-- Ringkasan Statistik (span 4) — seperti "Finance Score" + "AI Enhancements" di Fynix -->
-        <div class="lg:col-span-4 flex flex-col gap-4">
+      </div>
 
-          <!-- Skor Kondisi Aset -->
-          <div class="shadow-card flex flex-col gap-3 rounded-[20px] border border-[#E8EDF3] bg-white p-5">
-            <div class="flex items-start justify-between">
-              <div>
-                <p class="text-[11px] text-[#9CA3AF] font-medium">Kondisi Aset</p>
-                <p class="text-[#111827] text-[13px] font-black mt-0.5">
-                  {{ healthLabel }}
-                </p>
-              </div>
-              <span class="material-symbols-outlined text-[18px] text-[#9CA3AF]" aria-hidden="true">monitor_heart</span>
-            </div>
-            <!-- Score Bar -->
-            <div class="flex items-center gap-3">
-              <div
-                class="flex-1 h-2 bg-[#F3F4F6] rounded-full overflow-hidden"
-                role="progressbar"
-                aria-label="Persentase aset sehat"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                :aria-valuenow="hasConditionStats ? healthPct : undefined"
-                :aria-valuetext="healthDescription"
-              >
-                <div
-                  class="h-full rounded-full transition-all duration-700"
-                  :class="!hasConditionStats || healthTotal === 0 ? 'bg-[#9CA3AF]' : healthPct >= 70 ? 'bg-[#10B981]' : healthPct >= 40 ? 'bg-[#F59E0B]' : 'bg-[#EF4444]'"
-                  :style="{ width: (hasConditionStats ? healthPct : 0) + '%' }"
-                ></div>
-              </div>
-              <span class="text-[20px] font-black text-[#111827] font-num">
-                {{ hasConditionStats ? `${healthPct}%` : '—' }}
-              </span>
-            </div>
-            <p class="text-[10px] leading-relaxed text-[#9CA3AF]">{{ healthDescription }}</p>
-          </div>
+      <!-- ─── ROW 2: Bar Chart + Donut Status + Health Overview ── -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
-          <!-- Quick Stats 4 Items -->
-          <div class="shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-[13px] font-black text-[#111827]">Ringkasan Cepat</h3>
-            </div>
-            <div class="grid grid-cols-4 gap-2 text-center">
-              <!-- Total Aset -->
-              <div class="flex flex-col gap-1 border-r border-[#F3F4F6] pr-1">
-                <span class="text-[20px] font-black text-[#111827] font-num">{{ totalAssets }}</span>
-                <span class="text-[8px] text-[#9CA3AF] font-bold uppercase tracking-wider">Total Aset</span>
-              </div>
-              <!-- Karyawan -->
-              <div class="flex flex-col gap-1 border-r border-[#F3F4F6] px-1">
-                <span class="text-[20px] font-black text-[#111827] font-num">{{ totalEmployees }}</span>
-                <span class="text-[8px] text-[#9CA3AF] font-bold uppercase tracking-wider">Karyawan</span>
-              </div>
-              <!-- Maintenance -->
-              <div class="flex flex-col gap-1 border-r border-[#F3F4F6] px-1">
-                <span class="text-[20px] font-black text-[#111827] font-num">{{ countMaintenance }}</span>
-                <span class="text-[8px] text-[#9CA3AF] font-bold uppercase tracking-wider">Maintenance</span>
-              </div>
-              <!-- Rusak -->
-              <div class="flex flex-col gap-1 pl-1">
-                <span class="text-[20px] font-black text-[#111827] font-num">{{ countRusak }}</span>
-                <span class="text-[8px] text-[#9CA3AF] font-bold uppercase tracking-wider">Total Rusak</span>
-              </div>
-            </div>
-          </div>
+
+
+
+
+        <!-- Health Score & Summary (span 4) -->
+        <div class="lg:col-span-4 flex flex-col gap-5">
+
+
 
         </div>
 
       </div>
 
-      <!-- Distribusi lokasi aset -->
-      <div class="shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5 sm:p-6">
-        <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
+      <!-- ─── ROW 3: Lokasi Aset ─────────────────────────────── -->
+      <div class="shadow-card rounded-2xl border border-[#E5EAEF] bg-white p-6">
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-[#F1F5F9]">
           <div>
-            <h3 class="text-[13px] font-black text-[#111827]">Lokasi Aset</h3>
-            <p class="text-[11px] text-[#9CA3AF] mt-0.5">Sebaran tempat aset berada saat ini</p>
+            <h3 class="text-[16px] font-extrabold text-[#2A3547]">Sebaran Lokasi Aset</h3>
+            <p class="text-[12px] text-[#7C8BAC]">Lokasi penempatan perangkat saat ini</p>
           </div>
-          <div class="flex items-center gap-1.5 text-[11px] font-medium text-[#6B7280]">
-            <span aria-hidden="true" class="material-symbols-outlined text-[16px] text-[#0188EA]">location_on</span>
-            {{ locationBreakdown.length }} lokasi
-          </div>
+          <span class="flex items-center gap-1.5 text-[12px] font-bold text-[#5D87FF] bg-[#ECF2FF] px-3 py-1 rounded-full">
+            <span class="material-symbols-outlined text-[16px]">location_on</span>
+            {{ locationBreakdown.length }} Lokasi
+          </span>
         </div>
 
-        <div v-if="locationBreakdown.length" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div v-if="locationBreakdown.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div
             v-for="location in locationBreakdown"
             :key="location.label"
-            class="rounded-xl border border-[#F3F4F6] bg-[#F9FAFB] p-3"
+            class="rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] p-4 transition-all hover:bg-white hover:shadow-xs"
           >
             <div class="flex items-center justify-between gap-3 mb-2">
-              <span class="min-w-0 truncate text-[12px] font-bold text-[#374151]" :title="location.label">
+              <span class="truncate text-[13px] font-bold text-[#2A3547]" :title="location.label">
                 {{ location.label }}
               </span>
-              <span class="shrink-0 text-[12px] font-black text-[#111827]">{{ location.count }} aset</span>
+              <span class="shrink-0 text-[12px] font-extrabold text-[#5D87FF] font-num">{{ location.count }} Unit</span>
             </div>
-            <div
-              class="h-1.5 overflow-hidden rounded-full bg-[#E5E7EB]"
-              role="progressbar"
-              :aria-label="`${location.label}: ${location.count} aset`"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              :aria-valuenow="location.pct"
-            >
-              <div class="h-full rounded-full bg-gradient-to-r from-[#0188EA] to-[#0252B3]" :style="{ width: `${location.pct}%` }"></div>
+            <div class="h-2 overflow-hidden rounded-full bg-[#E2E8F0]">
+              <div class="h-full rounded-full bg-[#5D87FF]" :style="{ width: `${location.pct}%` }"></div>
             </div>
-            <p class="mt-1.5 text-right text-[10px] font-semibold text-[#9CA3AF]">{{ location.pct }}% dari total</p>
+            <p class="mt-1.5 text-right text-[10px] font-semibold text-[#7C8BAC]">{{ location.pct }}% dari total</p>
           </div>
         </div>
-        <div v-else class="rounded-xl bg-[#F9FAFB] py-6 text-center text-[12px] text-[#9CA3AF]">
+        <div v-else class="py-8 text-center text-[13px] text-[#7C8BAC]">
           Belum ada data lokasi aset.
         </div>
       </div>
 
-      <!-- ─── ROW 3: Tabel Aset Terbaru ──────────────────────── -->
-      <div class="shadow-card overflow-hidden rounded-[20px] border border-[#E8EDF3] bg-white">
-        <!-- Header tabel -->
-        <div class="flex items-center justify-between px-5 py-4 border-b border-[#F3F4F6]">
+      <!-- ─── ROW 4: Tabel 5 Aset Terbaru ────────────────────── -->
+      <div class="shadow-card rounded-2xl border border-[#E5EAEF] bg-white overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4.5 border-b border-[#E5EAEF]">
           <div>
-            <h3 class="text-[13px] font-black text-[#111827]">Aset Terbaru Ditambahkan</h3>
-            <p class="text-[11px] text-[#9CA3AF] mt-0.5">5 aset IT paling baru dalam sistem</p>
+            <h3 class="text-[16px] font-extrabold text-[#2A3547]">Aset Terbaru Ditambahkan</h3>
+            <p class="text-[12px] text-[#7C8BAC]">5 Perangkat IT paling baru dalam sistem</p>
           </div>
-          <RouterLink to="/assets" class="text-[11px] font-bold text-brand hover:text-brand-dark flex items-center gap-1">
-            Lihat Semua
-            <span class="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
+          <RouterLink to="/assets" class="text-[12px] font-bold text-[#5D87FF] hover:text-[#4570EA] flex items-center gap-1 bg-[#ECF2FF] px-3.5 py-1.5 rounded-full transition-all">
+            Lihat Semua Aset
+            <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
           </RouterLink>
         </div>
 
-        <!-- Tabel -->
-        <div
-          class="overflow-x-auto"
-          tabindex="0"
-          aria-label="Tabel lima aset terbaru; geser secara horizontal untuk melihat seluruh kolom"
-        >
-          <table class="w-full min-w-[700px]">
-            <caption class="sr-only">Lima aset IT yang paling baru ditambahkan</caption>
+        <div class="overflow-x-auto">
+          <table class="w-full">
             <thead>
-              <tr class="text-left border-b border-[#F3F4F6]">
-                <th class="px-5 py-2.5 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Label Aset</th>
-                <th class="px-5 py-2.5 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Merek / Tipe</th>
-                <th class="px-5 py-2.5 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Serial Number</th>
-                <th class="px-5 py-2.5 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Kondisi</th>
-                <th class="px-5 py-2.5 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Status</th>
-                <th class="px-5 py-2.5 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider text-right">Ditambahkan</th>
+              <tr>
+                <th>Perangkat / Label</th>
+                <th>Merek & Tipe</th>
+                <th>Serial Number</th>
+                <th>Kondisi</th>
+                <th>Status</th>
+                <th class="text-right">Ditambahkan</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#F9FAFB]">
-              <tr
-                v-for="asset in recentAssets"
-                :key="asset.id_aset"
-                class="hover:bg-[#F9FAFB] transition-colors"
-              >
-                <td class="px-5 py-3">
+            <tbody>
+              <tr v-for="asset in recentAssets" :key="asset.id_aset">
+                <td>
                   <div class="flex items-center gap-3">
-                    <!-- Icon perangkat -->
-                    <div class="w-8 h-8 rounded-lg bg-[#F3F4F6] flex items-center justify-center shrink-0">
-                      <span class="material-symbols-outlined text-[#6B7280] text-[16px]" aria-hidden="true">
+                    <div class="w-9 h-9 rounded-xl bg-[#ECF2FF] text-[#5D87FF] flex items-center justify-center shrink-0">
+                      <span class="material-symbols-outlined text-[18px]">
                         {{ asset.tipe_perangkat?.toLowerCase().includes('laptop') ? 'laptop' :
                            asset.tipe_perangkat?.toLowerCase().includes('server') ? 'dns' :
                            asset.tipe_perangkat?.toLowerCase().includes('printer') ? 'print' :
@@ -660,24 +502,82 @@ onMounted(fetchStats)
                       </span>
                     </div>
                     <div>
-                      <p class="text-[12px] font-bold text-[#111827]">{{ asset.label_aset }}</p>
-                      <p class="text-[10px] text-[#9CA3AF]">ID #{{ asset.id_aset }}</p>
+                      <p class="text-[13px] font-bold text-[#2A3547] leading-tight">{{ asset.label_aset }}</p>
+                      <p class="text-[11px] text-[#7C8BAC]">ID #{{ asset.id_aset }}</p>
                     </div>
                   </div>
                 </td>
-                <td class="px-5 py-3">
-                  <p class="text-[12px] font-semibold text-[#374151]">{{ asset.merek }}</p>
-                  <p class="text-[10px] text-[#9CA3AF]">{{ asset.tipe_perangkat }}</p>
+                <td>
+                  <p class="text-[13px] font-semibold text-[#2A3547]">{{ asset.merek }}</p>
+                  <p class="text-[11px] text-[#7C8BAC]">{{ asset.tipe_perangkat }}</p>
                 </td>
-                <td class="px-5 py-3 font-mono text-[11px] text-[#6B7280]">{{ asset.nomor_seri }}</td>
-                <td class="px-5 py-3 text-[12px] text-[#374151] font-medium">{{ asset.kondisi_aset }}</td>
-                <td class="px-5 py-3">
+                <td class="font-mono text-[12px] text-[#7C8BAC] font-medium">{{ asset.nomor_seri }}</td>
+                <td class="text-[13px] font-medium text-[#2A3547]">{{ asset.kondisi_aset }}</td>
+                <td>
                   <AppBadge :type="getStatusBadgeType(asset.status_aset)" :text="asset.status_aset" />
                 </td>
-                <td class="px-5 py-3 text-right text-[11px] text-[#9CA3AF]">{{ formatDate(asset.dibuat_pada) }}</td>
+                <td class="text-right text-[12px] font-medium text-[#7C8BAC]">{{ formatDate(asset.dibuat_pada) }}</td>
               </tr>
               <tr v-if="recentAssets.length === 0">
-                <td colspan="6" class="px-5 py-8 text-center text-[12px] text-[#9CA3AF]">Belum ada data aset.</td>
+                <td colspan="6" class="py-8 text-center text-[13px] text-[#7C8BAC]">Belum ada data aset.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ─── ROW 5: Tabel Tiket Permintaan Terbaru ──────────────── -->
+      <div class="shadow-card rounded-2xl border border-[#E5EAEF] bg-white overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4.5 border-b border-[#E5EAEF]">
+          <div>
+            <h3 class="text-[16px] font-extrabold text-[#2A3547]">Tiket Permintaan Terbaru</h3>
+            <p class="text-[12px] text-[#7C8BAC]">5 Laporan kendala & tiket permintaan IT paling baru</p>
+          </div>
+          <RouterLink to="/tickets" class="text-[12px] font-bold text-[#5D87FF] hover:text-[#4570EA] flex items-center gap-1 bg-[#ECF2FF] px-3.5 py-1.5 rounded-full transition-all">
+            Lihat Semua Tiket
+            <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </RouterLink>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr>
+                <th>No. Tiket</th>
+                <th>Judul Kendala</th>
+                <th>Assigned To</th>
+                <th>Prioritas</th>
+                <th>Status</th>
+                <th class="text-right">Tanggal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="ticket in recentTickets" :key="ticket.id" class="hover:bg-[#F8FAFC]">
+                <td>
+                  <span class="font-mono text-[12px] font-extrabold text-[#5D87FF]">{{ ticket.nomor_tiket || `TCK-#${ticket.id}` }}</span>
+                </td>
+                <td>
+                  <p class="text-[13px] font-bold text-[#2A3547] leading-tight">{{ ticket.judul }}</p>
+                  <p class="text-[11px] text-[#7C8BAC]">Pelapor: {{ ticket.pelapor || 'User' }}</p>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <div class="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF2FF] text-[10px] font-bold text-[#5D87FF]">
+                      {{ (ticket.assigned_to || 'A').charAt(0).toUpperCase() }}
+                    </div>
+                    <span class="text-[12px] font-bold text-[#2A3547]">{{ ticket.assigned_to || 'Belum ditugaskan' }}</span>
+                  </div>
+                </td>
+                <td>
+                  <AppBadge :type="getPriorityBadgeType(ticket.prioritas)" :text="ticket.prioritas" />
+                </td>
+                <td>
+                  <AppBadge :type="getTicketStatusBadgeType(ticket.status_tiket)" :text="ticket.status_tiket" />
+                </td>
+                <td class="text-right text-[12px] font-medium text-[#7C8BAC]">{{ formatDate(ticket.dibuat_pada) }}</td>
+              </tr>
+              <tr v-if="recentTickets.length === 0">
+                <td colspan="6" class="py-8 text-center text-[13px] text-[#7C8BAC]">Belum ada tiket permintaan.</td>
               </tr>
             </tbody>
           </table>
@@ -688,3 +588,4 @@ onMounted(fetchStats)
 
   </div>
 </template>
+

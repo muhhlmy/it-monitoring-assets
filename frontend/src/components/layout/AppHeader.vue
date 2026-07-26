@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuth } from '@/composables/useAuth'
 
 defineProps({
   isNavigationOpen: { type: Boolean, default: false },
@@ -9,16 +10,20 @@ defineEmits(['toggle-navigation'])
 
 const route = useRoute()
 const router = useRouter()
+const { user, logout } = useAuth()
 const searchQuery = ref('')
+const isProfileOpen = ref(false)
 
 const pageTitle = computed(() => {
   const titles = {
-    '/': { title: 'Dashboard', subtitle: 'Pantau kondisi dan penggunaan seluruh aset IT.' },
-    '/assets': { title: 'Manajemen Aset', subtitle: 'Kelola inventaris perangkat IT perusahaan.' },
-    '/submissions': { title: 'Pengajuan', subtitle: 'Buat formulir serah terima aset IT perusahaan.' },
-    '/users': { title: 'Manajemen Pengguna', subtitle: 'Atur data dan akses pengguna sistem.' },
+    '/': { title: 'Dashboard', subtitle: 'Overview & analytics' },
+    '/assets': { title: 'Manajemen Aset IT', subtitle: 'Inventaris & status perangkat' },
+    '/my-assets': { title: 'Aset Karyawan', subtitle: 'Daftar perangkat milik Anda' },
+    '/submissions': { title: 'Pengajuan & Handover', subtitle: 'Formulir serah terima aset' },
+    '/users': { title: 'Manajemen Pengguna', subtitle: 'Hak akses & akun pengguna' },
+    '/logs': { title: 'Audit Log & Activity', subtitle: 'Catatan riwayat sistem' },
   }
-  return titles[route.path] || { title: 'AssetWise', subtitle: '' }
+  return titles[route.path] || { title: 'Modernize', subtitle: 'IT Asset System' }
 })
 
 watch(
@@ -39,59 +44,135 @@ function submitSearch() {
 </script>
 
 <template>
-  <header class="relative z-20 flex h-[68px] shrink-0 items-center gap-3 border-b border-[#E2E8F0]/80 bg-white/90 px-4 backdrop-blur-xl sm:h-[76px] sm:gap-4 sm:px-6 xl:px-8">
-    <button
-      type="button"
-      aria-label="Buka navigasi"
-      aria-controls="app-navigation"
-      :aria-expanded="isNavigationOpen"
-      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE3EC] bg-white text-[#334155] shadow-sm hover:border-[#B8C6D8] hover:bg-[#F8FAFC] lg:hidden"
-      @click="$emit('toggle-navigation')"
-    >
-      <span aria-hidden="true" class="material-symbols-outlined text-[20px]">menu</span>
-    </button>
+  <header class="relative z-20 flex h-[72px] shrink-0 items-center justify-between border-b border-[#E5EAEF] bg-white/95 px-4 backdrop-blur-md sm:px-6 xl:px-8">
+    
+    <!-- Left Section: Toggle & Navigation / Search -->
+    <div class="flex items-center gap-4 min-w-0">
+      <button
+        v-if="!isNavigationOpen"
+        type="button"
+        aria-label="Buka Sidepanel"
+        title="Buka Sidepanel"
+        aria-controls="app-navigation"
+        :aria-expanded="isNavigationOpen"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
+        @click="$emit('toggle-navigation')"
+      >
+        <span aria-hidden="true" class="material-symbols-outlined text-[22px]">menu</span>
+      </button>
 
-    <div class="min-w-0 flex-1">
-      <div class="mb-1 hidden items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-[#94A3B8] sm:flex">
-        <span>AssetWise</span>
-        <span class="material-symbols-outlined text-[12px]">chevron_right</span>
-        <span class="text-brand">{{ pageTitle.title }}</span>
+      <!-- Page Title Header Info -->
+      <div class="min-w-0 hidden sm:block">
+        <h1 class="truncate text-[18px] font-extrabold tracking-tight text-[#2A3547]">{{ pageTitle.title }}</h1>
+        <p class="truncate text-[11px] font-medium text-[#7C8BAC]">{{ pageTitle.subtitle }}</p>
       </div>
-      <h1 class="truncate text-[16px] font-extrabold tracking-[-0.025em] text-[#172033] sm:text-[18px]">{{ pageTitle.title }}</h1>
-      <p class="mt-0.5 hidden truncate text-[10px] font-medium text-[#64748B] xl:block">{{ pageTitle.subtitle }}</p>
+
+      <!-- Quick Search Bar -->
+      <form class="relative hidden lg:flex items-center ml-4" role="search" @submit.prevent="submitSearch">
+        <label for="global-asset-search" class="sr-only">Cari aset</label>
+        <span aria-hidden="true" class="material-symbols-outlined absolute left-3.5 text-[18px] text-[#7C8BAC]">search</span>
+        <input
+          id="global-asset-search"
+          v-model="searchQuery"
+          type="search"
+          autocomplete="off"
+          placeholder="Search assets, serial..."
+          class="h-10 w-64 rounded-full border border-[#DFE5EF] bg-[#F8FAFC] pl-10 pr-12 text-[12px] font-medium text-[#2A3547] placeholder-[#7C8BAC] outline-none transition-all focus:w-72 focus:bg-white focus:border-[#5D87FF]"
+        />
+        <button
+          type="submit"
+          :disabled="!searchQuery.trim()"
+          class="absolute right-2 rounded-full bg-[#ECF2FF] px-2 py-0.5 text-[10px] font-bold text-[#5D87FF] hover:bg-[#5D87FF] hover:text-white disabled:opacity-30 transition-all"
+        >
+          Go
+        </button>
+      </form>
     </div>
 
-    <form class="relative hidden items-center md:flex" role="search" @submit.prevent="submitSearch">
-      <label for="global-asset-search" class="sr-only">Cari aset</label>
-      <span aria-hidden="true" class="material-symbols-outlined absolute left-3.5 text-[18px] text-[#94A3B8]">search</span>
-      <input
-        id="global-asset-search"
-        v-model="searchQuery"
-        type="search"
-        autocomplete="off"
-        placeholder="Cari label atau serial aset..."
-        class="h-10 w-64 rounded-xl border border-[#DCE3EC] bg-[#F8FAFC] pl-10 pr-14 text-[11px] font-medium text-[#334155] placeholder-[#94A3B8] outline-none lg:w-72"
-      />
-      <button
-        type="submit"
-        :disabled="!searchQuery.trim()"
-        class="button-text-xs absolute right-2 rounded-md border border-[#DCE3EC] bg-white px-1.5 py-0.5 font-bold text-[#64748B] shadow-sm hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-40"
+    <!-- Right Section: Actions & Profile -->
+    <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+      
+      <!-- Language Pill Icon -->
+      <button 
+        type="button" 
+        title="Bahasa (ID)"
+        class="hidden sm:flex h-9 px-2.5 items-center gap-1.5 rounded-full border border-[#E5EAEF] bg-white text-[12px] font-bold text-[#2A3547] hover:bg-[#F8FAFC] transition-all"
       >
-        Enter
+        <span class="text-[14px]">🇮🇩</span>
+        <span class="text-[11px] text-[#7C8BAC]">ID</span>
       </button>
-    </form>
 
-    <div class="h-8 w-px bg-[#E2E8F0]"></div>
+      <!-- Notification Bell -->
+      <button 
+        type="button" 
+        title="Notifikasi"
+        class="relative flex h-10 w-10 items-center justify-center rounded-full text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all"
+      >
+        <span aria-hidden="true" class="material-symbols-outlined text-[21px]">notifications</span>
+        <span class="absolute top-2 right-2 flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FA896B] opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-[#FA896B]"></span>
+        </span>
+      </button>
 
-    <div class="flex shrink-0 items-center gap-2" aria-label="Pengguna aktif: Admin IT">
-      <div class="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#FAA425] to-[#FC841B] text-[12px] font-extrabold text-white shadow-md shadow-orange-200/70">
-        A
-        <span class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500"></span>
+      <!-- Cart / Quick Action Icon -->
+      <button 
+        type="button" 
+        title="Aksi Cepat"
+        class="relative flex h-10 w-10 items-center justify-center rounded-full text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all"
+      >
+        <span aria-hidden="true" class="material-symbols-outlined text-[21px]">widgets</span>
+      </button>
+
+      <div class="h-6 w-px bg-[#E5EAEF] mx-1"></div>
+
+      <!-- User Profile Dropdown Trigger -->
+      <div class="relative">
+        <button
+          type="button"
+          @click="isProfileOpen = !isProfileOpen"
+          class="flex items-center gap-2.5 rounded-full p-1 transition-all focus:outline-none ring-2 ring-transparent hover:ring-[#5D87FF]/30"
+        >
+          <div class="flex h-9 w-9 items-center justify-center rounded-full bg-[#5D87FF] text-[13px] font-extrabold text-white shadow-sm">
+            {{ (user?.nama || 'P').charAt(0).toUpperCase() }}
+          </div>
+          <div class="hidden text-left lg:block">
+            <p class="text-[12px] font-bold leading-tight text-[#2A3547]">{{ user?.nama || 'Pengguna' }}</p>
+            <p class="text-[10px] font-medium leading-none text-[#7C8BAC] capitalize">{{ user?.role || 'Guest' }}</p>
+          </div>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <Transition name="dropdown">
+          <div
+            v-if="isProfileOpen"
+            class="absolute right-0 mt-2 w-56 rounded-2xl border border-[#E5EAEF] bg-white p-2 shadow-xl z-50"
+            @click="isProfileOpen = false"
+          >
+            <div class="px-3 py-2 border-b border-[#F1F5F9] mb-1">
+              <p class="text-[12px] font-bold text-[#2A3547]">{{ user?.nama || 'Pengguna' }}</p>
+              <p class="text-[10px] text-[#7C8BAC] capitalize">{{ user?.role || 'Guest' }} • {{ user?.email || 'admin@esb.co.id' }}</p>
+            </div>
+            <button
+              type="button"
+              @click="logout"
+              class="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-[#FA896B] hover:bg-[#FDEDE8] transition-all text-left"
+            >
+              <span class="material-symbols-outlined text-[18px]">logout</span>
+              Keluar Sistem
+            </button>
+          </div>
+        </Transition>
       </div>
-      <div class="hidden min-w-0 lg:block">
-        <p class="text-[10px] font-bold leading-none text-[#172033]">Admin IT</p>
-        <p class="mt-1 text-[8px] font-medium leading-none text-[#94A3B8]">Administrator</p>
-      </div>
+
     </div>
   </header>
 </template>
+
+<style scoped>
+.dropdown-enter-active,
+.dropdown-leave-active { transition: all 0.15s ease; }
+.dropdown-enter-from,
+.dropdown-leave-to { opacity: 0; transform: translateY(6px); }
+</style>
+

@@ -1,6 +1,7 @@
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuth } from '@/composables/useAuth'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -11,19 +12,98 @@ const sidebarRef = ref(null)
 const closeButtonRef = ref(null)
 let previouslyFocusedElement = null
 
-const mainMenu = [
-  { to: '/', label: 'Dashboard', icon: 'space_dashboard', caption: 'Ringkasan sistem' },
-  { to: '/assets', label: 'Aset IT', icon: 'devices', caption: 'Inventaris perangkat' },
-  { to: '/submissions', label: 'Pengajuan', icon: 'assignment_turned_in', caption: 'Serah terima aset' },
-  { to: '/users', label: 'Pengguna', icon: 'group', caption: 'Akses pengguna' },
-  { to: '/logs', label: 'Log Aktivitas', icon: 'receipt_long', caption: 'Riwayat & audit log' },
-]
+const { user, isUser, logout } = useAuth()
+
+const menuGroups = computed(() => {
+  const groups = [
+    {
+      title: 'HOME',
+      items: [
+        {
+          to: '/',
+          label: 'Dashboard',
+          icon: 'grid_view',
+          caption: 'Ringkasan sistem',
+          requireAdmin: true,
+          badge: 'New',
+        },
+      ],
+    },
+    {
+      title: 'INVENTARIS',
+      items: [
+        {
+          to: '/assets',
+          label: 'Aset IT',
+          icon: 'devices',
+          caption: 'Inventaris perangkat',
+          requireAdmin: true,
+        },
+        {
+          to: '/my-assets',
+          label: 'Aset Karyawan',
+          icon: 'badge',
+          caption: 'Aset per karyawan',
+          requireAdmin: false,
+        },
+      ],
+    },
+    {
+      title: 'TRANSAKSI',
+      items: [
+        {
+          to: '/tickets',
+          label: 'Tiket IT',
+          icon: 'confirmation_number',
+          caption: 'Kendala & Laporan IT',
+          requireAdmin: true,
+          badge: 'New',
+        },
+        {
+          to: '/submissions',
+          label: 'Pengajuan',
+          icon: 'assignment',
+          caption: 'Serah terima aset',
+          requireAdmin: true,
+        },
+      ],
+    },
+    {
+      title: 'ADMINISTRASI',
+      items: [
+        {
+          to: '/users',
+          label: 'Pengguna',
+          icon: 'group',
+          caption: 'Akses pengguna',
+          requireAdmin: true,
+        },
+        {
+          to: '/logs',
+          label: 'Log Aktivitas',
+          icon: 'receipt_long',
+          caption: 'Riwayat & audit log',
+          requireAdmin: true,
+        },
+      ],
+    },
+  ]
+
+  return groups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((item) => !isUser.value || !item.requireAdmin),
+    }))
+    .filter((g) => g.items.length > 0)
+})
 
 function getFocusableElements() {
   if (!sidebarRef.value) return []
-  return Array.from(sidebarRef.value.querySelectorAll(
-    'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-  ))
+  return Array.from(
+    sidebarRef.value.querySelectorAll(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  )
 }
 
 function handleKeydown(event) {
@@ -72,7 +152,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
       type="button"
       aria-label="Tutup navigasi"
       tabindex="-1"
-      class="fixed inset-0 z-30 bg-[#07101f]/60 backdrop-blur-sm lg:hidden"
+      class="fixed inset-0 z-30 bg-slate-900/40 backdrop-blur-xs lg:hidden"
       @click="emit('close')"
     ></button>
   </Transition>
@@ -83,66 +163,104 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
     :role="isOpen ? 'dialog' : undefined"
     :aria-modal="isOpen ? 'true' : undefined"
     aria-label="Navigasi aplikasi"
-    class="fixed inset-y-0 left-0 z-40 flex h-dvh w-[268px] max-w-[86vw] shrink-0 flex-col overflow-hidden border-r border-white/5 bg-[#0b1425] text-white shadow-2xl transition-[transform,visibility] duration-200 lg:static lg:z-10 lg:w-[252px] lg:max-w-none lg:translate-x-0 lg:visible lg:shadow-none"
-    :class="isOpen ? 'visible translate-x-0' : 'invisible -translate-x-full'"
+    class="fixed inset-y-0 left-0 z-40 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-[#E5EAEF] bg-white text-[#2A3547] shadow-xl transition-all duration-300 ease-in-out lg:static lg:z-10 lg:shadow-none"
+    :class="isOpen 
+      ? 'w-[270px] translate-x-0 visible opacity-100 lg:w-[260px]' 
+      : 'w-0 -translate-x-full invisible opacity-0 border-r-0 pointer-events-none'"
   >
-    <div aria-hidden="true" class="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full bg-brand/15 blur-3xl"></div>
-
-    <div class="relative flex h-[76px] shrink-0 items-center gap-3 border-b border-white/[0.07] px-5">
-      <div class="flex h-10 w-10 items-center justify-center rounded-[14px] bg-gradient-to-br from-[#0188EA] to-[#0252B3] shadow-[0_8px_24px_rgba(2,82,179,0.3)]">
-        <span aria-hidden="true" class="material-symbols-outlined text-[21px] text-white">inventory_2</span>
-      </div>
-      <div class="min-w-0">
-        <h1 class="text-[14px] font-extrabold tracking-[-0.02em] text-white">AssetWise</h1>
-        <p class="mt-0.5 text-[10px] font-medium tracking-wide text-white/40">IT ASSET MANAGEMENT</p>
+    <!-- Brand Logo Top Header -->
+    <div
+      class="relative flex h-[72px] shrink-0 items-center justify-between gap-3 px-6 border-b border-transparent min-w-[260px]"
+    >
+      <div class="flex items-center gap-2.5">
+        <img src="/ESB Logo.svg" width="110" alt="ESB Logo" />
       </div>
       <button
         ref="closeButtonRef"
         type="button"
         aria-label="Tutup navigasi"
-        class="ml-auto flex h-9 w-9 items-center justify-center rounded-xl text-white/50 hover:bg-white/10 hover:text-white lg:hidden"
+        title="Sembunyikan Sidepanel"
+        class="flex h-8 w-8 items-center justify-center rounded-lg text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
         @click="emit('close')"
       >
-        <span aria-hidden="true" class="material-symbols-outlined text-[19px]">close</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[20px]">menu_open</span>
       </button>
     </div>
 
-    <div class="relative flex-1 overflow-y-auto px-3 py-6">
-      <p class="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-white/30">Menu Utama</p>
-      <nav aria-label="Navigasi utama" class="space-y-1.5">
-        <RouterLink
-          v-for="item in mainMenu"
-          :key="item.to"
-          :to="item.to"
-          class="group flex min-h-[52px] items-center gap-3 rounded-[14px] px-3.5 transition-all duration-150"
-          :class="route.path === item.to
-            ? 'bg-[#0252B3] text-white shadow-[0_4px_12px_rgba(2,82,179,0.2)] border-l-4 border-[#FC841B] pl-2.5'
-            : 'text-white/55 hover:bg-white/[0.06] hover:text-white'"
-          @click="emit('close')"
-        >
-          <span
-            aria-hidden="true"
-            class="material-symbols-outlined text-[21px]"
-            :class="route.path === item.to ? 'text-white' : 'text-white/45 group-hover:text-white/80'"
-          >{{ item.icon }}</span>
-          <span class="min-w-0 flex-1">
-            <span class="block text-[12px] font-bold leading-none">{{ item.label }}</span>
-            <span class="mt-1 block text-[9px] font-medium leading-none" :class="route.path === item.to ? 'text-white/65' : 'text-white/30'">{{ item.caption }}</span>
-          </span>
-          <span v-if="route.path === item.to" aria-hidden="true" class="material-symbols-outlined text-[16px] text-white/70">chevron_right</span>
-        </RouterLink>
-      </nav>
+    <!-- Sidebar Scrollable Menu -->
+    <div class="relative flex-1 overflow-y-auto px-4 py-4 space-y-6 min-w-[260px]">
+      <div v-for="group in menuGroups" :key="group.title">
+        <p class="mb-2.5 px-3 text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC]">
+          {{ group.title }}
+        </p>
+        <nav class="space-y-1">
+          <RouterLink
+            v-for="item in group.items"
+            :key="item.to"
+            :to="item.to"
+            class="group flex items-center gap-3.5 rounded-xl px-3.5 py-3 transition-all duration-150"
+            :class="
+              route.path === item.to
+                ? 'bg-[#5D87FF] text-white shadow-md shadow-blue-500/25 font-semibold'
+                : 'text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] font-medium'
+            "
+            @click="emit('close')"
+          >
+            <span
+              aria-hidden="true"
+              class="material-symbols-outlined text-[20px] transition-colors"
+              :class="
+                route.path === item.to ? 'text-white' : 'text-[#7C8BAC] group-hover:text-[#5D87FF]'
+              "
+              >{{ item.icon }}</span
+            >
+            <span class="min-w-0 flex-1 text-[13px] tracking-wide leading-none">{{
+              item.label
+            }}</span>
+            <span
+              v-if="item.badge"
+              class="rounded-full px-2 py-0.5 text-[10px] font-bold"
+              :class="
+                route.path === item.to ? 'bg-white/20 text-white' : 'bg-[#ECF2FF] text-[#5D87FF]'
+              "
+            >
+              {{ item.badge }}
+            </span>
+          </RouterLink>
+        </nav>
+      </div>
     </div>
 
-    <div class="relative border-t border-white/[0.07] p-3">
-   
-      <div class="flex items-center gap-3 rounded-[14px] px-2 py-2">
-        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#FAA425] to-[#FC841B] text-[12px] font-extrabold text-white shadow-lg shadow-orange-950/10">A</div>
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-[11px] font-bold text-white">Admin IT</p>
-          <p class="mt-0.5 truncate text-[9px] text-white/35">Administrator</p>
+    <!-- Bottom User Profile Card -->
+    <div class="relative p-4 min-w-[260px]">
+      <div
+        class="flex items-center justify-between rounded-2xl bg-[#ECF2FF] border border-[#D2E3FF] p-3 transition-all"
+      >
+        <div class="flex items-center gap-3 min-w-0">
+          <div
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#5D87FF] text-[13px] font-extrabold text-white shadow-md shadow-blue-500/20"
+          >
+            {{ user?.nama ? user.nama.charAt(0).toUpperCase() : 'U' }}
+          </div>
+          <div class="min-w-0">
+            <p class="truncate text-[12px] font-bold text-[#2A3547] leading-tight">
+              {{ user?.nama || 'Pengguna' }}
+            </p>
+            <p class="mt-0.5 truncate text-[10px] font-medium text-[#7C8BAC] capitalize">
+              {{ user?.role || 'Guest' }}
+            </p>
+          </div>
         </div>
-        <span aria-hidden="true" class="material-symbols-outlined text-[17px] text-white/30">more_vert</span>
+        <button
+          type="button"
+          @click="logout"
+          title="Keluar / Logout"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#5D87FF] hover:bg-white hover:text-red-500 transition-all shadow-xs"
+        >
+          <span aria-hidden="true" class="material-symbols-outlined text-[18px]"
+            >power_settings_new</span
+          >
+        </button>
       </div>
     </div>
   </aside>
@@ -150,7 +268,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 
 <style scoped>
 .sidebar-backdrop-enter-active,
-.sidebar-backdrop-leave-active { transition: opacity 0.2s ease; }
+.sidebar-backdrop-leave-active {
+  transition: opacity 0.2s ease;
+}
 .sidebar-backdrop-enter-from,
-.sidebar-backdrop-leave-to { opacity: 0; }
+.sidebar-backdrop-leave-to {
+  opacity: 0;
+}
 </style>

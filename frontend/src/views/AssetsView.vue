@@ -14,6 +14,7 @@ const router = useRouter()
 
 const assets = ref([])
 const employees = ref([])
+const locations = ref([])
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 const isExporting = ref(false)
@@ -41,7 +42,6 @@ const emptyForm = () => ({
   nomor_seri: '',
   label_aset: '',
   spesifikasi: '',
-  penempatan: 'lokasi',
   nik: '',
   lokasi_aset: '',
   tipe_perangkat: '',
@@ -74,8 +74,8 @@ const availableTipeOptions = computed(() =>
 const availableBrandOptions = computed(() =>
   mergeOptions(brandOptions, [form.value.merek, ...assets.value.map((asset) => asset.merek)]),
 )
-const selectedEmployee = computed(() =>
-  employees.value.find((employee) => employee.nik === form.value.nik),
+const locationOptions = computed(() =>
+  locations.value.map((loc) => ({ value: loc, label: loc })),
 )
 
 const filteredAssets = computed(() => {
@@ -104,15 +104,17 @@ async function fetchData() {
   isLoading.value = true
   pageError.value = ''
   try {
-    const [assetData, employeeData] = await Promise.all([
+    const [assetData, employeeData, locationData] = await Promise.all([
       get('/api/assets'),
       get('/api/karyawan'),
+      get('/api/karyawan/locations'),
     ])
     if (!Array.isArray(assetData) || !Array.isArray(employeeData)) {
       throw new Error('Format data dari server tidak valid.')
     }
     assets.value = assetData
     employees.value = employeeData
+    locations.value = Array.isArray(locationData) ? locationData : []
   } catch (error) {
     pageError.value = error.message || 'Gagal memuat data aset.'
   } finally {
@@ -136,21 +138,10 @@ function openEdit(asset) {
   )
   form.value = {
     ...assetForm,
-    penempatan: asset.nik ? 'user' : 'lokasi',
-    lokasi_aset: asset.lokasi_aset ?? (asset.nik ? '' : asset.lokasi_kerja ?? ''),
+    lokasi_aset: asset.lokasi_aset ?? asset.lokasi_kerja ?? '',
   }
   modalError.value = ''
   showFormModal.value = true
-}
-
-function setPenempatan(value) {
-  form.value.penempatan = value
-  if (value === 'user') {
-    form.value.lokasi_aset = ''
-  } else {
-    form.value.nik = ''
-  }
-  modalError.value = ''
 }
 
 function openDelete(asset) {
@@ -193,12 +184,10 @@ function closeModal() {
 }
 
 function buildPayload() {
-  const payload = Object.fromEntries(Object.entries(form.value).map(([key, value]) => [
+  return Object.fromEntries(Object.entries(form.value).map(([key, value]) => [
     key,
     typeof value === 'string' ? value.trim() : value,
   ]))
-  delete payload.penempatan
-  return payload
 }
 
 async function saveAsset() {
@@ -207,12 +196,8 @@ async function saveAsset() {
     modalError.value = 'Label aset wajib diisi.'
     return
   }
-  if (form.value.penempatan === 'user' && !payload.nik) {
-    modalError.value = 'Pilih user yang akan memegang aset.'
-    return
-  }
-  if (form.value.penempatan === 'lokasi' && !payload.lokasi_aset) {
-    modalError.value = 'Lokasi aset wajib diisi.'
+  if (!payload.lokasi_aset) {
+    modalError.value = 'Penempatan aset wajib dipilih.'
     return
   }
   isSubmitting.value = true
@@ -401,107 +386,107 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
       </div>
     </Transition>
 
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      <div class="shadow-card flex items-center gap-3 rounded-2xl border border-[#E8EDF3] bg-white p-4">
-        <span class="flex h-10 w-10 items-center justify-center rounded-[13px] bg-brand-light text-brand"><span class="material-symbols-outlined text-[20px]">inventory_2</span></span>
-        <div><p class="font-num text-[22px] font-extrabold leading-none text-[#172033]">{{ assets.length }}</p><p class="mt-1 text-[9px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">Total Aset</p></div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div class="shadow-card flex items-center gap-4 rounded-2xl border border-[#D2E3FF] bg-[#ECF2FF] p-5">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#5D87FF] shadow-xs"><span class="material-symbols-outlined text-[22px]">inventory_2</span></span>
+        <div><p class="font-num text-[26px] font-extrabold leading-none text-[#2A3547]">{{ assets.length }}</p><p class="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">Total Aset IT</p></div>
       </div>
-      <div class="shadow-card flex items-center gap-3 rounded-2xl border border-[#E8EDF3] bg-white p-4">
-        <span class="flex h-10 w-10 items-center justify-center rounded-[13px] bg-[#ECFDF5] text-[#0B9B6C]"><span class="material-symbols-outlined text-[20px]">assignment_ind</span></span>
-        <div><p class="font-num text-[22px] font-extrabold leading-none text-[#172033]">{{ assignedAssetsCount }}</p><p class="mt-1 text-[9px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">Sudah Dialokasikan</p></div>
+      <div class="shadow-card flex items-center gap-4 rounded-2xl border border-[#C3F3E8] bg-[#EDFBF7] p-5">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#13DEB9] shadow-xs"><span class="material-symbols-outlined text-[22px]">assignment_ind</span></span>
+        <div><p class="font-num text-[26px] font-extrabold leading-none text-[#2A3547]">{{ assignedAssetsCount }}</p><p class="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">Sudah Dialokasikan</p></div>
       </div>
-      <div class="shadow-card flex items-center gap-3 rounded-2xl border border-[#E8EDF3] bg-white p-4">
-        <span class="flex h-10 w-10 items-center justify-center rounded-[13px] bg-[#FFF8E6] text-[#D78A15]"><span class="material-symbols-outlined text-[20px]">deployed_code</span></span>
-        <div><p class="font-num text-[22px] font-extrabold leading-none text-[#172033]">{{ availableAssetsCount }}</p><p class="mt-1 text-[9px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">Siap Digunakan</p></div>
+      <div class="shadow-card flex items-center gap-4 rounded-2xl border border-[#C8EDFF] bg-[#E8F7FF] p-5">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#49BEFF] shadow-xs"><span class="material-symbols-outlined text-[22px]">deployed_code</span></span>
+        <div><p class="font-num text-[26px] font-extrabold leading-none text-[#2A3547]">{{ availableAssetsCount }}</p><p class="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">Siap Digunakan</p></div>
       </div>
     </div>
 
-    <div class="shadow-card grid min-w-0 grid-cols-2 items-center gap-3 rounded-2xl border border-[#E8EDF3] bg-white p-3 sm:flex sm:flex-wrap">
+    <div class="shadow-card grid min-w-0 grid-cols-2 items-center gap-3 rounded-2xl border border-[#E5EAEF] bg-white p-4 sm:flex sm:flex-wrap">
       <div class="relative col-span-2 min-w-0 sm:min-w-[260px] sm:flex-1">
         <label for="asset-search" class="sr-only">Cari aset</label>
-        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#9CA3AF]">search</span>
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#7C8BAC]">search</span>
         <input id="asset-search" v-model="searchQuery" type="search" autocomplete="off"
           placeholder="Cari label, serial, karyawan, tipe, merek..."
-          class="h-10 w-full rounded-xl border border-[#DCE3EC] bg-[#F8FAFC] pl-9 pr-4 text-[12px] font-medium text-[#334155] focus:outline-none" />
+          class="h-10 w-full rounded-xl border border-[#DFE5EF] bg-[#F8FAFC] pl-9 pr-4 text-[12px] font-medium text-[#2A3547] focus:border-[#5D87FF] focus:bg-white focus:outline-none" />
       </div>
-      <select v-model="filterStatus" aria-label="Filter status aset" class="h-10 min-w-0 rounded-xl border border-[#DCE3EC] bg-white px-3 text-[11px] font-semibold text-[#475569]">
+      <select v-model="filterStatus" aria-label="Filter status aset" class="h-10 min-w-0 rounded-xl border border-[#DFE5EF] bg-white px-3 text-[12px] font-semibold text-[#2A3547]">
         <option value="">Semua Status</option>
         <option v-for="status in availableStatusOptions" :key="status" :value="status">{{ status }}</option>
       </select>
-      <select v-model="filterTipe" aria-label="Filter tipe perangkat" class="h-10 min-w-0 rounded-xl border border-[#DCE3EC] bg-white px-3 text-[11px] font-semibold text-[#475569]">
+      <select v-model="filterTipe" aria-label="Filter tipe perangkat" class="h-10 min-w-0 rounded-xl border border-[#DFE5EF] bg-white px-3 text-[12px] font-semibold text-[#2A3547]">
         <option value="">Semua Tipe</option>
         <option v-for="tipe in availableTipeOptions" :key="tipe" :value="tipe">{{ tipe }}</option>
       </select>
-      <button v-if="searchQuery || filterStatus || filterTipe" type="button" @click="resetFilters" class="h-10 rounded-xl border border-[#F1D0D0] bg-[#FFF7F7] px-4 text-[11px] font-bold text-[#D94B4B] hover:bg-[#FFEEEE]">Reset</button>
-      <button type="button" @click="openExport" class="h-10 rounded-xl border border-[#DCE3EC] bg-white px-4 text-[11px] font-bold text-[#475569] hover:bg-[#F8FAFC]">
+      <button v-if="searchQuery || filterStatus || filterTipe" type="button" @click="resetFilters" class="h-10 rounded-xl border border-[#FA896B]/30 bg-[#FDEDE8] px-4 text-[12px] font-bold text-[#FA896B] hover:bg-[#FA896B] hover:text-white transition-all">Reset</button>
+      <button type="button" @click="openExport" class="h-10 rounded-xl border border-[#DFE5EF] bg-white px-4 text-[12px] font-bold text-[#2A3547] hover:bg-[#F8FAFC] transition-all">
         Ekspor Data
       </button>
-      <button type="button" @click="openAdd" class="col-span-2 flex h-10 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-[11px] font-bold text-white shadow-md shadow-brand/20 hover:-translate-y-0.5 hover:bg-brand-dark">
-        <span class="material-symbols-outlined text-[17px]">add</span> Tambah Aset
+      <button type="button" @click="openAdd" class="col-span-2 flex h-10 items-center justify-center gap-2 rounded-xl bg-[#5D87FF] px-5 text-[12px] font-bold text-white shadow-md shadow-blue-500/20 hover:bg-[#4570EA] transition-all">
+        <span class="material-symbols-outlined text-[18px]">add</span> Tambah Aset
       </button>
     </div>
 
-    <div class="shadow-card overflow-hidden rounded-[20px] border border-[#E8EDF3] bg-white">
-      <div v-if="isLoading" role="status" class="flex items-center justify-center gap-3 py-16 text-[13px] text-[#6B7280]">
-        <span class="h-8 w-8 animate-spin rounded-full border-4 border-[#E5E7EB] border-t-brand"></span> Memuat data aset...
+    <div class="shadow-card overflow-hidden rounded-2xl border border-[#E5EAEF] bg-white">
+      <div v-if="isLoading" role="status" class="flex items-center justify-center gap-3 py-16 text-[13px] text-[#7C8BAC]">
+        <span class="h-8 w-8 animate-spin rounded-full border-4 border-[#E5EAEF] border-t-[#5D87FF]"></span> Memuat data aset...
       </div>
-      <div v-else-if="pageError" role="alert" class="flex items-center gap-2 bg-red-50 px-5 py-4 text-[13px] text-red-700">
+      <div v-else-if="pageError" role="alert" class="flex items-center gap-2 bg-[#FDEDE8] px-5 py-4 text-[13px] text-[#FA896B]">
         <span class="material-symbols-outlined text-[18px]">error</span><span class="flex-1">{{ pageError }}</span>
         <button type="button" class="font-bold underline" @click="fetchData">Coba lagi</button>
       </div>
       <div v-else class="overflow-x-auto" tabindex="0" aria-label="Tabel view daftar aset TI lengkap">
         <table class="w-full min-w-[1450px]">
           <caption class="sr-only">Isi view daftar_aset_ti_lengkap</caption>
-          <thead class="sticky top-0 z-10"><tr class="border-b border-[#E8EDF3] bg-[#F8FAFC]">
-            <th class="px-4 py-3 text-left text-[10px] font-bold uppercase text-[#9CA3AF]">Serial Number / Label</th>
-            <th class="px-4 py-3 text-left text-[10px] font-bold uppercase text-[#9CA3AF]">Spesifikasi</th>
-            <th class="px-4 py-3 text-left text-[10px] font-bold uppercase text-[#9CA3AF]">NIK / Karyawan</th>
-            <th class="px-4 py-3 text-left text-[10px] font-bold uppercase text-[#9CA3AF]">Departemen</th>
-            <th class="px-4 py-3 text-left text-[10px] font-bold uppercase text-[#9CA3AF]">Lokasi Aset</th>
-            <th class="px-4 py-3 text-left text-[10px] font-bold uppercase text-[#9CA3AF]">Tipe Perangkat</th>
-            <th class="px-4 py-3 text-left text-[10px] font-bold uppercase text-[#9CA3AF]">Status</th>
-            <th class="px-4 py-3 text-left text-[10px] font-bold uppercase text-[#9CA3AF]">Kondisi</th>
-            <th class="px-4 py-3 text-right text-[10px] font-bold uppercase text-[#9CA3AF]">Aksi</th>
+          <thead class="sticky top-0 z-10"><tr class="border-b border-[#E5EAEF] bg-[#F8FAFC]">
+            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Serial Number / Label</th>
+            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Spesifikasi</th>
+            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">NIK / Karyawan</th>
+            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Departemen</th>
+            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Lokasi Aset</th>
+            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Tipe Perangkat</th>
+            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Status</th>
+            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Kondisi</th>
+            <th class="px-4 py-3 text-right text-[11px] font-bold uppercase text-[#7C8BAC]">Aksi</th>
           </tr></thead>
-          <tbody class="divide-y divide-[#F9FAFB]">
-            <tr v-for="asset in filteredAssets" :key="asset.id_aset" class="hover:bg-[#F7FAFD]">
+          <tbody class="divide-y divide-[#F1F5F9]">
+            <tr v-for="asset in filteredAssets" :key="asset.id_aset" class="hover:bg-[#F8FAFC]">
               <td class="px-4 py-3"><div class="flex items-center gap-3">
-                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-light text-brand"><span class="material-symbols-outlined text-[18px]">{{ getDeviceIcon(asset.tipe_perangkat) }}</span></div>
-                <div><p class="font-mono text-[11px] font-bold text-[#172033]">{{ asset.nomor_seri || '—' }}</p><p class="mt-0.5 text-[9px] font-semibold text-[#94A3B8]">{{ asset.label_aset }}</p></div>
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#ECF2FF] text-[#5D87FF]"><span class="material-symbols-outlined text-[18px]">{{ getDeviceIcon(asset.tipe_perangkat) }}</span></div>
+                <div><p class="font-mono text-[12px] font-bold text-[#2A3547]">{{ asset.nomor_seri || '—' }}</p><p class="mt-0.5 text-[10px] font-semibold text-[#7C8BAC]">{{ asset.label_aset }}</p></div>
               </div></td>
               <td class="px-4 py-3">
                 <div class="flex flex-col gap-1.5">
-                  <div v-if="asset.merek || asset.model" class="text-[12px] font-bold text-[#172033]">
+                  <div v-if="asset.merek || asset.model" class="text-[12px] font-bold text-[#2A3547]">
                     {{ [asset.merek, asset.model].filter(Boolean).join(' ') }}
                   </div>
                   <button
                     type="button"
-                    class="inline-flex h-7 w-fit items-center gap-1 rounded-lg border border-[#CFE3FA] bg-brand-light px-2.5 text-[10px] font-bold text-brand hover:border-brand-dark hover:bg-brand-light/70"
+                    class="inline-flex h-7 w-fit items-center gap-1 rounded-lg border border-[#D2E3FF] bg-[#ECF2FF] px-2.5 text-[11px] font-bold text-[#5D87FF] hover:bg-[#5D87FF] hover:text-white transition-all"
                     @click="openSpecification(asset)"
                   >
-                    <span aria-hidden="true" class="material-symbols-outlined text-[13px]">description</span>
+                    <span aria-hidden="true" class="material-symbols-outlined text-[14px]">description</span>
                     Lihat Spesifikasi
                   </button>
                 </div>
               </td>
-              <td class="px-4 py-3"><p class="text-[12px] font-bold text-[#111827]">{{ asset.nama_karyawan || 'Belum ditetapkan' }}</p><p class="font-mono text-[10px] text-[#9CA3AF]">{{ asset.nik || '—' }}</p></td>
-              <td class="px-4 py-3 text-[12px] text-[#374151]">{{ asset.departemen || '—' }}</td>
-              <td class="px-4 py-3 text-[12px] text-[#374151]">{{ asset.lokasi_kerja || '—' }}</td>
-              <td class="px-4 py-3 text-[12px] text-[#374151]">{{ asset.tipe_perangkat || '—' }}</td>
+              <td class="px-4 py-3"><p class="text-[12px] font-bold text-[#2A3547]">{{ asset.nama_karyawan || 'Belum ditetapkan' }}</p><p class="font-mono text-[11px] text-[#7C8BAC]">{{ asset.nik || '—' }}</p></td>
+              <td class="px-4 py-3 text-[12px] text-[#2A3547]">{{ asset.departemen || '—' }}</td>
+              <td class="px-4 py-3 text-[12px] text-[#2A3547]">{{ asset.lokasi_kerja || '—' }}</td>
+              <td class="px-4 py-3 text-[12px] text-[#2A3547]">{{ asset.tipe_perangkat || '—' }}</td>
               <td class="px-4 py-3"><AppBadge :type="getStatusBadgeType(asset.status_aset)" :text="asset.status_aset || '—'" /></td>
-              <td class="px-4 py-3 text-[12px] font-semibold text-[#374151]">{{ asset.kondisi_aset || '—' }}</td>
-              <td class="px-4 py-3"><div class="flex justify-end gap-1">
-                <button type="button" @click="openDetails(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F1F5F9] text-[#64748B] hover:bg-[#E8EEF5] hover:text-[#334155]" :aria-label="`Detail ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">visibility</span></button>
-                <button type="button" @click="openEdit(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-light text-brand hover:bg-brand-light/70" :aria-label="`Edit ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">edit</span></button>
-                <button type="button" @click="openDelete(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FFF0F0] text-[#D94B4B] hover:bg-[#FFE2E2]" :aria-label="`Hapus ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">delete</span></button>
+              <td class="px-4 py-3 text-[12px] font-semibold text-[#2A3547]">{{ asset.kondisi_aset || '—' }}</td>
+              <td class="px-4 py-3"><div class="flex justify-end gap-1.5">
+                <button type="button" @click="openDetails(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ECF2FF] text-[#5D87FF] hover:bg-[#5D87FF] hover:text-white transition-all" :aria-label="`Detail ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">visibility</span></button>
+                <button type="button" @click="openEdit(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#49BEFF] hover:bg-[#49BEFF] hover:text-white transition-all" :aria-label="`Edit ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">edit</span></button>
+                <button type="button" @click="openDelete(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FDEDE8] text-[#FA896B] hover:bg-[#FA896B] hover:text-white transition-all" :aria-label="`Hapus ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">delete</span></button>
               </div></td>
             </tr>
-            <tr v-if="filteredAssets.length === 0"><td colspan="9" class="px-5 py-12 text-center text-[13px] text-[#9CA3AF]">Tidak ada aset yang sesuai.</td></tr>
+            <tr v-if="filteredAssets.length === 0"><td colspan="9" class="px-5 py-12 text-center text-[13px] text-[#7C8BAC]">Tidak ada aset yang sesuai.</td></tr>
           </tbody>
         </table>
       </div>
-      <div v-if="!isLoading && !pageError" class="border-t border-[#E8EDF3] bg-[#FAFCFE] px-5 py-3 text-[10px] text-[#94A3B8]">
-        Menampilkan <strong class="text-[#374151]">{{ filteredAssets.length }}</strong> dari <strong class="text-[#374151]">{{ assets.length }}</strong> aset — sumber: <code>daftar_aset_ti_lengkap</code>
+      <div v-if="!isLoading && !pageError" class="border-t border-[#E5EAEF] bg-[#F8FAFC] px-5 py-3 text-[11px] text-[#7C8BAC]">
+        Menampilkan <strong class="text-[#2A3547]">{{ filteredAssets.length }}</strong> dari <strong class="text-[#2A3547]">{{ assets.length }}</strong> aset — sumber: <code>daftar_aset_ti_lengkap</code>
       </div>
     </div>
 
@@ -512,21 +497,19 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
           <label class="flex flex-col gap-1.5"><span class="text-[11px] font-bold uppercase text-[#374151]">Label Aset *</span><input v-model="form.label_aset" required autofocus maxlength="100" placeholder="ESB-LAP-013" class="form-control" /></label>
           <label class="flex flex-col gap-1.5"><span class="text-[11px] font-bold uppercase text-[#374151]">Nomor Seri</span><input v-model="form.nomor_seri" maxlength="100" placeholder="Nomor seri perangkat" class="form-control" /></label>
           <label class="flex flex-col gap-1.5 sm:col-span-2"><span class="text-[11px] font-bold uppercase text-[#374151]">Spesifikasi</span><textarea v-model="form.spesifikasi" rows="2" placeholder="Spesifikasi perangkat" class="form-control h-auto py-2"></textarea></label>
-          <fieldset class="sm:col-span-2">
-            <legend class="mb-2 text-[11px] font-bold uppercase text-[#374151]">Penempatan Aset *</legend>
-            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <label class="flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors" :class="form.penempatan === 'user' ? 'border-brand bg-brand-light' : 'border-[#DCE3EC] bg-white hover:bg-[#F8FAFC]'">
-                <input :checked="form.penempatan === 'user'" type="radio" name="penempatan" value="user" class="mt-0.5 accent-brand" @change="setPenempatan('user')" />
-                <span><span class="block text-[12px] font-bold text-[#172033]">Assign ke user</span><span class="mt-0.5 block text-[10px] leading-4 text-[#64748B]">Lokasi mengikuti lokasi kerja user.</span></span>
-              </label>
-              <label class="flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors" :class="form.penempatan === 'lokasi' ? 'border-brand bg-brand-light' : 'border-[#DCE3EC] bg-white hover:bg-[#F8FAFC]'">
-                <input :checked="form.penempatan === 'lokasi'" type="radio" name="penempatan" value="lokasi" class="mt-0.5 accent-brand" @change="setPenempatan('lokasi')" />
-                <span><span class="block text-[12px] font-bold text-[#172033]">Simpan di lokasi</span><span class="mt-0.5 block text-[10px] leading-4 text-[#64748B]">Aset biasa tanpa pemegang tertentu.</span></span>
-              </label>
-            </div>
-          </fieldset>
-          <label v-if="form.penempatan === 'user'" class="flex flex-col gap-1.5 sm:col-span-2">
-            <span class="text-[11px] font-bold uppercase text-[#374151]">Pemegang Aset *</span>
+          <label class="flex flex-col gap-1.5 sm:col-span-2">
+            <span class="text-[11px] font-bold uppercase text-[#374151]">Penempatan Aset *</span>
+            <SearchableSelect
+              v-model="form.lokasi_aset"
+              :options="locationOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="Pilih lokasi penempatan aset"
+              search-placeholder="Cari lokasi..."
+            />
+          </label>
+          <label class="flex flex-col gap-1.5 sm:col-span-2">
+            <span class="text-[11px] font-bold uppercase text-[#374151]">Pemegang Aset</span>
             <SearchableSelect
               v-model="form.nik"
               :options="employees"
@@ -535,13 +518,8 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               secondary-label-key="nik"
               placeholder="Pilih pemegang aset"
               search-placeholder="Cari nama atau NIK..."
+              clearable
             />
-            <span v-if="selectedEmployee" class="text-[10px] text-[#64748B]">Lokasi kerja: {{ selectedEmployee.lokasi_kerja || 'Belum ditentukan pada data user' }}</span>
-          </label>
-          <label v-else class="flex flex-col gap-1.5 sm:col-span-2">
-            <span class="text-[11px] font-bold uppercase text-[#374151]">Lokasi Aset *</span>
-            <input v-model="form.lokasi_aset" required maxlength="100" placeholder="Contoh: Gudang IT Lt. 2, Rak A-03" class="form-control" />
-            <span class="text-[10px] text-[#64748B]">Isi lokasi fisik aset saat ini.</span>
           </label>
           <label class="flex flex-col gap-1.5"><span class="text-[11px] font-bold uppercase text-[#374151]">Tipe Perangkat</span><select v-model="form.tipe_perangkat" class="form-control"><option value="">Pilih tipe</option><option v-for="type in availableTipeOptions" :key="type">{{ type }}</option></select></label>
           <label class="flex flex-col gap-1.5"><span class="text-[11px] font-bold uppercase text-[#374151]">Merek</span><select v-model="form.merek" class="form-control"><option value="">Pilih merek</option><option v-for="brand in availableBrandOptions" :key="brand">{{ brand }}</option></select></label>

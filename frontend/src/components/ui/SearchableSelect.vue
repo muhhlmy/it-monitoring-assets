@@ -9,6 +9,7 @@ const props = defineProps({
   valueKey: { type: String, required: true },
   labelKey: { type: String, required: true },
   secondaryLabelKey: { type: String, default: '' },
+  clearable: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -40,6 +41,11 @@ function toggleDropdown() {
 function selectOption(option) {
   emit('update:modelValue', option[props.valueKey])
   isOpen.value = false
+}
+
+function clearSelection(event) {
+  event.stopPropagation()
+  emit('update:modelValue', '')
 }
 
 function handleClickOutside(event) {
@@ -78,8 +84,11 @@ onBeforeUnmount(() => {
         {{ selectedOption[labelKey] }} <span v-if="secondaryLabelKey" class="text-[10px] text-[#94A3B8] font-mono">({{ selectedOption[secondaryLabelKey] }})</span>
       </span>
       <span v-else class="text-[#9CA3AF] text-[12px]">{{ placeholder }}</span>
-      <span class="material-symbols-outlined text-[18px] text-[#94A3B8] transition-transform duration-200" :class="{ 'rotate-180': isOpen }">
-        keyboard_arrow_down
+      <span class="flex items-center gap-1">
+        <span v-if="clearable && selectedOption" @click="clearSelection" class="material-symbols-outlined text-[16px] text-[#94A3B8] hover:text-[#EF4444] cursor-pointer transition-colors">close</span>
+        <span class="material-symbols-outlined text-[18px] text-[#94A3B8] transition-transform duration-200" :class="{ 'rotate-180': isOpen }">
+          keyboard_arrow_down
+        </span>
       </span>
     </button>
 

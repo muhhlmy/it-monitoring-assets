@@ -39,13 +39,20 @@ export function useApi() {
   async function request(endpoint, options = {}) {
     let response
 
+    const token = localStorage.getItem('token')
+    const customHeaders = {
+      Accept: 'application/json',
+      ...options.headers,
+    }
+
+    if (token) {
+      customHeaders['Authorization'] = `Bearer ${token}`
+    }
+
     try {
       response = await fetch(createUrl(endpoint), {
         ...options,
-        headers: {
-          Accept: 'application/json',
-          ...options.headers,
-        },
+        headers: customHeaders,
       })
     } catch (error) {
       throw new Error('Tidak dapat terhubung ke server. Periksa koneksi dan coba lagi.', {
@@ -54,6 +61,18 @@ export function useApi() {
     }
 
     const payload = await parseResponse(response)
+
+    if (response.status === 401) {
+      // Token kedaluwarsa, tidak valid, ATAU kredensial login salah
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+      
+      const message = payload?.message || 'Sesi telah berakhir, silakan login kembali.'
+      throw new Error(message)
+    }
 
     if (!response.ok) {
       const message =

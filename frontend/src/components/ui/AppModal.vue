@@ -111,7 +111,7 @@ onBeforeUnmount(() => {
           aria-modal="true"
           :aria-labelledby="titleId"
           tabindex="-1"
-          class="modal-panel max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-[22px] border border-white/80 bg-white shadow-[0_28px_80px_rgba(8,18,35,0.24)] outline-none"
+          class="modal-panel max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-2xl border border-[#E5EAEF] bg-white shadow-2xl outline-none"
           :class="{
             'max-w-sm':  size === 'sm',
             'max-w-lg':  size === 'md',
@@ -119,25 +119,25 @@ onBeforeUnmount(() => {
           }"
         >
           <!-- Header Modal -->
-          <div class="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-[#E8EDF3] bg-white/95 px-4 py-4 backdrop-blur-xl sm:px-6 sm:py-5">
+          <div class="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-[#E5EAEF] bg-white px-5 py-4.5 sm:px-6">
             <div class="flex items-center gap-3">
-              <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-light text-brand">
-                <span aria-hidden="true" class="material-symbols-outlined text-[17px]">inventory_2</span>
+              <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ECF2FF] text-[#5D87FF]">
+                <span aria-hidden="true" class="material-symbols-outlined text-[20px]">inventory_2</span>
               </span>
-              <h2 :id="titleId" class="text-[14px] font-extrabold tracking-[-0.015em] text-[#172033]">{{ title }}</h2>
+              <h2 :id="titleId" class="text-[16px] font-bold text-[#2A3547]">{{ title }}</h2>
             </div>
             <button
               type="button"
               aria-label="Tutup dialog"
               @click="close"
-              class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F8FAFC] text-[#94A3B8] hover:bg-[#EEF2F7] hover:text-[#334155]"
+              class="flex h-8 w-8 items-center justify-center rounded-lg text-[#7C8BAC] transition-colors hover:bg-[#ECF2FF] hover:text-[#5D87FF]"
             >
-              <span aria-hidden="true" class="material-symbols-outlined text-[18px]">close</span>
+              <span aria-hidden="true" class="material-symbols-outlined text-[20px]">close</span>
             </button>
           </div>
 
           <!-- Konten Modal (slot) -->
-          <div class="p-4 sm:p-6">
+          <div class="p-5 sm:p-6">
             <slot />
           </div>
         </div>

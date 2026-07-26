@@ -59,6 +59,10 @@ export function validateAssetPayload(body) {
     catatan_aset: cleanText(body.catatan_aset),
   };
 
+  if (asset.nik) {
+    asset.lokasi_aset = null;
+  }
+
   if (!asset.label_aset) {
     throw createHttpError(400, "Label aset wajib diisi.");
   }
@@ -72,12 +76,6 @@ export function validateAssetPayload(body) {
   checkMaximumLength("model", asset.model, 100);
   checkMaximumLength("status_aset", asset.status_aset, 30);
   checkMaximumLength("kondisi_aset", asset.kondisi_aset, 30);
-
-  // Jika aset dipegang karyawan, lokasi selalu mengikuti lokasi kerja karyawan.
-  // Ini mencegah dua sumber lokasi yang saling bertentangan.
-  if (asset.nik) {
-    asset.lokasi_aset = null;
-  }
 
   return asset;
 }
@@ -132,6 +130,105 @@ async function findEmployeeId(nik, databaseClient) {
   return result.rows[0].id_karyawan;
 }
 
+// Sinkronisasi tabel riwayat_pemakaian_aset setiap kali pemegang aset berubah.
+// dipanggil di dalam transaksi (client wajib diteruskan).
+async function syncDeviceCycle(databaseClient, idAset, oldNik, newNik, assetInfo) {
+  const oldHasEmployee = Boolean(oldNik);
+  const newHasEmployee = Boolean(newNik);
+  const employeeChanged = oldNik !== newNik;
+
+  if (!employeeChanged) return; // Tidak ada perubahan pemegang, tidak perlu sync
+
+  // 1. Tutup record aktif milik pemegang lama (jika ada)
+  if (oldHasEmployee) {
+    await databaseClient.query(
+      `UPDATE riwayat_pemakaian_aset
+         SET tanggal_selesai = CURRENT_TIMESTAMP
+       WHERE id_aset = $1
+         AND nik = $2
+         AND tanggal_selesai IS NULL`,
+      [idAset, oldNik]
+    );
+  }
+
+  // 2. Buat record baru untuk pemegang baru (jika ada)
+  if (newHasEmployee) {
+    // Ambil data karyawan baru
+    const empResult = await databaseClient.query(
+      `SELECT id_karyawan, nik, nama_karyawan FROM karyawan WHERE nik = $1`,
+      [newNik]
+    );
+    if (empResult.rowCount > 0) {
+      const emp = empResult.rows[0];
+      await databaseClient.query(
+        `INSERT INTO riwayat_pemakaian_aset
+           (id_aset, label_aset, nomor_seri, tipe_perangkat, merek, model,
+            id_karyawan, nik, nama_karyawan, tanggal_mulai)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)`,
+        [
+          idAset,
+          assetInfo.label_aset,
+          assetInfo.nomor_seri,
+          assetInfo.tipe_perangkat,
+          assetInfo.merek,
+          assetInfo.model,
+          emp.id_karyawan,
+          emp.nik,
+          emp.nama_karyawan,
+        ]
+      );
+    }
+  }
+}
+
+// Tutup semua record aktif saat aset dihapus dari sistem.
+async function closeAllDeviceCycleRecords(databaseClient, idAset) {
+  await databaseClient.query(
+    `UPDATE riwayat_pemakaian_aset
+       SET tanggal_selesai = CURRENT_TIMESTAMP
+     WHERE id_aset = $1 AND tanggal_selesai IS NULL`,
+    [idAset]
+  );
+}
+
+// GET /api/assets/cycle/:nik — riwayat seluruh perangkat yang pernah dipakai karyawan
+export async function getDeviceCycleByNik(req, res) {
+  const nik = req.params.nik ? String(req.params.nik).trim() : null;
+  if (!nik) {
+    throw createHttpError(400, "NIK wajib diisi.");
+  }
+
+  // Verifikasi karyawan ada
+  const empCheck = await pool.query(
+    "SELECT nik FROM karyawan WHERE nik = $1",
+    [nik]
+  );
+  if (empCheck.rowCount === 0) {
+    throw createHttpError(404, "Karyawan dengan NIK tersebut tidak ditemukan.");
+  }
+
+  const result = await pool.query(
+    `SELECT
+       r.id,
+       r.id_aset,
+       r.label_aset,
+       r.nomor_seri,
+       r.tipe_perangkat,
+       r.merek,
+       r.model,
+       r.tanggal_mulai,
+       r.tanggal_selesai,
+       r.catatan,
+       CASE WHEN r.tanggal_selesai IS NULL THEN 'Aktif' ELSE 'Selesai' END AS status_pemakaian
+     FROM riwayat_pemakaian_aset AS r
+     WHERE r.nik = $1
+     ORDER BY r.tanggal_mulai DESC`,
+    [nik]
+  );
+
+  res.json(result.rows);
+}
+
 // GET /api/assets
 export async function listAssets(req, res) {
   const sql =
@@ -142,6 +239,43 @@ export async function listAssets(req, res) {
 
   res.json(result.rows);
 }
+
+export async function listMyAssets(req, res) {
+  const userEmail = req.user.email;
+  const userRole = req.user.role ? req.user.role.trim().toLowerCase() : '';
+  let nik = null;
+
+  // Jika admin/superadmin dan mengirimkan query nik, gunakan nik tersebut
+  if ((userRole === 'admin' || userRole === 'super admin' || userRole === 'superadmin') && req.query.nik) {
+    nik = String(req.query.nik).trim();
+  } else {
+    // Jika bukan admin, atau admin tidak mengirimkan query nik, gunakan email login
+    if (!userEmail) {
+      const error = new Error("Token tidak memiliki informasi email.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const employeeCheck = await pool.query(
+      "SELECT nik FROM karyawan WHERE email_kantor = $1",
+      [userEmail]
+    );
+
+    if (employeeCheck.rowCount === 0) {
+      return res.json([]);
+    }
+    nik = employeeCheck.rows[0].nik;
+  }
+
+  const sql =
+    "SELECT " +
+    assetColumns +
+    " FROM daftar_aset_ti_lengkap WHERE nik = $1 ORDER BY id_aset DESC";
+  const result = await pool.query(sql, [nik]);
+
+  res.json(result.rows);
+}
+
 
 // GET /api/assets/:id
 export async function showAsset(req, res) {
@@ -298,6 +432,8 @@ export async function storeAsset(req, res) {
 
     const created = await findAssetById(newAssetId, databaseClient);
     await logAssetChange(databaseClient, created.id_aset, created.label_aset, 'TAMBAH', null, created);
+    // Catat ke riwayat pemakaian jika langsung di-assign ke karyawan
+    await syncDeviceCycle(databaseClient, created.id_aset, null, asset.nik, created);
     return created;
   }
 
@@ -358,6 +494,8 @@ export async function replaceAsset(req, res) {
 
     const updated = await findAssetById(id, databaseClient);
     await logAssetChange(databaseClient, id, updated.label_aset, 'UBAH', oldAsset, updated);
+    // Sync riwayat pemakaian jika pemegang berubah
+    await syncDeviceCycle(databaseClient, id, oldAsset.nik || null, asset.nik, updated);
     return updated;
   }
 
@@ -384,6 +522,8 @@ export async function destroyAsset(req, res) {
     }
 
     await logAssetChange(databaseClient, id, oldAsset.label_aset, 'HAPUS', oldAsset, null);
+    // Tutup semua record riwayat aktif sebelum aset dihapus
+    await closeAllDeviceCycleRecords(databaseClient, id);
     return true;
   }
 

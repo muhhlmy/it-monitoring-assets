@@ -7,13 +7,15 @@ import AppSidebar from './components/layout/AppSidebar.vue'
 import AppHeader  from './components/layout/AppHeader.vue'
 
 const route = useRoute()
-const isNavigationOpen = ref(false)
+const isNavigationOpen = ref(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true)
 const { post } = useApi()
 
 watch(
   () => route.fullPath,
   () => {
-    isNavigationOpen.value = false
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      isNavigationOpen.value = false
+    }
   },
 )
 
@@ -34,37 +36,43 @@ onMounted(async () => {
 </script>
 
 <template>
-  <a
-    href="#main-content"
-    class="fixed left-4 top-3 z-[100] -translate-y-20 rounded-lg bg-[#111827] px-4 py-2 text-sm font-bold text-white transition-transform focus:translate-y-0"
-  >
-    Lewati ke konten utama
-  </a>
+  <template v-if="route.name === 'login'">
+    <RouterView />
+  </template>
 
-  <div class="app-shell relative flex h-dvh min-h-0 overflow-hidden">
+  <template v-else>
+    <a
+      href="#main-content"
+      class="fixed left-4 top-3 z-[100] -translate-y-20 rounded-lg bg-[#111827] px-4 py-2 text-sm font-bold text-white transition-transform focus:translate-y-0"
+    >
+      Lewati ke konten utama
+    </a>
 
-    <!-- ── Sidebar Navigasi (lebar tetap 240px) ── -->
-    <AppSidebar
-      :is-open="isNavigationOpen"
-      @close="isNavigationOpen = false"
-    />
+    <div class="app-shell relative flex h-dvh min-h-0 overflow-hidden bg-[#F8FAFC]">
 
-    <!-- ── Area Konten Kanan ── -->
-    <div class="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-
-      <!-- Header: search + actions -->
-      <AppHeader
-        :is-navigation-open="isNavigationOpen"
-        @toggle-navigation="isNavigationOpen = !isNavigationOpen"
+      <!-- ── Sidebar Navigasi (lebar tetap 240px) ── -->
+      <AppSidebar
+        :is-open="isNavigationOpen"
+        @close="isNavigationOpen = false"
       />
 
-      <!-- Konten halaman aktif, scrollable -->
-      <main id="main-content" tabindex="-1" class="app-main flex-1 overflow-y-auto p-4 outline-none sm:p-6 xl:p-8">
-        <div class="mx-auto w-full max-w-[1560px]">
-          <RouterView />
-        </div>
-      </main>
+      <!-- ── Area Konten Kanan ── -->
+      <div class="relative flex min-w-0 flex-1 flex-col overflow-hidden">
 
+        <!-- Header: search + actions -->
+        <AppHeader
+          :is-navigation-open="isNavigationOpen"
+          @toggle-navigation="isNavigationOpen = !isNavigationOpen"
+        />
+
+        <!-- Konten halaman aktif, scrollable -->
+        <main id="main-content" tabindex="-1" class="app-main flex-1 overflow-y-auto p-4 outline-none sm:p-6 xl:p-8">
+          <div class="mx-auto w-full max-w-[1560px]">
+            <RouterView />
+          </div>
+        </main>
+
+      </div>
     </div>
-  </div>
+  </template>
 </template>

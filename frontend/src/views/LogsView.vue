@@ -79,14 +79,28 @@ const filteredAuditLogs = computed(() => {
 function getActionBadgeType(action) {
   if (action === 'TAMBAH') return 'success'
   if (action === 'UBAH') return 'warning'
-  if (action === 'HAPUS') return 'error'
+  if (action === 'HAPUS') return 'danger'
   return 'default'
+}
+
+function getActionIcon(action) {
+  if (action === 'TAMBAH') return 'add_circle'
+  if (action === 'UBAH') return 'edit_note'
+  if (action === 'HAPUS') return 'delete'
+  return 'info'
+}
+
+function getActionColor(action) {
+  if (action === 'TAMBAH') return 'text-[#059669] bg-[#ECFDF5]'
+  if (action === 'UBAH') return 'text-[#D97706] bg-[#FFF8E6]'
+  if (action === 'HAPUS') return 'text-[#DC2626] bg-[#FEF2F2]'
+  return 'text-[#6B7280] bg-[#F3F4F6]'
 }
 
 function getActivityBadgeType(activity) {
   if (activity === 'LOGIN') return 'success'
   if (activity === 'LOGOUT') return 'default'
-  if (activity === 'GAGAL_LOGIN') return 'error'
+  if (activity === 'GAGAL_LOGIN') return 'danger'
   return 'default'
 }
 
@@ -98,6 +112,23 @@ function formatDateTime(dateStr) {
     dateStyle: 'medium',
     timeStyle: 'short'
   })
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-'
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function formatTime(dateStr) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+}
+
+function displayValue(val) {
+  if (!val || val === '(kosong)') return '—'
+  return val
 }
 
 function parsePerubahan(perubahan, aksi) {
@@ -193,7 +224,7 @@ function parsePerubahan(perubahan, aksi) {
           v-model="searchQuery"
           type="text"
           placeholder="Cari kata kunci log..."
-          class="form-control w-full pl-10"
+          class="h-10 w-full rounded-xl border border-[#DCE3EC] bg-white pl-10 pr-3 text-[11px] font-semibold text-[#334155] outline-none transition-all focus:border-brand focus:ring-1 focus:ring-brand/10"
         />
       </div>
 
@@ -228,7 +259,7 @@ function parsePerubahan(perubahan, aksi) {
       </button>
     </div>
 
-    <!-- Table Container -->
+    <!-- Content Container -->
     <div class="shadow-card overflow-hidden rounded-[20px] border border-[#E8EDF3] bg-white">
       <!-- Loading State -->
       <div v-if="isLoading" class="flex flex-col items-center justify-center py-24 gap-3">
@@ -236,122 +267,162 @@ function parsePerubahan(perubahan, aksi) {
         <p class="text-[12px] font-semibold text-[#6B7280]">Memuat data log aktivitas...</p>
       </div>
 
-      <!-- Data Table -->
-      <div
-        v-else
-        class="overflow-x-auto"
-        tabindex="0"
-        aria-label="Tabel log aktivitas"
-      >
-        <!-- ── TAB 1: Asset History Log Table ──────────────────── -->
-        <table v-if="activeTab === 'assets'" class="w-full min-w-[700px]">
-          <caption class="sr-only">Tabel log riwayat perubahan aset IT</caption>
-          <thead>
-            <tr class="text-left border-b border-[#F3F4F6]">
-              <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider w-48">Waktu Kejadian</th>
-              <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider w-32">Aksi</th>
-              <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider w-36">Label Aset</th>
-              <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Detail Perubahan</th>
-              <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider w-40">Oleh</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-[#F9FAFB]">
-            <tr
-              v-for="log in filteredAssetLogs"
-              :key="log.id"
-              class="hover:bg-[#F9FAFB]/50 transition-colors"
-            >
-              <td class="px-5 py-3.5 text-[11px] font-semibold text-[#374151] font-mono">
-                {{ formatDateTime(log.dibuat_pada) }}
-              </td>
-              <td class="px-5 py-3.5">
+      <!-- ── TAB 1: Asset History Log ──────────────────────────── -->
+      <div v-else-if="activeTab === 'assets'">
+        <!-- Empty State -->
+        <div v-if="filteredAssetLogs.length === 0" class="flex flex-col items-center justify-center py-20 gap-3">
+          <span class="material-symbols-outlined text-[40px] text-[#D1D5DB]">history_toggle_off</span>
+          <p class="text-[13px] font-semibold text-[#9CA3AF]">Tidak ada riwayat perubahan aset ditemukan.</p>
+        </div>
+
+        <!-- Timeline Log Cards -->
+        <div v-else class="divide-y divide-[#F3F4F6]">
+          <div
+            v-for="log in filteredAssetLogs"
+            :key="log.id"
+            class="group flex gap-4 px-5 py-4 hover:bg-[#FAFBFD] transition-colors"
+          >
+            <!-- Left: Icon + Timeline connector -->
+            <div class="flex flex-col items-center pt-0.5">
+              <div
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                :class="getActionColor(log.aksi)"
+              >
+                <span class="material-symbols-outlined text-[18px]">{{ getActionIcon(log.aksi) }}</span>
+              </div>
+            </div>
+
+            <!-- Middle: Main content -->
+            <div class="flex-1 min-w-0">
+              <!-- Top row: Badge + Label + Time -->
+              <div class="flex flex-wrap items-center gap-2 mb-2">
                 <AppBadge :type="getActionBadgeType(log.aksi)" :text="log.aksi" />
-              </td>
-              <td class="px-5 py-3.5 text-[12px] font-bold text-[#111827]">
-                {{ log.label_aset }}
-              </td>
-              <td class="px-5 py-3.5 align-top">
-                <!-- UBAH: mini table old -> new -->
-                <table v-if="log.aksi === 'UBAH' && parsePerubahan(log.perubahan, log.aksi).length && parsePerubahan(log.perubahan, log.aksi)[0].old !== undefined" class="w-full text-[10px] border-collapse">
-                  <thead>
-                    <tr class="border-b border-[#E5E7EB]">
-                      <th class="py-0.5 pr-2 text-left font-bold text-[#9CA3AF] uppercase tracking-wider w-24">Field</th>
-                      <th class="py-0.5 px-2 text-left font-bold text-[#9CA3AF] uppercase tracking-wider">Sebelum</th>
-                      <th class="py-0.5 pl-2 text-left font-bold text-[#9CA3AF] uppercase tracking-wider">Sesudah</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(row, idx) in parsePerubahan(log.perubahan, log.aksi)" :key="idx" class="border-b border-[#F3F4F6] last:border-0">
-                      <td class="py-1 pr-2 font-bold text-[#475569]">{{ row.field }}</td>
-                      <td class="py-1 px-2 text-[#DC2626] line-through">{{ row.old }}</td>
-                      <td class="py-1 pl-2 font-semibold text-[#059669]">{{ row.new }}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                <span class="text-[13px] font-extrabold text-[#111827] font-mono tracking-tight">{{ log.label_aset }}</span>
+                <span class="text-[10px] text-[#94A3B8] font-medium ml-auto shrink-0 hidden sm:inline">
+                  <span class="material-symbols-outlined text-[12px] align-text-bottom mr-0.5">schedule</span>
+                  {{ formatDateTime(log.dibuat_pada) }}
+                </span>
+              </div>
 
-                <!-- TAMBAH: key-value detail -->
-                <table v-else-if="log.aksi === 'TAMBAH' && parsePerubahan(log.perubahan, log.aksi).length > 1" class="w-full text-[10px] border-collapse">
-                  <tbody>
-                    <tr v-for="(row, idx) in parsePerubahan(log.perubahan, log.aksi)" :key="idx" class="border-b border-[#F3F4F6] last:border-0">
-                      <td class="py-1 pr-2 font-bold text-[#9CA3AF] uppercase tracking-wider w-24">{{ row.field }}</td>
-                      <td class="py-1 font-semibold text-[#374151]">{{ row.value }}</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <!-- UBAH: Changes detail with clean diff style -->
+              <div v-if="log.aksi === 'UBAH' && parsePerubahan(log.perubahan, log.aksi).length && parsePerubahan(log.perubahan, log.aksi)[0].old !== undefined" class="space-y-1.5">
+                <div
+                  v-for="(row, idx) in parsePerubahan(log.perubahan, log.aksi)"
+                  :key="idx"
+                  class="flex items-baseline gap-2 text-[11px]"
+                >
+                  <span class="w-28 shrink-0 text-[10px] font-bold text-[#6B7280] uppercase tracking-wide">{{ row.field }}</span>
+                  <span class="flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <span class="inline-flex items-center gap-1 rounded-md bg-[#FEF2F2] px-2 py-0.5 text-[10px] font-semibold text-[#991B1B] line-through decoration-[#FECACA]">{{ displayValue(row.old) }}</span>
+                    <span class="material-symbols-outlined text-[12px] text-[#CBD5E1] shrink-0">arrow_forward</span>
+                    <span class="inline-flex items-center gap-1 rounded-md bg-[#F0FDF4] px-2 py-0.5 text-[10px] font-bold text-[#166534]">{{ displayValue(row.new) }}</span>
+                  </span>
+                </div>
+              </div>
 
-                <!-- Fallback -->
-                <span v-else class="text-[11px] text-[#374151] font-medium">{{ log.perubahan }}</span>
-              </td>
-              <td class="px-5 py-3.5 text-[11px] font-bold text-[#64748B]">
-                {{ log.oleh_pengguna }}
-              </td>
-            </tr>
-            <tr v-if="filteredAssetLogs.length === 0">
-              <td colspan="5" class="px-5 py-12 text-center text-[12px] text-[#9CA3AF]">
-                Tidak ada riwayat perubahan aset ditemukan.
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              <!-- TAMBAH: Key-value pairs -->
+              <div v-else-if="log.aksi === 'TAMBAH' && parsePerubahan(log.perubahan, log.aksi).length > 1" class="flex flex-wrap gap-x-4 gap-y-1">
+                <span
+                  v-for="(row, idx) in parsePerubahan(log.perubahan, log.aksi)"
+                  :key="idx"
+                  class="text-[10px] text-[#6B7280]"
+                >
+                  <span class="font-bold uppercase tracking-wide">{{ row.field }}:</span>
+                  <span class="ml-1 font-semibold text-[#374151]">{{ displayValue(row.value) }}</span>
+                </span>
+              </div>
 
-        <!-- ── TAB 2: Login Audit Log Table ────────────────────── -->
-        <table v-if="activeTab === 'audit'" class="w-full min-w-[700px]">
-          <caption class="sr-only">Tabel log audit login aktivitas pengguna</caption>
-          <thead>
-            <tr class="text-left border-b border-[#F3F4F6]">
-              <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider w-48">Waktu Login</th>
-              <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Nama Pengguna</th>
-              <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Email</th>
-              <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider w-36">Status</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-[#F9FAFB]">
-            <tr
-              v-for="log in filteredAuditLogs"
-              :key="log.id"
-              class="hover:bg-[#F9FAFB]/50 transition-colors"
-            >
-              <td class="px-5 py-3.5 text-[11px] font-semibold text-[#374151] font-mono">
-                {{ formatDateTime(log.dibuat_pada) }}
-              </td>
-              <td class="px-5 py-3.5 text-[12px] font-bold text-[#111827]">
-                {{ log.nama_pengguna }}
-              </td>
-              <td class="px-5 py-3.5 text-[11px] text-[#374151] font-mono">
-                {{ log.email }}
-              </td>
-              <td class="px-5 py-3.5">
-                <AppBadge :type="getActivityBadgeType(log.aktifitas)" :text="log.aktifitas" />
-              </td>
-            </tr>
-            <tr v-if="filteredAuditLogs.length === 0">
-              <td colspan="6" class="px-5 py-12 text-center text-[12px] text-[#9CA3AF]">
-                Tidak ada audit aktivitas login ditemukan.
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              <!-- Fallback text -->
+              <p v-else class="text-[11px] font-medium text-[#64748B] leading-relaxed">{{ log.perubahan }}</p>
+
+              <!-- Mobile timestamp + Author -->
+              <div class="flex items-center gap-3 mt-2">
+                <span class="text-[10px] text-[#94A3B8] font-medium sm:hidden">
+                  {{ formatDateTime(log.dibuat_pada) }}
+                </span>
+                <span class="text-[10px] font-bold text-[#94A3B8]">
+                  <span class="material-symbols-outlined text-[11px] align-text-bottom mr-0.5">person</span>
+                  {{ log.oleh_pengguna }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div v-if="filteredAssetLogs.length > 0" class="border-t border-[#E8EDF3] bg-[#FAFCFE] px-5 py-3 text-[10px] text-[#94A3B8]">
+          Menampilkan <strong class="text-[#374151]">{{ filteredAssetLogs.length }}</strong> dari <strong class="text-[#374151]">{{ assetLogs.length }}</strong> log perubahan aset
+        </div>
+      </div>
+
+      <!-- ── TAB 2: Login Audit Log Table ────────────────────── -->
+      <div v-else-if="activeTab === 'audit'">
+        <div class="overflow-x-auto" tabindex="0" aria-label="Tabel log audit login">
+          <table class="w-full min-w-[700px]">
+            <caption class="sr-only">Tabel log audit login aktivitas pengguna</caption>
+            <thead>
+              <tr class="text-left border-b border-[#F3F4F6]">
+                <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider w-48">Waktu Login</th>
+                <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Nama Pengguna</th>
+                <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Email</th>
+                <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider w-36">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[#F9FAFB]">
+              <tr
+                v-for="log in filteredAuditLogs"
+                :key="log.id"
+                class="hover:bg-[#F9FAFB]/50 transition-colors"
+              >
+                <td class="px-5 py-3.5 text-[11px] font-semibold text-[#374151] font-mono">
+                  {{ formatDateTime(log.dibuat_pada) }}
+                </td>
+                <td class="px-5 py-3.5 text-[12px] font-bold text-[#111827]">
+                  {{ log.nama_pengguna }}
+                </td>
+                <td class="px-5 py-3.5 text-[11px] text-[#374151] font-mono">
+                  {{ log.email }}
+                </td>
+                <td class="px-5 py-3.5">
+                  <AppBadge :type="getActivityBadgeType(log.aktifitas)" :text="log.aktifitas" />
+                </td>
+              </tr>
+              <tr v-if="filteredAuditLogs.length === 0">
+                <td colspan="4" class="px-5 py-12 text-center">
+                  <div class="flex flex-col items-center gap-3">
+                    <span class="material-symbols-outlined text-[40px] text-[#D1D5DB]">shield_person</span>
+                    <p class="text-[13px] font-semibold text-[#9CA3AF]">Tidak ada audit aktivitas login ditemukan.</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer -->
+        <div v-if="filteredAuditLogs.length > 0" class="border-t border-[#E8EDF3] bg-[#FAFCFE] px-5 py-3 text-[10px] text-[#94A3B8]">
+          Menampilkan <strong class="text-[#374151]">{{ filteredAuditLogs.length }}</strong> dari <strong class="text-[#374151]">{{ auditLogs.length }}</strong> log audit login
+        </div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.form-control {
+  height: 2.5rem;
+  border: 1px solid #dce3ec;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  padding: 0 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #334155;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-control:focus {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgb(9 124 222 / 10%);
+}
+</style>
