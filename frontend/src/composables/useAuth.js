@@ -46,12 +46,33 @@ export function useAuth() {
     return user.value
   }
 
+  // Returns true if the user has AT LEAST 'read_only' access to the feature
   const hasPermission = (featureKey) => {
     if (!token.value || !user.value) return false
     if (isSuperAdmin.value) return true
     if (!featureKey) return true
-    if (user.value.permissions && typeof user.value.permissions === 'object') {
-      return !!user.value.permissions[featureKey]
+    const perms = user.value.permissions
+    if (perms && typeof perms === 'object') {
+      const level = perms[featureKey]
+      // Support both new string levels and legacy boolean values
+      if (level === 'full' || level === 'read_only') return true
+      if (level === true) return true   // legacy boolean
+      return false
+    }
+    return false
+  }
+
+  // Returns true only if the user has 'full' (CRUD) access to the feature
+  const hasWritePermission = (featureKey) => {
+    if (!token.value || !user.value) return false
+    if (isSuperAdmin.value) return true
+    if (!featureKey) return true
+    const perms = user.value.permissions
+    if (perms && typeof perms === 'object') {
+      const level = perms[featureKey]
+      if (level === 'full') return true
+      if (level === true) return true   // legacy boolean mapped to full
+      return false
     }
     return false
   }
@@ -64,6 +85,7 @@ export function useAuth() {
     isAdmin,
     isUser,
     hasPermission,
+    hasWritePermission,
     login,
     logout,
     getProfile

@@ -6,26 +6,45 @@ function createHttpError(statusCode, message) {
   return error
 }
 
+// Granular permission levels: 'none' | 'read_only' | 'full'
 const SUPERADMIN_PERMISSIONS = {
-  dashboard: true,
-  assets: true,
-  my_assets: true,
-  tickets: true,
-  submissions: true,
-  users: true,
-  logs: true,
-  karyawan: true
+  dashboard: 'full',
+  assets: 'full',
+  my_assets: 'full',
+  tickets: 'full',
+  submissions: 'full',
+  users: 'full',
+  logs: 'full',
+  karyawan: 'full'
 }
 
 const DEFAULT_USER_PERMISSIONS = {
-  dashboard: false,
-  assets: false,
-  my_assets: true,
-  tickets: true,
-  submissions: false,
-  users: false,
-  logs: false,
-  karyawan: false
+  dashboard: 'none',
+  assets: 'none',
+  my_assets: 'read_only',
+  tickets: 'read_only',
+  submissions: 'none',
+  users: 'none',
+  logs: 'none',
+  karyawan: 'none'
+}
+
+// Normalise old boolean-based permissions to the new level system
+function normaliseLegacyPermissions(raw) {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_USER_PERMISSIONS }
+  const KEYS = Object.keys(DEFAULT_USER_PERMISSIONS)
+  const out = {}
+  for (const k of KEYS) {
+    const v = raw[k]
+    if (v === 'none' || v === 'read_only' || v === 'full') {
+      out[k] = v
+    } else if (v === true) {
+      out[k] = 'read_only'
+    } else {
+      out[k] = 'none'
+    }
+  }
+  return out
 }
 
 let isUserPermissionsChecked = false
@@ -33,7 +52,7 @@ async function ensureUsersPermissionsColumnExists() {
   if (isUserPermissionsChecked) return
   try {
     await pool.query(`
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{"dashboard":false,"assets":false,"my_assets":true,"tickets":true,"submissions":false,"users":false,"logs":false,"karyawan":false}'::jsonb;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{"dashboard":"none","assets":"none","my_assets":"read_only","tickets":"read_only","submissions":"none","users":"none","logs":"none","karyawan":"none"}'::jsonb;
     `)
     isUserPermissionsChecked = true
   } catch (err) {
@@ -52,7 +71,7 @@ export async function listUsers(req, res) {
     const isSuper = (user.role || '').trim().toLowerCase().includes('admin')
     user.permissions = isSuper
       ? SUPERADMIN_PERMISSIONS
-      : (typeof user.permissions === 'object' && user.permissions !== null ? user.permissions : DEFAULT_USER_PERMISSIONS)
+      : normaliseLegacyPermissions(user.permissions)
     return user
   })
   res.json(rows)
@@ -75,7 +94,7 @@ export async function storeUser(req, res) {
   const isSuper = newRole === 'superadmin' || newRole === 'super admin'
   const userPermissions = isSuper
     ? SUPERADMIN_PERMISSIONS
-    : (typeof permissions === 'object' && permissions !== null ? permissions : DEFAULT_USER_PERMISSIONS)
+    : normaliseLegacyPermissions(permissions)
 
   const result = await pool.query(
     `INSERT INTO users (nama, email, password, role, permissions, is_active)
@@ -127,7 +146,7 @@ export async function replaceUser(req, res) {
   const isSuper = (role || oldUser.role).trim().toLowerCase().includes('admin')
   const userPermissions = isSuper
     ? SUPERADMIN_PERMISSIONS
-    : (typeof permissions === 'object' && permissions !== null ? permissions : (oldUser.permissions || DEFAULT_USER_PERMISSIONS))
+    : normaliseLegacyPermissions(permissions || oldUser.permissions)
 
   let result
   if (password && String(password).trim() !== '') {

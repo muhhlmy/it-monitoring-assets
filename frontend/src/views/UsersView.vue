@@ -42,26 +42,39 @@ const ALL_FEATURES = [
 ]
 
 const defaultPermissions = () => ({
-  dashboard: false,
-  assets: false,
-  my_assets: true,
-  tickets: true,
-  submissions: false,
-  users: false,
-  logs: false,
-  karyawan: false
+  dashboard: 'none',
+  assets: 'none',
+  my_assets: 'read_only',
+  tickets: 'read_only',
+  submissions: 'none',
+  users: 'none',
+  logs: 'none',
+  karyawan: 'none'
 })
 
 const superadminPermissions = () => ({
-  dashboard: true,
-  assets: true,
-  my_assets: true,
-  tickets: true,
-  submissions: true,
-  users: true,
-  logs: true,
-  karyawan: true
+  dashboard: 'full',
+  assets: 'full',
+  my_assets: 'full',
+  tickets: 'full',
+  submissions: 'full',
+  users: 'full',
+  logs: 'full',
+  karyawan: 'full'
 })
+
+// Permission levels & labels
+const PERMISSION_LEVELS = [
+  { value: 'none', label: 'Tidak Ada', shortLabel: 'None', color: 'none' },
+  { value: 'read_only', label: 'Lihat Saja', shortLabel: 'Read Only', color: 'blue' },
+  { value: 'full', label: 'CRUD Penuh', shortLabel: 'Full', color: 'green' },
+]
+
+function getLevelColor(level) {
+  if (level === 'full') return 'full'
+  if (level === 'read_only') return 'read'
+  return 'none'
+}
 
 // ── Form Data ────────────────────────────────────────────────
 const emptyForm = () => ({
@@ -83,7 +96,7 @@ const availableRoleOptions = computed(() => {
 
 function selectAllPermissions(val) {
   ALL_FEATURES.forEach(f => {
-    form.value.permissions[f.key] = val
+    form.value.permissions[f.key] = val // val: 'none' | 'read_only' | 'full'
   })
 }
 
@@ -99,13 +112,19 @@ function handleRoleChange() {
 function getPermissionBadge(u) {
   const isSuper = (u.role || '').trim().toLowerCase().includes('admin')
   if (isSuper) {
-    return { text: '8/8 Fitur (Superadmin)', type: 'primary' }
+    return { text: '8/8 Akses Penuh', type: 'primary' }
   }
   const perms = u.permissions || {}
-  const grantedCount = Object.values(perms).filter(Boolean).length
+  const fullCount = Object.values(perms).filter(v => v === 'full').length
+  const readCount = Object.values(perms).filter(v => v === 'read_only').length
+  const totalGranted = fullCount + readCount
+  if (totalGranted === 0) return { text: 'Tidak Ada Akses', type: 'default' }
+  const parts = []
+  if (fullCount > 0) parts.push(`${fullCount} Full`)
+  if (readCount > 0) parts.push(`${readCount} Read`)
   return {
-    text: `${grantedCount}/8 Fitur`,
-    type: grantedCount > 4 ? 'success' : grantedCount > 0 ? 'info' : 'default'
+    text: parts.join(', '),
+    type: fullCount > 0 ? 'success' : 'info'
   }
 }
 
@@ -151,7 +170,22 @@ function openEdit(u) {
   const isSuper = (u.role || '').trim().toLowerCase().includes('admin')
   const initialPerms = isSuper
     ? superadminPermissions()
-    : { ...defaultPermissions(), ...(u.permissions || {}) }
+    : (() => {
+        const base = defaultPermissions()
+        const saved = u.permissions || {}
+        // Normalise legacy boolean values
+        for (const k of Object.keys(base)) {
+          const v = saved[k]
+          if (v === 'none' || v === 'read_only' || v === 'full') {
+            base[k] = v
+          } else if (v === true) {
+            base[k] = 'read_only'
+          } else if (v === false) {
+            base[k] = 'none'
+          }
+        }
+        return base
+      })()
 
   form.value = {
     nama: u.nama || '',
@@ -210,6 +244,15 @@ async function saveUser() {
   try {
     const isSuper = role.toLowerCase().includes('admin')
     const payloadPermissions = isSuper ? superadminPermissions() : form.value.permissions
+    // Ensure all keys have valid level values
+    if (!isSuper) {
+      for (const k of Object.keys(payloadPermissions)) {
+        const v = payloadPermissions[k]
+        if (v !== 'none' && v !== 'read_only' && v !== 'full') {
+          payloadPermissions[k] = v ? 'read_only' : 'none'
+        }
+      }
+    }
 
     if (modalMode.value === 'add') {
       await post('/api/users', { nama, email, password: form.value.password, role, permissions: payloadPermissions })
@@ -538,16 +581,34 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
 
         <!-- Granular RBAC Permissions Section -->
         <div class="flex flex-col gap-2 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
             <div>
-              <span class="block text-[11px] font-bold uppercase tracking-wide text-[#374151]">Hak Akses Fitur (Granular Permissions)</span>
-              <span class="block text-[10px] text-[#6B7280]">Pilih fitur yang diizinkan untuk diakses oleh akun ini.</span>
+              <span class="block text-[11px] font-bold uppercase tracking-wide text-[#374151]">Hak Akses Fitur (Granular)</span>
+              <span class="block text-[10px] text-[#6B7280]">Atur level akses per fitur: None · Read Only · Full CRUD</span>
             </div>
             
-            <div v-if="form.role !== 'superadmin'" class="flex items-center gap-2">
-              <button type="button" @click="selectAllPermissions(true)" class="text-[10px] font-bold text-[#5D87FF] hover:underline cursor-pointer">Pilih Semua</button>
+            <div v-if="form.role !== 'superadmin'" class="flex items-center gap-1.5">
+              <button type="button" @click="selectAllPermissions('full')" class="text-[10px] font-bold text-[#22C55E] hover:underline cursor-pointer">Semua Full</button>
               <span class="text-[10px] text-[#CBD5E1]">|</span>
-              <button type="button" @click="selectAllPermissions(false)" class="text-[10px] font-bold text-[#FA896B] hover:underline cursor-pointer">Kosongkan</button>
+              <button type="button" @click="selectAllPermissions('read_only')" class="text-[10px] font-bold text-[#5D87FF] hover:underline cursor-pointer">Semua Read</button>
+              <span class="text-[10px] text-[#CBD5E1]">|</span>
+              <button type="button" @click="selectAllPermissions('none')" class="text-[10px] font-bold text-[#FA896B] hover:underline cursor-pointer">Kosongkan</button>
+            </div>
+          </div>
+
+          <!-- Legend -->
+          <div v-if="form.role !== 'superadmin'" class="flex items-center gap-3 flex-wrap">
+            <div class="flex items-center gap-1">
+              <span class="inline-block w-2 h-2 rounded-full bg-[#374151]"></span>
+              <span class="text-[9px] font-semibold text-[#6B7280] uppercase tracking-wide">None — Tidak bisa akses</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="inline-block w-2 h-2 rounded-full bg-[#5D87FF]"></span>
+              <span class="text-[9px] font-semibold text-[#6B7280] uppercase tracking-wide">Read Only — Hanya lihat data</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="inline-block w-2 h-2 rounded-full bg-[#22C55E]"></span>
+              <span class="text-[9px] font-semibold text-[#6B7280] uppercase tracking-wide">Full — Create, Read, Update, Delete</span>
             </div>
           </div>
 
@@ -557,19 +618,27 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
             <span>Superadmin memiliki akses penuh ke seluruh 8 fitur sistem secara otomatis.</span>
           </div>
 
-          <!-- 8 Feature Toggle Switches Grid -->
-          <div v-else class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 mt-1">
+          <!-- 8 Feature Granular Access Level Grid -->
+          <div v-else class="flex flex-col gap-2.5 mt-1">
             <div
               v-for="f in ALL_FEATURES"
               :key="f.key"
-              @click="form.permissions[f.key] = !form.permissions[f.key]"
-              class="flex items-center justify-between rounded-xl border p-3 transition-all cursor-pointer select-none"
-              :class="form.permissions[f.key] ? 'border-[#5D87FF] bg-white shadow-xs' : 'border-[#E5E7EB] bg-white/60 opacity-70 hover:opacity-100'"
+              class="flex items-center justify-between gap-3 rounded-xl border bg-white p-3 transition-all"
+              :class="
+                form.permissions[f.key] === 'full' ? 'border-[#22C55E] shadow-[0_0_0_1px_#22C55E20]' :
+                form.permissions[f.key] === 'read_only' ? 'border-[#5D87FF] shadow-[0_0_0_1px_#5D87FF20]' :
+                'border-[#E5E7EB] opacity-60 hover:opacity-80'
+              "
             >
-              <div class="flex items-center gap-2.5 min-w-0">
+              <!-- Feature info -->
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
                 <div
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                  :class="form.permissions[f.key] ? 'bg-[#ECF2FF] text-[#5D87FF]' : 'bg-[#F1F5F9] text-[#94A3B8]'"
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+                  :class="
+                    form.permissions[f.key] === 'full' ? 'bg-[#DCFCE7] text-[#16A34A]' :
+                    form.permissions[f.key] === 'read_only' ? 'bg-[#ECF2FF] text-[#5D87FF]' :
+                    'bg-[#F1F5F9] text-[#94A3B8]'
+                  "
                 >
                   <span class="material-symbols-outlined text-[18px]">{{ f.icon }}</span>
                 </div>
@@ -579,15 +648,25 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
                 </div>
               </div>
 
-              <!-- Custom Toggle Switch Indicator -->
-              <div
-                class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out"
-                :class="form.permissions[f.key] ? 'bg-[#5D87FF]' : 'bg-[#CBD5E1]'"
-              >
-                <span
-                  class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out"
-                  :class="form.permissions[f.key] ? 'translate-x-4' : 'translate-x-0'"
-                ></span>
+              <!-- Level selector pills -->
+              <div class="flex items-center shrink-0 rounded-lg overflow-hidden border border-[#E5E7EB] bg-[#F8FAFC]">
+                <button
+                  v-for="lvl in PERMISSION_LEVELS"
+                  :key="lvl.value"
+                  type="button"
+                  @click="form.permissions[f.key] = lvl.value"
+                  :title="lvl.label"
+                  class="relative px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide transition-all leading-none select-none"
+                  :class="
+                    form.permissions[f.key] === lvl.value
+                      ? (
+                          lvl.value === 'full' ? 'bg-[#22C55E] text-white shadow-inner' :
+                          lvl.value === 'read_only' ? 'bg-[#5D87FF] text-white shadow-inner' :
+                          'bg-[#374151] text-white shadow-inner'
+                        )
+                      : 'text-[#9CA3AF] hover:text-[#374151] hover:bg-[#F1F5F9]'
+                  "
+                >{{ lvl.shortLabel }}</button>
               </div>
             </div>
           </div>
