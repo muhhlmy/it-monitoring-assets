@@ -76,10 +76,13 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(150) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'user',
+    permissions JSONB DEFAULT '{"dashboard":false,"assets":false,"my_assets":true,"tickets":true,"submissions":false,"users":false,"logs":false,"karyawan":false}'::jsonb,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     dibuat_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     diperbarui_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{"dashboard":false,"assets":false,"my_assets":true,"tickets":true,"submissions":false,"users":false,"logs":false,"karyawan":false}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS log_riwayat_aset (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

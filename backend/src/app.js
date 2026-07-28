@@ -28,7 +28,8 @@ function checkCorsOrigin(origin, callback) {
 }
 
 app.use(cors({ origin: checkCorsOrigin }));
-app.use(express.json({ limit: "100kb" }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use(router);
 
 function handleNotFound(req, res) {

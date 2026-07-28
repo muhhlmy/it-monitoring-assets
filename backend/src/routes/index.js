@@ -23,4 +23,3 @@ const requireAdmin = authorizeRoles('admin', 'super admin', 'superadmin')
 router.use('/api/karyawan', authenticateToken, requireAdmin, employeeRouter)
 router.use('/api/users', authenticateToken, requireAdmin, userRouter)
 router.use('/api/logs', authenticateToken, requireAdmin, logRouter)
-

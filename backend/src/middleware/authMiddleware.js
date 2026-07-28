@@ -38,3 +38,22 @@ export function authorizeRoles(...allowedRoles) {
     }
   };
 }
+
+export function authorizePermission(featureKey) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Akses ditolak.' });
+    }
+
+    const userRole = (req.user.role || '').trim().toLowerCase();
+    if (userRole === 'super admin' || userRole === 'superadmin') {
+      return next();
+    }
+
+    if (req.user.permissions && req.user.permissions[featureKey] === true) {
+      return next();
+    }
+
+    return res.status(403).json({ message: `Anda tidak memiliki hak akses ke fitur '${featureKey}'.` });
+  };
+}

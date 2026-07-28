@@ -25,46 +25,46 @@ const routes = [
     meta: { title: 'Masuk' },
   },
   {
-    path: '/',               // URL yang diakses
-    name: 'dashboard',       // nama route (opsional, untuk referensi)
-    component: DashboardView, // komponen yang ditampilkan
-    meta: { title: 'Dashboard' },
+    path: '/',
+    name: 'dashboard',
+    component: DashboardView,
+    meta: { title: 'Dashboard', permission: 'dashboard' },
   },
   {
     path: '/assets',
     name: 'assets',
     component: AssetsView,
-    meta: { title: 'Manajemen Aset' },
+    meta: { title: 'Manajemen Aset', permission: 'assets' },
   },
   {
     path: '/my-assets',
     name: 'my-assets',
     component: MyAssetsView,
-    meta: { title: 'Aset Karyawan' },
+    meta: { title: 'Aset Karyawan', permission: 'my_assets' },
   },
   {
     path: '/tickets',
     name: 'tickets',
     component: TicketsView,
-    meta: { title: 'Tiket Kendala IT' },
+    meta: { title: 'Tiket Kendala IT', permission: 'tickets' },
   },
   {
     path: '/users',
     name: 'users',
     component: UsersView,
-    meta: { title: 'Manajemen Pengguna' },
+    meta: { title: 'Manajemen Pengguna', permission: 'users' },
   },
   {
     path: '/submissions',
     name: 'submissions',
     component: SubmissionsView,
-    meta: { title: 'Pengajuan Serah Terima' },
+    meta: { title: 'Pengajuan Serah Terima', permission: 'submissions' },
   },
   {
     path: '/logs',
     name: 'logs',
     component: LogsView,
-    meta: { title: 'Log Aktivitas' },
+    meta: { title: 'Log Aktivitas', permission: 'logs' },
   },
   {
     path: '/:pathMatch(.*)*',
@@ -88,16 +88,38 @@ router.beforeEach((to, from, next) => {
     return next({ name: 'login' })
   }
 
-  // Jika sudah login tapi akses ke /login, arahkan ke halaman utama
-  if (to.name === 'login' && token) {
-    if (user?.role === 'user') return next({ name: 'my-assets' })
-    return next({ name: 'dashboard' })
+  const userRole = (user?.role || '').trim().toLowerCase()
+  const isSuper = userRole === 'superadmin' || userRole === 'super admin'
+  const userPerms = user?.permissions || {}
+
+  const canAccess = (key) => {
+    if (!key) return true
+    if (isSuper) return true
+    return !!userPerms[key]
   }
 
-  // Jika role adalah 'user', hanya boleh akses /my-assets
-  if (token && user?.role === 'user') {
-    if (to.name !== 'my-assets') {
-      return next({ name: 'my-assets' })
+  // Jika sudah login tapi akses ke /login, arahkan ke halaman utama yang punya izin
+  if (to.name === 'login' && token) {
+    if (canAccess('dashboard')) return next({ name: 'dashboard' })
+    if (canAccess('my_assets')) return next({ name: 'my-assets' })
+    return next({ name: 'tickets' })
+  }
+
+  // Evaluasi Hak Akses Granular RBAC
+  if (to.meta.permission && !canAccess(to.meta.permission)) {
+    const allowedRouteMap = [
+      { key: 'my_assets', name: 'my-assets' },
+      { key: 'tickets', name: 'tickets' },
+      { key: 'dashboard', name: 'dashboard' },
+      { key: 'assets', name: 'assets' },
+      { key: 'submissions', name: 'submissions' },
+      { key: 'logs', name: 'logs' },
+      { key: 'users', name: 'users' },
+    ]
+
+    const firstAllowed = allowedRouteMap.find(r => canAccess(r.key))
+    if (firstAllowed && firstAllowed.name !== to.name) {
+      return next({ name: firstAllowed.name })
     }
   }
 

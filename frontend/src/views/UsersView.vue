@@ -30,23 +30,84 @@ const modalMode       = ref('add')  // 'add' | 'edit'
 const isSubmitting    = ref(false)
 const selectedUser    = ref(null)
 
+const ALL_FEATURES = [
+  { key: 'dashboard', label: 'Dashboard Overview', icon: 'grid_view', desc: 'Ringkasan sistem & statistik' },
+  { key: 'assets', label: 'Manajemen Aset IT', icon: 'devices', desc: 'Inventaris & pengolahan data aset' },
+  { key: 'my_assets', label: 'Aset Saya / Karyawan', icon: 'badge', desc: 'Daftar aset per karyawan' },
+  { key: 'tickets', label: 'Tiket Kendala IT', icon: 'confirmation_number', desc: 'Pengajuan & riwayat tiket kendala' },
+  { key: 'submissions', label: 'Pengajuan Serah Terima', icon: 'assignment', desc: 'Form serah terima unit' },
+  { key: 'users', label: 'Manajemen Pengguna', icon: 'group', desc: 'Pengaturan akun & hak akses RBAC' },
+  { key: 'logs', label: 'Audit Log Aktivitas', icon: 'receipt_long', desc: 'Riwayat audit login & aset' },
+  { key: 'karyawan', label: 'Master Data Karyawan', icon: 'person_search', desc: 'Integrasi data karyawan' }
+]
+
+const defaultPermissions = () => ({
+  dashboard: false,
+  assets: false,
+  my_assets: true,
+  tickets: true,
+  submissions: false,
+  users: false,
+  logs: false,
+  karyawan: false
+})
+
+const superadminPermissions = () => ({
+  dashboard: true,
+  assets: true,
+  my_assets: true,
+  tickets: true,
+  submissions: true,
+  users: true,
+  logs: true,
+  karyawan: true
+})
+
 // ── Form Data ────────────────────────────────────────────────
 const emptyForm = () => ({
-  nama:          '',
-  email:         '',
-  password:      '',
-  role:          'user',
-  is_active:     true,
+  nama: '',
+  email: '',
+  password: '',
+  role: 'user',
+  permissions: defaultPermissions(),
+  is_active: true,
 })
 const form = ref(emptyForm())
 
 // ── Options ──────────────────────────────────────────────────
-const roleOptions = ['superadmin', 'admin', 'teknisi', 'user']
+const roleOptions = ['superadmin', 'user']
 const availableRoleOptions = computed(() => {
-  // Admin tidak bisa membuat superadmin
   const options = isSuperAdmin.value ? roleOptions : roleOptions.filter(r => r !== 'superadmin')
   return [...new Set([form.value.role, ...options, ...users.value.map((user) => user.role)].filter(Boolean))]
 })
+
+function selectAllPermissions(val) {
+  ALL_FEATURES.forEach(f => {
+    form.value.permissions[f.key] = val
+  })
+}
+
+function handleRoleChange() {
+  const isSuper = (form.value.role || '').trim().toLowerCase().includes('admin')
+  if (isSuper) {
+    form.value.permissions = superadminPermissions()
+  } else {
+    form.value.permissions = defaultPermissions()
+  }
+}
+
+function getPermissionBadge(u) {
+  const isSuper = (u.role || '').trim().toLowerCase().includes('admin')
+  if (isSuper) {
+    return { text: '8/8 Fitur (Superadmin)', type: 'primary' }
+  }
+  const perms = u.permissions || {}
+  const grantedCount = Object.values(perms).filter(Boolean).length
+  return {
+    text: `${grantedCount}/8 Fitur`,
+    type: grantedCount > 4 ? 'success' : grantedCount > 0 ? 'info' : 'default'
+  }
+}
 
 // ── Filter Logic ─────────────────────────────────────────────
 const filteredUsers = computed(() => {
@@ -84,15 +145,21 @@ function openAdd() {
   showFormModal.value = true
 }
 
-function openEdit(user) {
+function openEdit(u) {
   modalMode.value     = 'edit'
-  selectedUser.value  = user
+  selectedUser.value  = u
+  const isSuper = (u.role || '').trim().toLowerCase().includes('admin')
+  const initialPerms = isSuper
+    ? superadminPermissions()
+    : { ...defaultPermissions(), ...(u.permissions || {}) }
+
   form.value = {
-    nama: user.nama || '',
-    email: user.email || '',
+    nama: u.nama || '',
+    email: u.email || '',
     password: '',
-    role: user.role || 'user',
-    is_active: user.is_active !== false,
+    role: u.role || 'user',
+    permissions: initialPerms,
+    is_active: u.is_active !== false,
   }
   modalError.value = ''
   showFormModal.value = true
@@ -141,19 +208,23 @@ async function saveUser() {
   }
 
   try {
+    const isSuper = role.toLowerCase().includes('admin')
+    const payloadPermissions = isSuper ? superadminPermissions() : form.value.permissions
+
     if (modalMode.value === 'add') {
-      await post('/api/users', { nama, email, password: form.value.password, role })
+      await post('/api/users', { nama, email, password: form.value.password, role, permissions: payloadPermissions })
       toast('Pengguna baru berhasil ditambahkan!')
     } else {
-      const updatePayload = { nama, email, role, is_active: form.value.is_active }
+      const updatePayload = { nama, email, role, permissions: payloadPermissions, is_active: form.value.is_active }
       if (form.value.password) updatePayload.password = form.value.password
       await put(`/api/users/${selectedUser.value.id}`, updatePayload)
-      toast('Data pengguna berhasil diperbarui!')
+      toast('Data pengguna & hak akses berhasil diperbarui!')
     }
     closeModal()
     await fetchUsers()
   } catch (e) {
-    modalError.value = e.message || 'Terjadi kesalahan saat menyimpan.'
+    modalError.value = e.message || 'Gagal menyimpan data pengguna.'
+    console.error(e)
   } finally {
     isSubmitting.value = false
   }
@@ -313,6 +384,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Pengguna</th>
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Email</th>
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Role Akses</th>
+              <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Hak Akses Fitur</th>
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Status</th>
               <th class="px-5 py-3 text-right text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Aksi</th>
             </tr>
@@ -348,6 +420,11 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
                 <AppBadge :type="getRoleBadgeType(user.role)" :text="(user.role || 'user').toUpperCase()" />
               </td>
 
+              <!-- Hak Akses Fitur Count Badge -->
+              <td class="px-5 py-3">
+                <AppBadge :type="getPermissionBadge(user).type" :text="getPermissionBadge(user).text" />
+              </td>
+
               <!-- Status Akun -->
               <td class="px-5 py-3">
                 <AppBadge
@@ -364,7 +441,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
                     @click="openEdit(user)"
                     :aria-label="`Edit ${user.nama || 'pengguna'}`"
                     class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#E8F7FF] text-[#49BEFF] hover:bg-[#49BEFF] hover:text-white transition-all"
-                    title="Edit"
+                    title="Edit Hak Akses"
                   >
                     <span aria-hidden="true" class="material-symbols-outlined text-[16px]">edit</span>
                   </button>
@@ -383,7 +460,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
 
             <!-- Empty state -->
             <tr v-if="filteredUsers.length === 0">
-              <td colspan="5" class="px-5 py-12 text-center">
+              <td colspan="6" class="px-5 py-12 text-center">
                 <div class="flex flex-col items-center gap-2">
                   <span aria-hidden="true" class="material-symbols-outlined text-[40px] text-[#D1D5DB]">group</span>
                   <p class="text-[13px] text-[#9CA3AF]">Tidak ada pengguna yang sesuai pencarian.</p>
@@ -405,12 +482,12 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
 
 
     <!-- ═══════════════════════════════════════════════════════
-         MODAL FORM — TAMBAH / EDIT USER
+         MODAL FORM — TAMBAH / EDIT USER & RBAC PERMISSIONS
          ═══════════════════════════════════════════════════════ -->
     <AppModal
       :is-open="showFormModal"
-      :title="modalMode === 'add' ? 'Tambah Pengguna Baru' : 'Edit Pengguna'"
-      size="sm"
+      :title="modalMode === 'add' ? 'Tambah Pengguna Baru' : 'Edit Pengguna & Hak Akses'"
+      size="lg"
       @close="requestCloseModal"
     >
       <form @submit.prevent="saveUser" class="flex flex-col gap-4">
@@ -421,45 +498,103 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
           {{ modalError }}
         </div>
 
-        <!-- Nama -->
-        <div class="flex flex-col gap-1.5">
-          <label for="user-name" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">Nama Lengkap *</label>
-          <input id="user-name" v-model="form.nama" required autofocus type="text" autocomplete="name"
-            :disabled="modalMode === 'edit' && !isSuperAdmin"
-            class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-            placeholder="Nama lengkap pengguna" />
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <!-- Nama -->
+          <div class="flex flex-col gap-1.5">
+            <label for="user-name" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">Nama Lengkap *</label>
+            <input id="user-name" v-model="form.nama" required autofocus type="text" autocomplete="name"
+              :disabled="modalMode === 'edit' && !isSuperAdmin"
+              class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              placeholder="Nama lengkap pengguna" />
+          </div>
+
+          <!-- Email -->
+          <div class="flex flex-col gap-1.5">
+            <label for="user-email" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">Email *</label>
+            <input id="user-email" v-model="form.email" required type="email" autocomplete="email"
+              :disabled="modalMode === 'edit' && !isSuperAdmin"
+              class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              placeholder="email@perusahaan.com" />
+          </div>
+
+          <!-- Password -->
+          <div class="flex flex-col gap-1.5">
+            <label for="user-password" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">{{ modalMode === 'add' ? 'Password *' : 'Password Baru' }}</label>
+            <input id="user-password" v-model="form.password" :required="modalMode === 'add'" minlength="8" type="password" autocomplete="new-password"
+              class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
+              :placeholder="modalMode === 'add' ? 'Password login' : 'Kosongkan jika tidak ingin mengubah'" />
+          </div>
+
+          <!-- Role -->
+          <div class="flex flex-col gap-1.5">
+            <label for="user-role" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">Role Akses *</label>
+            <select id="user-role" v-model="form.role" @change="handleRoleChange" required
+              :disabled="modalMode === 'edit' && !isSuperAdmin"
+              class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+              <option v-for="r in availableRoleOptions" :key="r" :value="r">{{ r.toUpperCase() }}</option>
+            </select>
+          </div>
         </div>
 
-        <!-- Email -->
-        <div class="flex flex-col gap-1.5">
-          <label for="user-email" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">Email *</label>
-          <input id="user-email" v-model="form.email" required type="email" autocomplete="email"
-            :disabled="modalMode === 'edit' && !isSuperAdmin"
-            class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-            placeholder="email@perusahaan.com" />
-        </div>
+        <!-- Granular RBAC Permissions Section -->
+        <div class="flex flex-col gap-2 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="block text-[11px] font-bold uppercase tracking-wide text-[#374151]">Hak Akses Fitur (Granular Permissions)</span>
+              <span class="block text-[10px] text-[#6B7280]">Pilih fitur yang diizinkan untuk diakses oleh akun ini.</span>
+            </div>
+            
+            <div v-if="form.role !== 'superadmin'" class="flex items-center gap-2">
+              <button type="button" @click="selectAllPermissions(true)" class="text-[10px] font-bold text-[#5D87FF] hover:underline cursor-pointer">Pilih Semua</button>
+              <span class="text-[10px] text-[#CBD5E1]">|</span>
+              <button type="button" @click="selectAllPermissions(false)" class="text-[10px] font-bold text-[#FA896B] hover:underline cursor-pointer">Kosongkan</button>
+            </div>
+          </div>
 
-        <!-- Password -->
-        <div class="flex flex-col gap-1.5">
-          <label for="user-password" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">{{ modalMode === 'add' ? 'Password *' : 'Password Baru' }}</label>
-          <input id="user-password" v-model="form.password" :required="modalMode === 'add'" minlength="8" type="password" autocomplete="new-password"
-            class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
-            :placeholder="modalMode === 'add' ? 'Password login' : 'Kosongkan jika tidak ingin mengubah'" />
-          <span v-if="modalMode === 'edit'" class="text-[10px] text-[#6B7280]">Isi field ini hanya jika ingin mengubah password. Minimal 8 karakter.</span>
-        </div>
+          <!-- Superadmin Notice -->
+          <div v-if="form.role === 'superadmin'" class="rounded-xl bg-[#ECF2FF] p-3 text-[11px] font-semibold text-[#5D87FF] flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px]">verified_user</span>
+            <span>Superadmin memiliki akses penuh ke seluruh 8 fitur sistem secara otomatis.</span>
+          </div>
 
-        <!-- Role -->
-        <div class="flex flex-col gap-1.5">
-          <label for="user-role" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">Role Akses *</label>
-          <select id="user-role" v-model="form.role" required
-            :disabled="modalMode === 'edit' && !isSuperAdmin"
-            class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand transition-all disabled:opacity-60 disabled:cursor-not-allowed">
-            <option v-for="r in availableRoleOptions" :key="r" :value="r">{{ r.toUpperCase() }}</option>
-          </select>
+          <!-- 8 Feature Toggle Switches Grid -->
+          <div v-else class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 mt-1">
+            <div
+              v-for="f in ALL_FEATURES"
+              :key="f.key"
+              @click="form.permissions[f.key] = !form.permissions[f.key]"
+              class="flex items-center justify-between rounded-xl border p-3 transition-all cursor-pointer select-none"
+              :class="form.permissions[f.key] ? 'border-[#5D87FF] bg-white shadow-xs' : 'border-[#E5E7EB] bg-white/60 opacity-70 hover:opacity-100'"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                  :class="form.permissions[f.key] ? 'bg-[#ECF2FF] text-[#5D87FF]' : 'bg-[#F1F5F9] text-[#94A3B8]'"
+                >
+                  <span class="material-symbols-outlined text-[18px]">{{ f.icon }}</span>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[12px] font-bold text-[#2A3547] truncate">{{ f.label }}</p>
+                  <p class="text-[10px] text-[#7C8BAC] truncate">{{ f.desc }}</p>
+                </div>
+              </div>
+
+              <!-- Custom Toggle Switch Indicator -->
+              <div
+                class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out"
+                :class="form.permissions[f.key] ? 'bg-[#5D87FF]' : 'bg-[#CBD5E1]'"
+              >
+                <span
+                  class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out"
+                  :class="form.permissions[f.key] ? 'translate-x-4' : 'translate-x-0'"
+                ></span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Status akun saat edit -->
-        <label v-if="modalMode === 'edit' && isSuperAdmin && !isRoleSuperAdmin(selectedUser?.role)" class="flex items-center justify-between gap-4 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2.5">
+        <label v-if="modalMode === 'edit' && isSuperAdmin && !isRoleSuperAdmin(selectedUser?.role)" class="flex items-center justify-between gap-4 rounded-lg border border-[#E5E7EB] bg-[#F9FAFC] px-3 py-2.5">
           <span>
             <span class="block text-[11px] font-bold uppercase tracking-wide text-[#374151]">Status Akun</span>
             <span class="block text-[10px] text-[#6B7280]">Pengguna nonaktif tidak dihitung sebagai akun aktif.</span>

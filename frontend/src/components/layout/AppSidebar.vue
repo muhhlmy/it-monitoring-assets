@@ -12,7 +12,7 @@ const sidebarRef = ref(null)
 const closeButtonRef = ref(null)
 let previouslyFocusedElement = null
 
-const { user, isUser, logout } = useAuth()
+const { user, isSuperAdmin, logout, hasPermission } = useAuth()
 
 const menuGroups = computed(() => {
   const groups = [
@@ -24,7 +24,7 @@ const menuGroups = computed(() => {
           label: 'Dashboard',
           icon: 'grid_view',
           caption: 'Ringkasan sistem',
-          requireAdmin: true,
+          permission: 'dashboard',
           badge: 'New',
         },
       ],
@@ -37,14 +37,14 @@ const menuGroups = computed(() => {
           label: 'Aset IT',
           icon: 'devices',
           caption: 'Inventaris perangkat',
-          requireAdmin: true,
+          permission: 'assets',
         },
         {
           to: '/my-assets',
           label: 'Aset Karyawan',
           icon: 'badge',
           caption: 'Aset per karyawan',
-          requireAdmin: false,
+          permission: 'my_assets',
         },
       ],
     },
@@ -56,7 +56,7 @@ const menuGroups = computed(() => {
           label: 'Tiket IT',
           icon: 'confirmation_number',
           caption: 'Kendala & Laporan IT',
-          requireAdmin: true,
+          permission: 'tickets',
           badge: 'New',
         },
         {
@@ -64,7 +64,7 @@ const menuGroups = computed(() => {
           label: 'Pengajuan',
           icon: 'assignment',
           caption: 'Serah terima aset',
-          requireAdmin: true,
+          permission: 'submissions',
         },
       ],
     },
@@ -76,14 +76,14 @@ const menuGroups = computed(() => {
           label: 'Pengguna',
           icon: 'group',
           caption: 'Akses pengguna',
-          requireAdmin: true,
+          permission: 'users',
         },
         {
           to: '/logs',
           label: 'Log Aktivitas',
           icon: 'receipt_long',
           caption: 'Riwayat & audit log',
-          requireAdmin: true,
+          permission: 'logs',
         },
       ],
     },
@@ -92,7 +92,7 @@ const menuGroups = computed(() => {
   return groups
     .map((g) => ({
       ...g,
-      items: g.items.filter((item) => !isUser.value || !item.requireAdmin),
+      items: g.items.filter((item) => hasPermission(item.permission)),
     }))
     .filter((g) => g.items.length > 0)
 })

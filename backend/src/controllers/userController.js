@@ -6,37 +6,87 @@ function createHttpError(statusCode, message) {
   return error
 }
 
+const SUPERADMIN_PERMISSIONS = {
+  dashboard: true,
+  assets: true,
+  my_assets: true,
+  tickets: true,
+  submissions: true,
+  users: true,
+  logs: true,
+  karyawan: true
+}
+
+const DEFAULT_USER_PERMISSIONS = {
+  dashboard: false,
+  assets: false,
+  my_assets: true,
+  tickets: true,
+  submissions: false,
+  users: false,
+  logs: false,
+  karyawan: false
+}
+
+let isUserPermissionsChecked = false
+async function ensureUsersPermissionsColumnExists() {
+  if (isUserPermissionsChecked) return
+  try {
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{"dashboard":false,"assets":false,"my_assets":true,"tickets":true,"submissions":false,"users":false,"logs":false,"karyawan":false}'::jsonb;
+    `)
+    isUserPermissionsChecked = true
+  } catch (err) {
+    console.error('Gagal memastikan kolom permissions pada tabel users:', err)
+  }
+}
+
 export async function listUsers(req, res) {
+  await ensureUsersPermissionsColumnExists()
   const result = await pool.query(
-    `SELECT id, nama, email, role, is_active, dibuat_pada, diperbarui_pada
+    `SELECT id, nama, email, role, permissions, is_active, dibuat_pada, diperbarui_pada
        FROM users
       ORDER BY id DESC`
   )
-  res.json(result.rows)
+  const rows = result.rows.map(user => {
+    const isSuper = (user.role || '').trim().toLowerCase().includes('admin')
+    user.permissions = isSuper
+      ? SUPERADMIN_PERMISSIONS
+      : (typeof user.permissions === 'object' && user.permissions !== null ? user.permissions : DEFAULT_USER_PERMISSIONS)
+    return user
+  })
+  res.json(rows)
 }
 
 export async function storeUser(req, res) {
-  const { nama, email, password, role } = req.body
+  await ensureUsersPermissionsColumnExists()
+  const { nama, email, password, role, permissions } = req.body
   const currentUserRole = req.user.role ? req.user.role.trim().toLowerCase() : ''
   const newRole = (role || 'user').trim().toLowerCase()
 
-  if (currentUserRole === 'admin' && (newRole === 'superadmin' || newRole === 'super admin')) {
-    throw createHttpError(403, 'Admin tidak dapat membuat akun superadmin.')
+  if (currentUserRole !== 'superadmin' && currentUserRole !== 'super admin' && (newRole === 'superadmin' || newRole === 'super admin')) {
+    throw createHttpError(403, 'Hanya superadmin yang dapat membuat akun superadmin.')
   }
 
   if (!nama || !email || !password) {
     throw createHttpError(400, 'Nama, email, dan password wajib diisi.')
   }
 
+  const isSuper = newRole === 'superadmin' || newRole === 'super admin'
+  const userPermissions = isSuper
+    ? SUPERADMIN_PERMISSIONS
+    : (typeof permissions === 'object' && permissions !== null ? permissions : DEFAULT_USER_PERMISSIONS)
+
   const result = await pool.query(
-    `INSERT INTO users (nama, email, password, role, is_active)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, nama, email, role, is_active, dibuat_pada, diperbarui_pada`,
+    `INSERT INTO users (nama, email, password, role, permissions, is_active)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, nama, email, role, permissions, is_active, dibuat_pada, diperbarui_pada`,
     [
       String(nama).trim(),
       String(email).trim().toLowerCase(),
       String(password),
       role || 'user',
+      JSON.stringify(userPermissions),
       true
     ]
   )
@@ -58,45 +108,40 @@ export async function replaceUser(req, res) {
   const oldUser = oldUserResult.rows[0]
   const oldRole = oldUser.role.trim().toLowerCase()
 
-  // Admin tidak bisa edit super admin
-  if (currentUserRole === 'admin' && (oldRole === 'superadmin' || oldRole === 'super admin')) {
-    throw createHttpError(403, 'Admin tidak dapat mengubah akun superadmin.')
+  if (currentUserRole !== 'superadmin' && currentUserRole !== 'super admin' && (oldRole === 'superadmin' || oldRole === 'super admin')) {
+    throw createHttpError(403, 'Hanya superadmin yang dapat mengubah akun superadmin.')
   }
 
-  let { nama, email, password, role, is_active } = req.body
+  let { nama, email, password, role, permissions, is_active } = req.body
 
-  // Admin hanya bisa ganti password
-  if (currentUserRole === 'admin') {
-    nama = oldUser.nama
-    email = oldUser.email
-    role = oldUser.role
-    is_active = oldUser.is_active
-  } else {
-    // Validasi untuk Superadmin
-    if (!nama || !email) {
-      throw createHttpError(400, 'Nama dan email wajib diisi.')
-    }
+  if (!nama || !email) {
+    throw createHttpError(400, 'Nama dan email wajib diisi.')
   }
 
-  // Superadmin account tidak bisa dinonaktifkan
   if (oldRole === 'superadmin' || oldRole === 'super admin' || (role || '').trim().toLowerCase() === 'superadmin') {
     is_active = true
   } else {
     is_active = is_active !== false
   }
 
+  const isSuper = (role || oldUser.role).trim().toLowerCase().includes('admin')
+  const userPermissions = isSuper
+    ? SUPERADMIN_PERMISSIONS
+    : (typeof permissions === 'object' && permissions !== null ? permissions : (oldUser.permissions || DEFAULT_USER_PERMISSIONS))
+
   let result
   if (password && String(password).trim() !== '') {
     result = await pool.query(
       `UPDATE users
-          SET nama = $1, email = $2, password = $3, role = $4, is_active = $5, diperbarui_pada = CURRENT_TIMESTAMP
-        WHERE id = $6
-        RETURNING id, nama, email, role, is_active, dibuat_pada, diperbarui_pada`,
+          SET nama = $1, email = $2, password = $3, role = $4, permissions = $5, is_active = $6, diperbarui_pada = CURRENT_TIMESTAMP
+        WHERE id = $7
+        RETURNING id, nama, email, role, permissions, is_active, dibuat_pada, diperbarui_pada`,
       [
         String(nama).trim(),
         String(email).trim().toLowerCase(),
         String(password),
         role || 'user',
+        JSON.stringify(userPermissions),
         is_active,
         id
       ]
@@ -104,13 +149,14 @@ export async function replaceUser(req, res) {
   } else {
     result = await pool.query(
       `UPDATE users
-          SET nama = $1, email = $2, role = $3, is_active = $4, diperbarui_pada = CURRENT_TIMESTAMP
-        WHERE id = $5
-        RETURNING id, nama, email, role, is_active, dibuat_pada, diperbarui_pada`,
+          SET nama = $1, email = $2, role = $3, permissions = $4, is_active = $5, diperbarui_pada = CURRENT_TIMESTAMP
+        WHERE id = $6
+        RETURNING id, nama, email, role, permissions, is_active, dibuat_pada, diperbarui_pada`,
       [
         String(nama).trim(),
         String(email).trim().toLowerCase(),
         role || 'user',
+        JSON.stringify(userPermissions),
         is_active,
         id
       ]

@@ -46,6 +46,16 @@ export function useAuth() {
     return user.value
   }
 
+  const hasPermission = (featureKey) => {
+    if (!token.value || !user.value) return false
+    if (isSuperAdmin.value) return true
+    if (!featureKey) return true
+    if (user.value.permissions && typeof user.value.permissions === 'object') {
+      return !!user.value.permissions[featureKey]
+    }
+    return false
+  }
+
   return {
     user,
     token,
@@ -53,6 +63,7 @@ export function useAuth() {
     isSuperAdmin,
     isAdmin,
     isUser,
+    hasPermission,
     login,
     logout,
     getProfile
