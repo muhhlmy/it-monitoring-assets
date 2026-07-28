@@ -14,6 +14,7 @@ const { isSuperAdmin } = useAuth()
 
 // ── State Utama ──────────────────────────────────────────────
 const users        = ref([])
+const queues       = ref([])      // Master ticket queues (HR, IT, GA, OPS)
 const isLoading    = ref(true)
 const pageError    = ref('')
 const modalError   = ref('')
@@ -83,12 +84,13 @@ const emptyForm = () => ({
   password: '',
   role: 'user',
   permissions: defaultPermissions(),
+  queue_ids: [],
   is_active: true,
 })
 const form = ref(emptyForm())
 
 // ── Options ──────────────────────────────────────────────────
-const roleOptions = ['superadmin', 'user']
+const roleOptions = ['superadmin', 'admin', 'user']
 const availableRoleOptions = computed(() => {
   const options = isSuperAdmin.value ? roleOptions : roleOptions.filter(r => r !== 'superadmin')
   return [...new Set([form.value.role, ...options, ...users.value.map((user) => user.role)].filter(Boolean))]
@@ -142,6 +144,13 @@ const filteredUsers = computed(() => {
 })
 
 // ── CRUD Functions ───────────────────────────────────────────
+async function fetchQueues() {
+  try {
+    const data = await get('/api/ticket-queues')
+    if (Array.isArray(data)) queues.value = data
+  } catch (_) {}
+}
+
 async function fetchUsers() {
   isLoading.value = true
   pageError.value = ''
@@ -193,6 +202,7 @@ function openEdit(u) {
     password: '',
     role: u.role || 'user',
     permissions: initialPerms,
+    queue_ids: Array.isArray(u.queue_ids) ? [...u.queue_ids] : [],
     is_active: u.is_active !== false,
   }
   modalError.value = ''
@@ -242,26 +252,22 @@ async function saveUser() {
   }
 
   try {
-    const isSuper = role.toLowerCase().includes('admin')
-    const payloadPermissions = isSuper ? superadminPermissions() : form.value.permissions
-    // Ensure all keys have valid level values
-    if (!isSuper) {
-      for (const k of Object.keys(payloadPermissions)) {
-        const v = payloadPermissions[k]
-        if (v !== 'none' && v !== 'read_only' && v !== 'full') {
-          payloadPermissions[k] = v ? 'read_only' : 'none'
-        }
-      }
+    const payload = {
+      nama,
+      email,
+      role,
+      permissions: form.value.permissions,
+      queue_ids: form.value.queue_ids,
+      is_active: form.value.is_active,
     }
+    if (form.value.password) payload.password = form.value.password
 
     if (modalMode.value === 'add') {
-      await post('/api/users', { nama, email, password: form.value.password, role, permissions: payloadPermissions })
-      toast('Pengguna baru berhasil ditambahkan!')
+      await post('/api/users', payload)
+      toast('Pengguna baru berhasil ditambahkan.')
     } else {
-      const updatePayload = { nama, email, role, permissions: payloadPermissions, is_active: form.value.is_active }
-      if (form.value.password) updatePayload.password = form.value.password
-      await put(`/api/users/${selectedUser.value.id}`, updatePayload)
-      toast('Data pengguna & hak akses berhasil diperbarui!')
+      await put(`/api/users/${selectedUser.value.id}`, payload)
+      toast('Data pengguna & hak akses berhasil diperbarui.')
     }
     closeModal()
     await fetchUsers()
@@ -331,7 +337,10 @@ function resetFilters() {
 // Fungsi helper untuk mengecek apakah role adalah superadmin
 const isRoleSuperAdmin = (r) => (r || '').trim().toLowerCase() === 'superadmin' || (r || '').trim().toLowerCase() === 'super admin'
 
-onMounted(fetchUsers)
+onMounted(async () => {
+  await fetchQueues()
+  await fetchUsers()
+})
 onBeforeUnmount(() => window.clearTimeout(toastTimer))
 </script>
 
@@ -427,6 +436,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Pengguna</th>
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Email</th>
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Role Akses</th>
+              <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Unit Tiket (Queue)</th>
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Hak Akses Fitur</th>
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Status</th>
               <th class="px-5 py-3 text-right text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Aksi</th>
@@ -461,6 +471,21 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               <!-- Role Badge -->
               <td class="px-5 py-3">
                 <AppBadge :type="getRoleBadgeType(user.role)" :text="(user.role || 'user').toUpperCase()" />
+              </td>
+
+              <!-- Unit Tiket (Queue) Badge -->
+              <td class="px-5 py-3">
+                <div v-if="isRoleSuperAdmin(user.role)" class="text-[11px] font-bold text-[#5D87FF]">
+                  Semua Unit (Superadmin)
+                </div>
+                <div v-else-if="user.queues && user.queues.length > 0" class="flex flex-wrap gap-1">
+                  <span
+                    v-for="q in user.queues"
+                    :key="q.id"
+                    class="inline-flex items-center rounded-md bg-[#ECF2FF] px-2 py-0.5 text-[10px] font-bold text-[#5D87FF]"
+                  >{{ q.kode }}</span>
+                </div>
+                <span v-else class="text-[11px] text-[#9CA3AF] italic">Tidak ada unit</span>
               </td>
 
               <!-- Hak Akses Fitur Count Badge -->
@@ -573,9 +598,40 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
             <label for="user-role" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">Role Akses *</label>
             <select id="user-role" v-model="form.role" @change="handleRoleChange" required
               :disabled="modalMode === 'edit' && !isSuperAdmin"
-              class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+              class="h-9 bg-[#F9FAFC] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand transition-all disabled:opacity-60 disabled:cursor-not-allowed">
               <option v-for="r in availableRoleOptions" :key="r" :value="r">{{ r.toUpperCase() }}</option>
             </select>
+          </div>
+        </div>
+
+        <!-- Unit Tiket yang Ditangani (Queue Selection - Hanya untuk Admin/Teknisi, hidden untuk role user biasa) -->
+        <div v-if="form.role !== 'user'" class="flex flex-col gap-2 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-4">
+          <div>
+            <span class="block text-[11px] font-bold uppercase tracking-wide text-[#374151]">Unit Tiket yang Ditangani (Queue)</span>
+            <span class="block text-[10px] text-[#6B7280]">Pilih unit mana saja tiketnya yang dapat diakses &amp; ditangani pengguna ini:</span>
+          </div>
+
+          <div v-if="form.role === 'superadmin'" class="text-[11px] font-semibold text-[#5D87FF]">
+            ⚡ Superadmin memiliki akses otomatis ke seluruh unit (HR, IT, GA, OPS).
+          </div>
+          <div v-else class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <label
+              v-for="q in queues"
+              :key="q.id"
+              class="flex items-center gap-2 rounded-xl border bg-white p-3 cursor-pointer transition-all"
+              :class="form.queue_ids.includes(q.id) ? 'border-[#5D87FF] bg-[#ECF2FF]/40 text-[#5D87FF]' : 'border-[#E5E7EB] text-[#374151]'"
+            >
+              <input
+                type="checkbox"
+                :value="q.id"
+                v-model="form.queue_ids"
+                class="h-4 w-4 rounded border-gray-300 text-[#5D87FF] focus:ring-[#5D87FF]"
+              />
+              <div>
+                <p class="text-[12px] font-extrabold leading-tight">{{ q.kode }}</p>
+                <p class="text-[10px] text-[#7C8BAC] leading-tight truncate">{{ q.nama }}</p>
+              </div>
+            </label>
           </div>
         </div>
 

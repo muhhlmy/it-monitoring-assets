@@ -1,4 +1,4 @@
-import { pool } from '../config/database.js'
+﻿import { pool } from '../config/database.js'
 
 function createHttpError(statusCode, message) {
   const error = new Error(message)
@@ -6,7 +6,6 @@ function createHttpError(statusCode, message) {
   return error
 }
 
-// Granular permission levels: 'none' | 'read_only' | 'full'
 const SUPERADMIN_PERMISSIONS = {
   dashboard: 'full',
   assets: 'full',
@@ -29,7 +28,6 @@ const DEFAULT_USER_PERMISSIONS = {
   karyawan: 'none'
 }
 
-// Normalise old boolean-based permissions to the new level system
 function normaliseLegacyPermissions(raw) {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_USER_PERMISSIONS }
   const KEYS = Object.keys(DEFAULT_USER_PERMISSIONS)
@@ -60,18 +58,44 @@ async function ensureUsersPermissionsColumnExists() {
   }
 }
 
+// Helper untuk sync mapping user_ticket_queues
+async function syncUserQueues(userId, queueIds) {
+  if (!Array.isArray(queueIds)) return
+  await pool.query('DELETE FROM user_ticket_queues WHERE user_id = $1', [userId])
+  for (const qId of queueIds) {
+    const validId = parseInt(qId, 10)
+    if (!isNaN(validId)) {
+      await pool.query(
+        `INSERT INTO user_ticket_queues (user_id, queue_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [userId, validId]
+      )
+    }
+  }
+}
+
 export async function listUsers(req, res) {
   await ensureUsersPermissionsColumnExists()
+
   const result = await pool.query(
-    `SELECT id, nama, email, role, permissions, is_active, dibuat_pada, diperbarui_pada
-       FROM users
-      ORDER BY id DESC`
+    `SELECT u.id, u.nama, u.email, u.role, u.permissions, u.is_active, u.dibuat_pada, u.diperbarui_pada,
+            COALESCE(
+              JSON_AGG(
+                JSON_BUILD_OBJECT('id', q.id, 'kode', q.kode, 'nama', q.nama)
+              ) FILTER (WHERE q.id IS NOT NULL), '[]'
+            ) AS queues
+       FROM users u
+       LEFT JOIN user_ticket_queues utq ON utq.user_id = u.id
+       LEFT JOIN ticket_queues q ON q.id = utq.queue_id AND q.is_active = true
+      GROUP BY u.id
+      ORDER BY u.id DESC`
   )
+
   const rows = result.rows.map(user => {
     const isSuper = (user.role || '').trim().toLowerCase().includes('admin')
     user.permissions = isSuper
       ? SUPERADMIN_PERMISSIONS
       : normaliseLegacyPermissions(user.permissions)
+    user.queue_ids = (user.queues || []).map(q => q.id)
     return user
   })
   res.json(rows)
@@ -79,7 +103,7 @@ export async function listUsers(req, res) {
 
 export async function storeUser(req, res) {
   await ensureUsersPermissionsColumnExists()
-  const { nama, email, password, role, permissions } = req.body
+  const { nama, email, password, role, permissions, queue_ids } = req.body
   const currentUserRole = req.user.role ? req.user.role.trim().toLowerCase() : ''
   const newRole = (role || 'user').trim().toLowerCase()
 
@@ -110,7 +134,20 @@ export async function storeUser(req, res) {
     ]
   )
 
-  res.status(201).json(result.rows[0])
+  const newUser = result.rows[0]
+  if (Array.isArray(queue_ids)) {
+    await syncUserQueues(newUser.id, queue_ids)
+  }
+
+  // Fetch updated queue mapping
+  const qResult = await pool.query(
+    `SELECT q.id, q.kode, q.nama FROM user_ticket_queues utq JOIN ticket_queues q ON q.id = utq.queue_id WHERE utq.user_id = $1`,
+    [newUser.id]
+  )
+  newUser.queues = qResult.rows
+  newUser.queue_ids = qResult.rows.map(q => q.id)
+
+  res.status(201).json(newUser)
 }
 
 export async function replaceUser(req, res) {
@@ -131,7 +168,7 @@ export async function replaceUser(req, res) {
     throw createHttpError(403, 'Hanya superadmin yang dapat mengubah akun superadmin.')
   }
 
-  let { nama, email, password, role, permissions, is_active } = req.body
+  let { nama, email, password, role, permissions, is_active, queue_ids } = req.body
 
   if (!nama || !email) {
     throw createHttpError(400, 'Nama dan email wajib diisi.')
@@ -182,7 +219,20 @@ export async function replaceUser(req, res) {
     )
   }
 
-  res.json(result.rows[0])
+  const updatedUser = result.rows[0]
+  if (Array.isArray(queue_ids)) {
+    await syncUserQueues(updatedUser.id, queue_ids)
+  }
+
+  // Fetch updated queue mapping
+  const qResult = await pool.query(
+    `SELECT q.id, q.kode, q.nama FROM user_ticket_queues utq JOIN ticket_queues q ON q.id = utq.queue_id WHERE utq.user_id = $1`,
+    [updatedUser.id]
+  )
+  updatedUser.queues = qResult.rows
+  updatedUser.queue_ids = qResult.rows.map(q => q.id)
+
+  res.json(updatedUser)
 }
 
 export async function destroyUser(req, res) {
@@ -196,7 +246,6 @@ export async function destroyUser(req, res) {
     throw createHttpError(400, 'ID pengguna tidak valid.')
   }
 
-  // Prevent deleting superadmin
   const oldUserResult = await pool.query('SELECT role FROM users WHERE id = $1', [id])
   if (oldUserResult.rowCount > 0) {
     const oldRole = oldUserResult.rows[0].role.trim().toLowerCase()
@@ -205,14 +254,8 @@ export async function destroyUser(req, res) {
     }
   }
 
-  const result = await pool.query(
-    'DELETE FROM users WHERE id = $1 RETURNING id',
-    [id]
-  )
-
-  if (result.rowCount === 0) {
-    throw createHttpError(404, 'Pengguna tidak ditemukan.')
-  }
+  const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [id])
+  if (result.rowCount === 0) throw createHttpError(404, 'Pengguna tidak ditemukan.')
 
   res.json({ message: 'Pengguna berhasil dihapus.' })
 }

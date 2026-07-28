@@ -1,4 +1,5 @@
-import { pool } from '../config/database.js'
+﻿import { pool } from '../config/database.js'
+import { ensureQueueTablesExist } from './queueController.js'
 
 function createHttpError(statusCode, message) {
   const error = new Error(message)
@@ -6,6 +7,12 @@ function createHttpError(statusCode, message) {
   return error
 }
 
+const isSuperAdmin = (role) => {
+  const r = (role || '').trim().toLowerCase()
+  return r === 'superadmin' || r === 'super admin'
+}
+
+// ── Ensure base tickets tables exist ──────────────────────────
 let isTableChecked = false
 
 export async function ensureTicketsTableExists() {
@@ -13,85 +20,79 @@ export async function ensureTicketsTableExists() {
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tickets (
-      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-      nomor_tiket VARCHAR(50) UNIQUE,
-      judul VARCHAR(255) NOT NULL,
-      deskripsi TEXT,
-      kategori VARCHAR(100) DEFAULT 'IT',
-      prioritas VARCHAR(30) DEFAULT 'Medium (3d)',
-      status_tiket VARCHAR(30) DEFAULT 'Open',
-      assigned_to VARCHAR(150),
-      pelapor VARCHAR(150),
-      attachment TEXT,
-      dibuat_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      nomor_tiket     VARCHAR(50) UNIQUE,
+      judul           VARCHAR(255) NOT NULL,
+      deskripsi       TEXT,
+      kategori        VARCHAR(100) DEFAULT 'IT',
+      prioritas       VARCHAR(30)  DEFAULT 'Medium (3d)',
+      status_tiket    VARCHAR(30)  DEFAULT 'Open',
+      assigned_to     VARCHAR(150),
+      pelapor         VARCHAR(150),
+      attachment      TEXT,
+      dibuat_pada     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       diperbarui_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS log_riwayat_tiket (
-      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-      id_tiket BIGINT NOT NULL,
-      nomor_tiket VARCHAR(50),
-      aksi VARCHAR(50) NOT NULL,
-      perubahan TEXT NOT NULL,
+      id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      id_tiket      BIGINT NOT NULL,
+      nomor_tiket   VARCHAR(50),
+      aksi          VARCHAR(50) NOT NULL,
+      perubahan     TEXT NOT NULL,
       oleh_pengguna VARCHAR(150) NOT NULL,
-      dibuat_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      dibuat_pada   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS komentar_tiket (
-      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-      id_tiket BIGINT NOT NULL,
+      id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      id_tiket      BIGINT NOT NULL,
       nama_pengguna VARCHAR(150) NOT NULL,
       role_pengguna VARCHAR(50),
-      pesan TEXT NOT NULL,
-      attachment TEXT,
-      dibuat_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      pesan         TEXT NOT NULL,
+      attachment    TEXT,
+      dibuat_pada   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `)
 
-  // Ensure attachment column exists if table was created previously without it
-  await pool.query(`
-    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachment TEXT;
-  `)
+  await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachment TEXT;`)
 
-  // Check if seed data exists
+  // Seed data awal jika kosong
   const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM tickets')
   if (countResult.rows[0].count === 0) {
     await pool.query(`
       INSERT INTO tickets (nomor_tiket, judul, deskripsi, kategori, prioritas, status_tiket, assigned_to, pelapor)
-      VALUES 
+      VALUES
         ('TCK-2026-001', 'Layar Laptop Lenovo Blinking', 'Layar berkedip saat membuka aplikasi grafis tinggi.', 'IT', 'High (1day)', 'Open', NULL, 'Helmy Karyawan'),
-        ('TCK-2026-002', 'Koneksi Server Database Terputus', 'Server DB Pluit tidak bisa di-ping dari segmen kantor.', 'IT', 'Urgent (4h)', 'Pending', 'Admin IT', 'Budi Santoso'),
-        ('TCK-2026-003', 'Pengajuan Kartu Access Ruangan Baru', 'Permintaan fisik kartu akses pintu utama kantor.', 'GA', 'Low (7d)', 'Closed', 'Staff GA', 'Siti Rahma'),
-        ('TCK-2026-004', 'Pengajuan Cuti & Update Data Karyawan', 'Pembaruan data BPJS Kesehatan di portal portal HR.', 'HR', 'Medium (3d)', 'Open', NULL, 'Ahmad Rizki'),
-        ('TCK-2026-005', 'Ganti Battery Laptop Dell', 'Baterai laptop Dell Inspiron sudah drop dan melendung.', 'IT', 'High (1day)', 'Closed', 'Admin IT', 'Dewi Lestari');
+        ('TCK-2026-002', 'Koneksi Server Database Terputus', 'Server DB tidak bisa di-ping dari segmen kantor.', 'IT', 'Urgent (4h)', 'Pending', 'Admin IT', 'Budi Santoso'),
+        ('TCK-2026-003', 'Pengajuan Kartu Access Ruangan', 'Permintaan fisik kartu akses pintu utama kantor.', 'GA', 'Low (7d)', 'Closed', 'Staff GA', 'Siti Rahma'),
+        ('TCK-2026-004', 'Pengajuan Cuti & Update Data', 'Pembaruan data BPJS Kesehatan di portal HR.', 'HR', 'Medium (3d)', 'Open', NULL, 'Ahmad Rizki'),
+        ('TCK-2026-005', 'Ganti Battery Laptop Dell', 'Baterai laptop Dell Inspiron sudah melendung.', 'IT', 'High (1day)', 'Closed', 'Admin IT', 'Dewi Lestari');
     `)
-
-    // Seed sample audit log
     await pool.query(`
       INSERT INTO log_riwayat_tiket (id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna)
-      VALUES 
-        (1, 'TCK-2026-001', 'PEMBUATAN', 'Tiket baru ''Layar Laptop Lenovo Blinking'' berhasil dibuat.', 'Helmy Karyawan'),
-        (2, 'TCK-2026-002', 'PEMBUATAN', 'Tiket baru ''Koneksi Server Database Terputus'' berhasil dibuat.', 'Budi Santoso'),
-        (2, 'TCK-2026-002', 'PENUGASAN', 'Ditugaskan penanganan kepada Admin IT.', 'Budi Santoso');
+      VALUES
+        (1, 'TCK-2026-001', 'PEMBUATAN', 'Tiket baru dibuat.', 'Helmy Karyawan'),
+        (2, 'TCK-2026-002', 'PEMBUATAN', 'Tiket baru dibuat.', 'Budi Santoso');
     `)
-
-    // Seed sample comments
     await pool.query(`
       INSERT INTO komentar_tiket (id_tiket, nama_pengguna, role_pengguna, pesan)
-      VALUES 
-        (1, 'Helmy Karyawan', 'user', 'Halo Tim IT, mohon dibantu ya. Kedipnya parah saat buka CAD.'),
-        (1, 'Admin IT', 'super admin', 'Siap Pak Helmy, sedang disiapkan unit pengganti sementara.');
+      VALUES
+        (1, 'Helmy Karyawan', 'user', 'Mohon dibantu ya. Kedipnya parah saat buka CAD.'),
+        (1, 'Admin IT', 'super admin', 'Siap, sedang disiapkan unit pengganti sementara.');
     `)
   }
 
   isTableChecked = true
+
+  // Jalankan queue migration (idempotent)
+  await ensureQueueTablesExist()
 }
 
 async function addTicketLog(id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna) {
   try {
     await pool.query(
-      `INSERT INTO log_riwayat_tiket (id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna)
-       VALUES ($1, $2, $3, $4, $5)`,
+      `INSERT INTO log_riwayat_tiket (id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna) VALUES ($1, $2, $3, $4, $5)`,
       [id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna || 'Sistem']
     )
   } catch (err) {
@@ -99,271 +100,377 @@ async function addTicketLog(id_tiket, nomor_tiket, aksi, perubahan, oleh_penggun
   }
 }
 
+// ── LIST TICKETS (queue-aware) ────────────────────────────────
 export async function listTickets(req, res) {
   await ensureTicketsTableExists()
-  const { search, status, prioritas } = req.query
+  const { search, status, prioritas, queue_id, tab } = req.query
+  const userId = req.user.id
+  const superAdmin = isSuperAdmin(req.user.role)
 
-  let sql = 'SELECT * FROM tickets WHERE 1=1'
   const params = []
+  let conditions = []
+
+  // Access control: admin hanya lihat queue-nya sendiri
+  if (!superAdmin) {
+    if (tab === 'mine') {
+      // My Tickets: tiket yang di-assign ke saya
+      params.push(userId)
+      conditions.push(`t.assigned_to_user_id = $${params.length}`)
+    } else if (tab === 'unassigned') {
+      // Unassigned: tiket di queue saya yang belum ada assignee
+      params.push(userId)
+      conditions.push(`t.assigned_to_user_id IS NULL`)
+      conditions.push(`EXISTS (SELECT 1 FROM user_ticket_queues utq WHERE utq.user_id = $${params.length} AND utq.queue_id = t.queue_id)`)
+    } else {
+      // Default: semua tiket di queue yang di-mapping ke user ini
+      params.push(userId)
+      conditions.push(`EXISTS (SELECT 1 FROM user_ticket_queues utq WHERE utq.user_id = $${params.length} AND utq.queue_id = t.queue_id)`)
+    }
+  } else {
+    // Superadmin: bisa filter tab mine juga
+    if (tab === 'mine') {
+      params.push(userId)
+      conditions.push(`t.assigned_to_user_id = $${params.length}`)
+    } else if (tab === 'unassigned') {
+      conditions.push(`t.assigned_to_user_id IS NULL`)
+    }
+  }
 
   if (search) {
     params.push(`%${search}%`)
-    sql += ` AND (judul ILIKE $${params.length} OR nomor_tiket ILIKE $${params.length} OR pelapor ILIKE $${params.length} OR assigned_to ILIKE $${params.length})`
+    const n = params.length
+    conditions.push(`(t.judul ILIKE $${n} OR t.nomor_tiket ILIKE $${n} OR t.pelapor ILIKE $${n} OR reporter.nama ILIKE $${n})`)
   }
-
   if (status) {
     params.push(status)
-    sql += ` AND status_tiket = $${params.length}`
+    conditions.push(`t.status_tiket = $${params.length}`)
   }
-
   if (prioritas) {
     params.push(prioritas)
-    sql += ` AND prioritas = $${params.length}`
+    conditions.push(`t.prioritas = $${params.length}`)
+  }
+  if (queue_id) {
+    params.push(parseInt(queue_id, 10))
+    conditions.push(`t.queue_id = $${params.length}`)
   }
 
-  sql += ' ORDER BY id DESC'
+  const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''
+
+  const sql = `
+    SELECT
+      t.*,
+      q.kode   AS queue_kode,
+      q.nama   AS queue_nama,
+      assignee.nama  AS assigned_to_nama,
+      reporter.nama  AS pelapor_nama
+    FROM tickets t
+    LEFT JOIN ticket_queues q    ON q.id = t.queue_id
+    LEFT JOIN users assignee     ON assignee.id = t.assigned_to_user_id
+    LEFT JOIN users reporter     ON reporter.id = t.pelapor_user_id
+    ${whereClause}
+    ORDER BY
+      CASE t.prioritas
+        WHEN 'Urgent (4h)'  THEN 1
+        WHEN 'High (1day)'  THEN 2
+        WHEN 'Medium (3d)'  THEN 3
+        WHEN 'Low (7d)'     THEN 4
+        ELSE 5
+      END,
+      t.dibuat_pada DESC
+  `
 
   const result = await pool.query(sql, params)
   res.json(result.rows)
 }
 
+// ── TICKET STATS ──────────────────────────────────────────────
 export async function getTicketStats(req, res) {
   await ensureTicketsTableExists()
+  const userId = req.user.id
+  const superAdmin = isSuperAdmin(req.user.role)
+
+  let whereClause = ''
+  const params = []
+
+  if (!superAdmin) {
+    params.push(userId)
+    whereClause = `WHERE EXISTS (SELECT 1 FROM user_ticket_queues utq WHERE utq.user_id = $1 AND utq.queue_id = t.queue_id)`
+  }
 
   const countsResult = await pool.query(`
-    SELECT 
+    SELECT
       COUNT(*)::int AS "totalTickets",
-      COUNT(CASE WHEN status_tiket = 'Open' THEN 1 END)::int AS "openTickets",
-      COUNT(CASE WHEN status_tiket = 'Pending' THEN 1 END)::int AS "pendingTickets",
-      COUNT(CASE WHEN status_tiket = 'Closed' THEN 1 END)::int AS "closedTickets"
-    FROM tickets
-  `)
+      COUNT(CASE WHEN t.status_tiket = 'Open'    THEN 1 END)::int AS "openTickets",
+      COUNT(CASE WHEN t.status_tiket = 'Pending' THEN 1 END)::int AS "pendingTickets",
+      COUNT(CASE WHEN t.status_tiket = 'Closed'  THEN 1 END)::int AS "closedTickets",
+      COUNT(CASE WHEN t.assigned_to_user_id IS NULL AND t.status_tiket NOT IN ('Closed','Resolved','Cancelled') THEN 1 END)::int AS "unassignedTickets"
+    FROM tickets t
+    ${whereClause}
+  `, params)
 
   const recentResult = await pool.query(`
-    SELECT * FROM tickets ORDER BY id DESC LIMIT 5
+    SELECT t.*, q.kode AS queue_kode, assignee.nama AS assigned_to_nama
+    FROM tickets t
+    LEFT JOIN ticket_queues q ON q.id = t.queue_id
+    LEFT JOIN users assignee ON assignee.id = t.assigned_to_user_id
+    ORDER BY t.id DESC LIMIT 5
   `)
 
-  const stats = countsResult.rows[0] || { totalTickets: 0, openTickets: 0, pendingTickets: 0, closedTickets: 0 }
+  const stats = countsResult.rows[0] || { totalTickets: 0, openTickets: 0, pendingTickets: 0, closedTickets: 0, unassignedTickets: 0 }
   stats.recentTickets = recentResult.rows
-
   res.json(stats)
 }
 
+// ── GET TICKET HISTORY ────────────────────────────────────────
 export async function getTicketHistory(req, res) {
   await ensureTicketsTableExists()
   const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) {
-    throw createHttpError(400, 'ID tiket tidak valid.')
-  }
-
-  const result = await pool.query(
-    'SELECT * FROM log_riwayat_tiket WHERE id_tiket = $1 ORDER BY id DESC',
-    [id]
-  )
+  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
+  const result = await pool.query('SELECT * FROM log_riwayat_tiket WHERE id_tiket = $1 ORDER BY id DESC', [id])
   res.json(result.rows)
 }
 
+// ── GET TICKET COMMENTS ───────────────────────────────────────
 export async function getTicketComments(req, res) {
   await ensureTicketsTableExists()
   const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) {
-    throw createHttpError(400, 'ID tiket tidak valid.')
-  }
-
-  const result = await pool.query(
-    'SELECT * FROM komentar_tiket WHERE id_tiket = $1 ORDER BY id ASC',
-    [id]
-  )
+  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
+  const result = await pool.query('SELECT * FROM komentar_tiket WHERE id_tiket = $1 ORDER BY id ASC', [id])
   res.json(result.rows)
 }
 
+// ── CREATE TICKET COMMENT ─────────────────────────────────────
 export async function createTicketComment(req, res) {
   await ensureTicketsTableExists()
   const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) {
-    throw createHttpError(400, 'ID tiket tidak valid.')
-  }
-
+  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
   const { pesan, attachment, nama_pengguna, role_pengguna } = req.body
-
-  if (!pesan || !String(pesan).trim()) {
-    throw createHttpError(400, 'Pesan komentar wajib diisi.')
-  }
-
+  if (!pesan || !String(pesan).trim()) throw createHttpError(400, 'Pesan komentar wajib diisi.')
   const userNama = nama_pengguna || req.user?.nama || 'User'
   const userRole = role_pengguna || req.user?.role || 'user'
-
   const result = await pool.query(
-    `INSERT INTO komentar_tiket (id_tiket, nama_pengguna, role_pengguna, pesan, attachment)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING *`,
+    `INSERT INTO komentar_tiket (id_tiket, nama_pengguna, role_pengguna, pesan, attachment) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
     [id, userNama, userRole, String(pesan).trim(), attachment || null]
   )
-
   res.status(201).json(result.rows[0])
 }
 
+// ── CREATE TICKET ─────────────────────────────────────────────
 export async function createTicket(req, res) {
   await ensureTicketsTableExists()
-  const { judul, deskripsi, kategori, prioritas, status_tiket, assigned_to, pelapor, attachment } = req.body
+  const { judul, deskripsi, queue_id, prioritas, attachment } = req.body
 
-  if (!judul) {
-    throw createHttpError(400, 'Judul tiket wajib diisi.')
-  }
+  if (!judul) throw createHttpError(400, 'Judul tiket wajib diisi.')
+  if (!queue_id) throw createHttpError(400, 'Unit tujuan (queue) wajib dipilih.')
 
-  // Generate unique nomor_tiket
+  // Validasi queue aktif
+  const queueCheck = await pool.query('SELECT id, kode, nama FROM ticket_queues WHERE id = $1 AND is_active = true', [queue_id])
+  if (queueCheck.rowCount === 0) throw createHttpError(400, 'Unit tujuan tidak valid atau tidak aktif.')
+  const queue = queueCheck.rows[0]
+
+  // Generate nomor tiket
   const countRes = await pool.query('SELECT COUNT(*)::int AS count FROM tickets')
   const seq = String(countRes.rows[0].count + 1).padStart(3, '0')
   const nomor_tiket = `TCK-${new Date().getFullYear()}-${seq}`
 
-  const assignedVal = assigned_to && String(assigned_to).trim() ? String(assigned_to).trim() : null
-  const pelaporVal = pelapor && String(pelapor).trim() ? String(pelapor).trim() : (req.user?.nama || 'User')
+  const pelaporNama = req.user?.nama || 'User'
+  const pelaporId   = req.user?.id   || null
 
   const result = await pool.query(
-    `INSERT INTO tickets (nomor_tiket, judul, deskripsi, kategori, prioritas, status_tiket, assigned_to, pelapor, attachment)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO tickets
+       (nomor_tiket, judul, deskripsi, kategori, prioritas, status_tiket,
+        assigned_to, pelapor, attachment, queue_id, pelapor_user_id, assigned_to_user_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      RETURNING *`,
     [
       nomor_tiket,
       String(judul).trim(),
       deskripsi || '',
-      kategori || 'IT',
+      queue.kode,                   // dual write: isi kategori lama juga
       prioritas || 'Medium (3d)',
-      status_tiket || 'Open',
-      assignedVal,
-      pelaporVal,
-      attachment || null
+      'Open',
+      null,                         // assigned_to (teks) null
+      pelaporNama,                  // dual write: isi pelapor lama juga
+      attachment || null,
+      queue.id,
+      pelaporId,
+      null                          // belum di-assign
     ]
   )
 
   const newTicket = result.rows[0]
-
-  // Add audit log
-  await addTicketLog(
-    newTicket.id,
-    newTicket.nomor_tiket,
-    'PEMBUATAN',
-    `Tiket baru '${newTicket.judul}' berhasil dibuat. Kategori: ${newTicket.kategori}, Prioritas: ${newTicket.prioritas}`,
-    pelaporVal
-  )
+  await addTicketLog(newTicket.id, newTicket.nomor_tiket, 'PEMBUATAN',
+    `Tiket '${newTicket.judul}' dibuat untuk unit ${queue.nama}. Prioritas: ${newTicket.prioritas}.`,
+    pelaporNama)
 
   res.status(201).json(newTicket)
 }
 
+// ── UPDATE TICKET ─────────────────────────────────────────────
 export async function updateTicket(req, res) {
   await ensureTicketsTableExists()
   const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) {
-    throw createHttpError(400, 'ID tiket tidak valid.')
-  }
-
-  const { judul, deskripsi, kategori, prioritas, status_tiket, assigned_to, pelapor, attachment } = req.body
+  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
 
   const check = await pool.query('SELECT * FROM tickets WHERE id = $1', [id])
-  if (check.rowCount === 0) {
-    throw createHttpError(404, 'Tiket tidak ditemukan.')
-  }
-
+  if (check.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
   const oldTicket = check.rows[0]
-  const assignedVal = assigned_to !== undefined 
-    ? (assigned_to && String(assigned_to).trim() ? String(assigned_to).trim() : null)
-    : oldTicket.assigned_to
 
-  const result = await pool.query(
-    `UPDATE tickets
-        SET judul = COALESCE($1, judul),
-            deskripsi = COALESCE($2, deskripsi),
-            kategori = COALESCE($3, kategori),
-            prioritas = COALESCE($4, prioritas),
-            status_tiket = COALESCE($5, status_tiket),
-            assigned_to = $6,
-            pelapor = COALESCE($7, pelapor),
-            attachment = COALESCE($8, attachment),
-            diperbarui_pada = CURRENT_TIMESTAMP
-      WHERE id = $9
-      RETURNING *`,
-    [judul, deskripsi, kategori, prioritas, status_tiket, assignedVal, pelapor, attachment !== undefined ? attachment : oldTicket.attachment, id]
-  )
+  const { judul, deskripsi, prioritas, status_tiket, queue_id, attachment } = req.body
 
-  const updatedTicket = result.rows[0]
-
-  // Build detailed change summary for audit log
-  const changes = []
-
-  if (judul !== undefined && judul !== null && String(judul).trim() !== oldTicket.judul) {
-    changes.push(`Judul diubah dari '${oldTicket.judul || '-'}' menjadi '${String(judul).trim()}'`)
-  }
-
-  if (deskripsi !== undefined && deskripsi !== null && deskripsi !== oldTicket.deskripsi) {
-    const oldDesc = oldTicket.deskripsi ? `'${oldTicket.deskripsi}'` : '(kosong)'
-    const newDesc = deskripsi ? `'${deskripsi}'` : '(kosong)'
-    changes.push(`Deskripsi rincian diubah dari ${oldDesc} menjadi ${newDesc}`)
-  }
-
-  if (kategori !== undefined && kategori !== null && kategori !== oldTicket.kategori) {
-    changes.push(`Kategori diubah dari '${oldTicket.kategori || '-'}' menjadi '${kategori}'`)
-  }
-
-  if (prioritas !== undefined && prioritas !== null && prioritas !== oldTicket.prioritas) {
-    changes.push(`Prioritas SLA diubah dari '${oldTicket.prioritas || '-'}' menjadi '${prioritas}'`)
-  }
-
-  if (status_tiket !== undefined && status_tiket !== null && status_tiket !== oldTicket.status_tiket) {
-    changes.push(`Status tiket diubah dari '${oldTicket.status_tiket || '-'}' menjadi '${status_tiket}'`)
-  }
-
-  if (assignedVal !== oldTicket.assigned_to) {
-    const oldAssign = oldTicket.assigned_to || 'Belum ditugaskan'
-    const newAssign = assignedVal || 'Belum ditugaskan'
-    changes.push(`Petugas IT (Assigned) diubah dari '${oldAssign}' menjadi '${newAssign}'`)
-  }
-
-  if (pelapor !== undefined && pelapor !== null && pelapor !== oldTicket.pelapor) {
-    changes.push(`Nama Pelapor diubah dari '${oldTicket.pelapor || '-'}' menjadi '${pelapor}'`)
+  // Jika queue berubah, validasi queue baru
+  let newQueueId = queue_id !== undefined ? queue_id : oldTicket.queue_id
+  let queueKode = oldTicket.kategori
+  if (queue_id && queue_id !== oldTicket.queue_id) {
+    const queueCheck = await pool.query('SELECT id, kode FROM ticket_queues WHERE id = $1 AND is_active = true', [queue_id])
+    if (queueCheck.rowCount === 0) throw createHttpError(400, 'Unit tujuan tidak valid.')
+    queueKode = queueCheck.rows[0].kode
+    newQueueId = queueCheck.rows[0].id
   }
 
   const newAttachment = attachment !== undefined ? attachment : oldTicket.attachment
-  if (newAttachment !== oldTicket.attachment) {
-    if (!oldTicket.attachment && newAttachment) {
-      changes.push(`Lampiran gambar kendala baru ditambahkan`)
-    } else if (oldTicket.attachment && !newAttachment) {
-      changes.push(`Lampiran gambar kendala telah dihapus`)
-    } else {
-      changes.push(`Lampiran gambar kendala diperbarui`)
-    }
-  }
 
-  let aksi = 'UPDATE_DETAIL'
-  if (status_tiket && status_tiket !== oldTicket.status_tiket) {
-    aksi = 'PERUBAHAN_STATUS'
-  } else if (assignedVal !== oldTicket.assigned_to) {
-    aksi = 'PENUGASAN'
-  } else if (newAttachment !== oldTicket.attachment) {
-    aksi = 'LAMPIRAN'
-  }
+  const result = await pool.query(
+    `UPDATE tickets
+        SET judul       = COALESCE($1, judul),
+            deskripsi   = COALESCE($2, deskripsi),
+            kategori    = $3,
+            prioritas   = COALESCE($4, prioritas),
+            status_tiket = COALESCE($5, status_tiket),
+            attachment  = $6,
+            queue_id    = $7,
+            diperbarui_pada = CURRENT_TIMESTAMP
+      WHERE id = $8
+      RETURNING *`,
+    [judul, deskripsi, queueKode, prioritas, status_tiket, newAttachment, newQueueId, id]
+  )
 
-  const currentUser = req.user?.nama || pelapor || 'Admin'
-  const logText = changes.length > 0 ? changes.join('. ') : 'Detail tiket diperbarui'
+  const updatedTicket = result.rows[0]
+  const changes = []
+  if (judul && judul !== oldTicket.judul) changes.push(`Judul diubah menjadi '${judul}'`)
+  if (status_tiket && status_tiket !== oldTicket.status_tiket) changes.push(`Status: '${oldTicket.status_tiket}' → '${status_tiket}'`)
+  if (prioritas && prioritas !== oldTicket.prioritas) changes.push(`Prioritas: '${oldTicket.prioritas}' → '${prioritas}'`)
+  if (newQueueId !== oldTicket.queue_id) changes.push(`Unit tujuan diubah`)
+  if (newAttachment !== oldTicket.attachment) changes.push('Lampiran diperbarui')
 
-  await addTicketLog(id, oldTicket.nomor_tiket, aksi, logText, currentUser)
+  const aksi = status_tiket && status_tiket !== oldTicket.status_tiket ? 'PERUBAHAN_STATUS' : 'UPDATE_DETAIL'
+  await addTicketLog(id, oldTicket.nomor_tiket, aksi, changes.join('. ') || 'Detail tiket diperbarui', req.user?.nama || 'Admin')
 
   res.json(updatedTicket)
 }
 
+// ── CLAIM TICKET (atomic) ─────────────────────────────────────
+export async function claimTicket(req, res) {
+  await ensureTicketsTableExists()
+  const id = parseInt(req.params.id, 10)
+  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
+
+  const userId    = req.user.id
+  const userName  = req.user.nama || 'Admin'
+  const superAdmin = isSuperAdmin(req.user.role)
+
+  // Atomic update: hanya berhasil jika assigned_to_user_id masih NULL
+  // dan user terdaftar di queue tiket tersebut (kecuali superadmin)
+  let result
+  if (superAdmin) {
+    result = await pool.query(
+      `UPDATE tickets
+          SET assigned_to_user_id = $1,
+              assigned_to = $2,
+              status_tiket = 'In Progress',
+              diperbarui_pada = CURRENT_TIMESTAMP
+        WHERE id = $3
+          AND assigned_to_user_id IS NULL
+          AND status_tiket NOT IN ('Closed', 'Resolved', 'Cancelled')
+        RETURNING *`,
+      [userId, userName, id]
+    )
+  } else {
+    result = await pool.query(
+      `UPDATE tickets t
+          SET assigned_to_user_id = $1,
+              assigned_to = $2,
+              status_tiket = 'In Progress',
+              diperbarui_pada = CURRENT_TIMESTAMP
+        WHERE t.id = $3
+          AND t.assigned_to_user_id IS NULL
+          AND t.status_tiket NOT IN ('Closed', 'Resolved', 'Cancelled')
+          AND EXISTS (
+            SELECT 1 FROM user_ticket_queues utq
+            WHERE utq.user_id = $1 AND utq.queue_id = t.queue_id
+          )
+        RETURNING *`,
+      [userId, userName, id]
+    )
+  }
+
+  if (result.rowCount === 0) {
+    // Cek apakah tiket sudah diambil orang lain atau user tidak punya akses
+    const check = await pool.query('SELECT assigned_to_user_id, status_tiket FROM tickets WHERE id = $1', [id])
+    if (check.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
+    const t = check.rows[0]
+    if (t.assigned_to_user_id) throw createHttpError(409, 'Tiket sudah diambil oleh admin lain.')
+    throw createHttpError(403, 'Anda tidak memiliki akses ke queue tiket ini.')
+  }
+
+  const ticket = result.rows[0]
+  await addTicketLog(id, ticket.nomor_tiket, 'CLAIM', `Tiket diambil oleh ${userName}.`, userName)
+  res.json(ticket)
+}
+
+// ── REASSIGN TICKET ───────────────────────────────────────────
+export async function reassignTicket(req, res) {
+  await ensureTicketsTableExists()
+  const id = parseInt(req.params.id, 10)
+  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
+
+  const { target_user_id } = req.body
+  if (!target_user_id) throw createHttpError(400, 'target_user_id wajib diisi.')
+
+  const ticketCheck = await pool.query('SELECT * FROM tickets WHERE id = $1', [id])
+  if (ticketCheck.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
+  const ticket = ticketCheck.rows[0]
+
+  const userId = req.user.id
+  const superAdmin = isSuperAdmin(req.user.role)
+  const isCurrentAssignee = ticket.assigned_to_user_id === userId
+
+  if (!superAdmin && !isCurrentAssignee) {
+    throw createHttpError(403, 'Hanya assignee saat ini atau superadmin yang dapat melakukan reassign.')
+  }
+
+  // Validasi target admin terdaftar di queue yang sama
+  if (!superAdmin) {
+    const adminCheck = await pool.query(
+      `SELECT 1 FROM user_ticket_queues utq JOIN users u ON u.id = utq.user_id
+       WHERE u.id = $1 AND u.is_active = true AND utq.queue_id = $2`,
+      [target_user_id, ticket.queue_id]
+    )
+    if (adminCheck.rowCount === 0) throw createHttpError(403, 'Admin tujuan tidak terdaftar di queue tiket ini.')
+  }
+
+  const targetUser = await pool.query('SELECT nama FROM users WHERE id = $1', [target_user_id])
+  if (targetUser.rowCount === 0) throw createHttpError(404, 'User tujuan tidak ditemukan.')
+  const targetName = targetUser.rows[0].nama
+
+  const result = await pool.query(
+    `UPDATE tickets SET assigned_to_user_id = $1, assigned_to = $2, diperbarui_pada = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *`,
+    [target_user_id, targetName, id]
+  )
+
+  await addTicketLog(id, ticket.nomor_tiket, 'REASSIGN',
+    `Tiket di-reassign ke ${targetName} oleh ${req.user.nama || 'Admin'}.`,
+    req.user.nama || 'Admin')
+
+  res.json(result.rows[0])
+}
+
+// ── DELETE TICKET ─────────────────────────────────────────────
 export async function deleteTicket(req, res) {
   await ensureTicketsTableExists()
   const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) {
-    throw createHttpError(400, 'ID tiket tidak valid.')
-  }
-
+  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
   const result = await pool.query('DELETE FROM tickets WHERE id = $1 RETURNING id', [id])
-
-  if (result.rowCount === 0) {
-    throw createHttpError(404, 'Tiket tidak ditemukan.')
-  }
-
+  if (result.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
   res.json({ message: 'Tiket berhasil dihapus.' })
 }
-
-

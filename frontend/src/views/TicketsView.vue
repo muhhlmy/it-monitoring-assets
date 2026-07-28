@@ -1,12 +1,15 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '@/composables/useAuth'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppModal from '../components/ui/AppModal.vue'
 
 const { get, post, put, del } = useApi()
-const { user } = useAuth()
+const { user, isSuperAdmin } = useAuth()
+const route  = useRoute()
+const router = useRouter()
 
 const nowTick = ref(Date.now())
 let tickerInterval = null
@@ -21,47 +24,56 @@ onUnmounted(() => {
   if (tickerInterval) clearInterval(tickerInterval)
 })
 
-const tickets = ref([])
+// ── Queue / Tab state ─────────────────────────────────────────
+const queues      = ref([])       // list queue (HR, IT, GA, OPS)
+const activeTab   = ref('all')    // 'all' | 'unassigned' | 'mine'
+const filterQueue = ref('')       // queue_id filter
+
+// ── Ticket state ──────────────────────────────────────────────
+const tickets  = ref([])
 const employees = ref([])
 const stats = ref({
   totalTickets: 0,
   pendingTickets: 0,
   openTickets: 0,
   closedTickets: 0,
+  unassignedTickets: 0,
 })
-const isLoading = ref(true)
+const isLoading    = ref(true)
 const isSubmitting = ref(false)
-const searchQuery = ref('')
-const filterStatus = ref('')
+const searchQuery  = ref('')
+const filterStatus   = ref('')
 const filterPrioritas = ref('')
-const pageError = ref('')
+const pageError    = ref('')
 const notification = ref(null)
+const isClaiming   = ref(null)   // ticket id yang sedang di-claim
 
-const showFormModal = ref(false)
+const showFormModal   = ref(false)
 const showDeleteModal = ref(false)
 const showDetailModal = ref(false)
-const modalMode = ref('add') // 'add' | 'edit'
-const selectedTicket = ref(null)
+const modalMode = ref('add')
+const selectedTicket  = ref(null)
 const modalError = ref('')
 
-const activeDetailTab = ref('detail') // 'detail' | 'history' | 'comments'
-const ticketHistory = ref([])
+const activeDetailTab  = ref('detail')
+const ticketHistory    = ref([])
 const isHistoryLoading = ref(false)
 
-const ticketComments = ref([])
-const isCommentsLoading = ref(false)
-const newCommentText = ref('')
-const commentAttachment = ref(null)
-const isSubmittingComment = ref(false)
+const ticketComments       = ref([])
+const isCommentsLoading    = ref(false)
+const newCommentText       = ref('')
+const commentAttachment    = ref(null)
+const isSubmittingComment  = ref(false)
+
+const activeDetailTab2 = activeDetailTab // alias
 
 const emptyForm = () => ({
   judul: '',
   deskripsi: '',
-  kategori: 'IT',
+  queue_id: queues.value[0]?.id || '',
   prioritas: 'Medium (3d)',
   status_tiket: 'Open',
-  assigned_to: null,
-  pelapor: user.value?.nama || '',
+  assigned_to_user_id: null,
   attachment: null,
 })
 
@@ -118,33 +130,53 @@ const filteredTickets = computed(() => {
       (t.judul || '').toLowerCase().includes(q) ||
       (t.nomor_tiket || '').toLowerCase().includes(q) ||
       (t.pelapor || '').toLowerCase().includes(q) ||
+      (t.pelapor_nama || '').toLowerCase().includes(q) ||
       (t.assigned_to || '').toLowerCase().includes(q) ||
-      (t.kategori || '').toLowerCase().includes(q)
+      (t.assigned_to_nama || '').toLowerCase().includes(q) ||
+      (t.queue_kode || '').toLowerCase().includes(q)
     )
-    const matchStatus = !filterStatus.value || t.status_tiket === filterStatus.value
-    const matchPrioritas = !filterPrioritas.value || t.prioritas === filterPrioritas.value
+    const matchStatus    = !filterStatus.value    || t.status_tiket === filterStatus.value
+    const matchPrioritas = !filterPrioritas.value || t.prioritas    === filterPrioritas.value
     return matchQuery && matchStatus && matchPrioritas
   })
 })
+
+async function fetchQueues() {
+  try {
+    const data = await get('/api/ticket-queues')
+    if (Array.isArray(data)) queues.value = data
+  } catch (_) {}
+}
 
 async function fetchTickets() {
   isLoading.value = true
   pageError.value = ''
   try {
-    const [data, statsData, empData] = await Promise.all([
-      get('/api/tickets'),
+    const params = new URLSearchParams()
+    if (activeTab.value !== 'all') params.set('tab', activeTab.value)
+    if (filterQueue.value)         params.set('queue_id', filterQueue.value)
+    if (filterStatus.value)        params.set('status', filterStatus.value)
+    if (filterPrioritas.value)     params.set('prioritas', filterPrioritas.value)
+    if (searchQuery.value.trim())  params.set('search', searchQuery.value.trim())
+
+    const qs = params.toString()
+    const [data, statsData] = await Promise.all([
+      get(`/api/tickets${qs ? '?' + qs : ''}`),
       get('/api/tickets/stats'),
-      get('/api/karyawan'),
     ])
     tickets.value = Array.isArray(data) ? data : []
-    stats.value = statsData || { totalTickets: 0, pendingTickets: 0, openTickets: 0, closedTickets: 0 }
-    employees.value = Array.isArray(empData) ? empData : []
+    stats.value = statsData || { totalTickets: 0, pendingTickets: 0, openTickets: 0, closedTickets: 0, unassignedTickets: 0 }
   } catch (err) {
     console.error('Gagal memuat tiket:', err)
     pageError.value = err.message || 'Gagal memuat data tiket.'
   } finally {
     isLoading.value = false
   }
+}
+
+async function switchTab(tab) {
+  activeTab.value = tab
+  await fetchTickets()
 }
 
 async function fetchTicketHistory(ticketId) {
@@ -195,6 +227,20 @@ async function sendComment() {
   }
 }
 
+// ── Claim Ticket ──────────────────────────────────────────────
+async function claimTicket(ticket) {
+  isClaiming.value = ticket.id
+  try {
+    await post(`/api/tickets/${ticket.id}/claim`, {})
+    toast(`Tiket '${ticket.judul}' berhasil diambil!`)
+    await fetchTickets()
+  } catch (err) {
+    toast(err.message || 'Gagal mengambil tiket.', 'error')
+  } finally {
+    isClaiming.value = null
+  }
+}
+
 function openAdd() {
   modalMode.value = 'add'
   selectedTicket.value = null
@@ -206,10 +252,14 @@ function openAdd() {
 function openEdit(ticket) {
   modalMode.value = 'edit'
   selectedTicket.value = ticket
-  form.value = { 
-    ...ticket,
-    assigned_to: ticket.assigned_to || null,
-    pelapor: ticket.pelapor || user.value?.nama || ''
+  form.value = {
+    judul: ticket.judul || '',
+    deskripsi: ticket.deskripsi || '',
+    queue_id: ticket.queue_id || '',
+    prioritas: ticket.prioritas || 'Medium (3d)',
+    status_tiket: ticket.status_tiket || 'Open',
+    assigned_to_user_id: ticket.assigned_to_user_id || null,
+    attachment: ticket.attachment || null,
   }
   modalError.value = ''
   showFormModal.value = true
@@ -237,8 +287,12 @@ function closeModal() {
 }
 
 async function saveTicket() {
-  if (!form.value.judul.trim()) {
+  if (!form.value.judul?.trim()) {
     modalError.value = 'Judul tiket wajib diisi.'
+    return
+  }
+  if (modalMode.value === 'add' && !form.value.queue_id) {
+    modalError.value = 'Unit tujuan wajib dipilih.'
     return
   }
 
@@ -279,11 +333,22 @@ async function confirmDeleteTicket() {
   }
 }
 
+function getQueueBadgeType(kode) {
+  const k = (kode || '').toUpperCase()
+  if (k === 'IT')  return 'primary'
+  if (k === 'HR')  return 'warning'
+  if (k === 'GA')  return 'success'
+  if (k === 'OPS') return 'info'
+  return 'default'
+}
+
 function getStatusBadgeType(status) {
   const s = (status || '').toLowerCase()
-  if (s === 'open') return 'success'
-  if (s === 'pending') return 'warning'
-  if (s === 'closed') return 'default'
+  if (s === 'open')        return 'success'
+  if (s === 'in progress') return 'info'
+  if (s === 'pending')     return 'warning'
+  if (s === 'closed')      return 'default'
+  if (s === 'resolved')    return 'purple'
   return 'info'
 }
 
@@ -362,19 +427,21 @@ function getSlaCountdownInfo(ticket) {
 }
 
 function getActionBadgeType(action) {
-  if (action === 'PEMBUATAN' || action === 'TAMBAH') return 'success'
+  if (action === 'PEMBUATAN' || action === 'TAMBAH')  return 'success'
   if (action === 'PERUBAHAN_STATUS' || action === 'UBAH' || action === 'UPDATE_DETAIL') return 'warning'
-  if (action === 'PENUGASAN') return 'info'
-  if (action === 'LAMPIRAN') return 'primary'
-  if (action === 'HAPUS') return 'danger'
+  if (action === 'PENUGASAN' || action === 'CLAIM' || action === 'REASSIGN') return 'info'
+  if (action === 'LAMPIRAN')  return 'primary'
+  if (action === 'HAPUS')     return 'danger'
   return 'default'
 }
 
 function getActionIcon(action) {
-  if (action === 'PEMBUATAN' || action === 'TAMBAH') return 'add_circle'
+  if (action === 'PEMBUATAN' || action === 'TAMBAH')  return 'add_circle'
+  if (action === 'CLAIM')     return 'person_check'
+  if (action === 'REASSIGN')  return 'swap_horiz'
   if (action === 'PERUBAHAN_STATUS' || action === 'UBAH' || action === 'UPDATE_DETAIL' || action === 'PENUGASAN') return 'edit_note'
-  if (action === 'LAMPIRAN') return 'attach_file'
-  if (action === 'HAPUS') return 'delete'
+  if (action === 'LAMPIRAN')  return 'attach_file'
+  if (action === 'HAPUS')     return 'delete'
   return 'info'
 }
 
@@ -435,7 +502,10 @@ function toast(message, type = 'success') {
   toastTimer = window.setTimeout(() => { notification.value = null }, 3500)
 }
 
-onMounted(fetchTickets)
+onMounted(async () => {
+  await fetchQueues()
+  await fetchTickets()
+})
 </script>
 
 <template>
@@ -459,10 +529,10 @@ onMounted(fetchTickets)
         <div class="flex items-center gap-2 text-[11px] font-bold text-[#5D87FF] uppercase tracking-wider mb-1">
           <span>Home</span>
           <span>•</span>
-          <span>Tickets App</span>
+          <span>Tiket</span>
         </div>
-        <h2 class="text-[22px] font-extrabold text-[#2A3547]">Tiket Kendala IT</h2>
-        <p class="text-[12px] font-medium text-[#7C8BAC] mt-0.5">Kelola laporan kendala perangkat & perbaikan IT</p>
+        <h2 class="text-[22px] font-extrabold text-[#2A3547]">Tiket Kendala</h2>
+        <p class="text-[12px] font-medium text-[#7C8BAC] mt-0.5">Routing tiket berdasarkan unit — IT · HR · GA · OPS</p>
       </div>
 
       <div class="flex items-center gap-3">
@@ -524,6 +594,55 @@ onMounted(fetchTickets)
         </div>
       </div>
 
+      <!-- Unassigned Tickets -->
+      <div
+        class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border p-5 cursor-pointer transition-all"
+        :class="activeTab === 'unassigned' ? 'border-[#5D87FF] bg-[#ECF2FF]' : 'border-[#E5EAEF] bg-white'"
+        @click="switchTab('unassigned')"
+      >
+        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ECF2FF] text-[#5D87FF] shadow-xs">
+          <span class="material-symbols-outlined text-[24px]">inbox</span>
+        </div>
+        <div>
+          <span class="font-num block text-[28px] font-extrabold leading-none text-[#2A3547]">{{ stats.unassignedTickets }}</span>
+          <span class="mt-1 block text-[11px] font-bold uppercase tracking-wider text-[#5D87FF]">Belum Diambil</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Tab Strip ──────────────────────────────────────── -->
+    <div class="flex items-center gap-1 rounded-2xl border border-[#E5EAEF] bg-white p-1 shadow-card overflow-x-auto">
+      <button
+        v-for="tab in [{ key: 'all', label: 'Semua Tiket', icon: 'list_alt' }, { key: 'unassigned', label: 'Belum Diambil', icon: 'inbox' }, { key: 'mine', label: 'Tiket Saya', icon: 'person' }]"
+        :key="tab.key"
+        type="button"
+        @click="switchTab(tab.key)"
+        class="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-bold transition-all whitespace-nowrap"
+        :class="activeTab === tab.key
+          ? 'bg-[#5D87FF] text-white shadow-sm'
+          : 'text-[#7C8BAC] hover:bg-[#F1F5F9] hover:text-[#2A3547]'"
+      >
+        <span class="material-symbols-outlined text-[16px]">{{ tab.icon }}</span>
+        {{ tab.label }}
+        <span
+          v-if="tab.key === 'unassigned' && stats.unassignedTickets > 0"
+          class="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#FA896B] px-1 text-[9px] font-black text-white"
+        >{{ stats.unassignedTickets }}</span>
+      </button>
+
+      <!-- Spacer -->
+      <div class="flex-1"></div>
+
+      <!-- Queue Filter -->
+      <select
+        v-model="filterQueue"
+        @change="fetchTickets"
+        class="h-9 rounded-xl border border-[#DFE5EF] bg-[#F8FAFC] px-3 text-[12px] font-semibold text-[#2A3547] focus:border-[#5D87FF] focus:outline-none mr-1"
+      >
+        <option value="">Semua Unit</option>
+        <option v-for="q in queues" :key="q.id" :value="q.id">{{ q.kode }} — {{ q.nama }}</option>
+      </select>
     </div>
 
     <!-- ── Filter & Search Control Bar ─────────────────────── -->
@@ -533,20 +652,23 @@ onMounted(fetchTickets)
         <input
           v-model="searchQuery"
           type="search"
-          placeholder="Cari judul tiket, nomor, pelapor, assignee..."
+          placeholder="Cari judul, nomor tiket, pelapor, assignee..."
           class="h-10 w-full rounded-xl border border-[#DFE5EF] bg-[#F8FAFC] pl-10 pr-4 text-[12px] font-medium text-[#2A3547] focus:border-[#5D87FF] focus:bg-white focus:outline-none"
+          @keyup.enter="fetchTickets"
         />
       </div>
 
       <div class="flex flex-wrap items-center gap-3">
-        <select v-model="filterStatus" class="h-10 rounded-xl border border-[#DFE5EF] bg-white px-3 text-[12px] font-semibold text-[#2A3547]">
+        <select v-model="filterStatus" @change="fetchTickets" class="h-10 rounded-xl border border-[#DFE5EF] bg-white px-3 text-[12px] font-semibold text-[#2A3547]">
           <option value="">Semua Status</option>
           <option value="Open">Open</option>
+          <option value="In Progress">In Progress</option>
           <option value="Pending">Pending</option>
+          <option value="Resolved">Resolved</option>
           <option value="Closed">Closed</option>
         </select>
 
-        <select v-model="filterPrioritas" class="h-10 rounded-xl border border-[#DFE5EF] bg-white px-3 text-[12px] font-semibold text-[#2A3547]">
+        <select v-model="filterPrioritas" @change="fetchTickets" class="h-10 rounded-xl border border-[#DFE5EF] bg-white px-3 text-[12px] font-semibold text-[#2A3547]">
           <option value="">Semua Prioritas (SLA)</option>
           <option value="Urgent (4h)">Urgent (4h)</option>
           <option value="High (1day)">High (1day)</option>
@@ -573,7 +695,7 @@ onMounted(fetchTickets)
             <tr>
               <th>Id / No. Tiket</th>
               <th>Detail Tiket</th>
-              <th>Kategori</th>
+              <th>Unit / Queue</th>
               <th>SLA & Countdown</th>
               <th>Assigned To</th>
               <th>Status</th>
@@ -597,7 +719,7 @@ onMounted(fetchTickets)
                 </div>
               </td>
               <td>
-                <AppBadge :type="getKategoriBadgeType(ticket.kategori)" :text="ticket.kategori || 'IT'" />
+                <AppBadge :type="getQueueBadgeType(ticket.queue_kode)" :text="ticket.queue_kode || ticket.kategori || 'IT'" />
               </td>
               <td>
                 <div class="flex flex-col gap-1 items-start">
@@ -615,13 +737,29 @@ onMounted(fetchTickets)
                 </div>
               </td>
               <td>
-                <div class="flex items-center gap-2.5">
-                  <div class="flex h-8 w-8 items-center justify-center rounded-full bg-[#ECF2FF] text-[11px] font-bold text-[#5D87FF]">
-                    {{ (ticket.assigned_to || 'U').charAt(0).toUpperCase() }}
+                <div class="flex flex-col gap-0.5">
+                  <div class="flex items-center gap-2">
+                    <div class="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold"
+                      :class="ticket.assigned_to_user_id ? 'bg-[#ECF2FF] text-[#5D87FF]' : 'bg-[#F3F4F6] text-[#9CA3AF]'"
+                    >
+                      {{ (ticket.assigned_to_nama || ticket.assigned_to || '?').charAt(0).toUpperCase() }}
+                    </div>
+                    <span class="text-[12px] font-bold" :class="ticket.assigned_to_user_id ? 'text-[#2A3547]' : 'text-[#9CA3AF] italic'">
+                      {{ ticket.assigned_to_nama || ticket.assigned_to || 'Belum diambil' }}
+                    </span>
                   </div>
-                  <span class="text-[12px] font-bold" :class="ticket.assigned_to ? 'text-[#2A3547]' : 'text-[#7C8BAC] italic'">
-                    {{ ticket.assigned_to || 'Belum ditugaskan' }}
-                  </span>
+                  <!-- Tombol Ambil Tiket -->
+                  <button
+                    v-if="!ticket.assigned_to_user_id && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
+                    type="button"
+                    @click.stop="claimTicket(ticket)"
+                    :disabled="isClaiming === ticket.id"
+                    class="mt-1 flex items-center gap-1 rounded-lg bg-[#5D87FF] px-2 py-1 text-[10px] font-extrabold text-white hover:bg-[#4570EA] transition-all disabled:opacity-60"
+                  >
+                    <span v-if="isClaiming === ticket.id" class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                    <span v-else class="material-symbols-outlined text-[13px]">person_add</span>
+                    {{ isClaiming === ticket.id ? 'Mengambil...' : 'Ambil Tiket' }}
+                  </button>
                 </div>
               </td>
               <td>
@@ -688,22 +826,12 @@ onMounted(fetchTickets)
             <textarea v-model="form.deskripsi" rows="3" placeholder="Jelaskan rincian kendala perangkat..." class="form-control h-auto py-2"></textarea>
           </label>
 
+          <!-- Unit Tujuan -->
           <label class="flex flex-col gap-1.5">
-            <span class="text-[11px] font-bold uppercase text-[#2A3547]">Pelapor (User Login)</span>
-            <input v-model="form.pelapor" placeholder="Nama Pelapor" class="form-control bg-[#F8FAFC]" readonly />
-          </label>
-
-          <label class="flex flex-col gap-1.5">
-            <span class="text-[11px] font-bold uppercase text-[#2A3547]">Assigned To (Petugas)</span>
-            <input v-model="form.assigned_to" placeholder="Opsional (Kosongkan jika belum ditugaskan)" class="form-control" />
-          </label>
-
-          <label class="flex flex-col gap-1.5">
-            <span class="text-[11px] font-bold uppercase text-[#2A3547]">Kategori</span>
-            <select v-model="form.kategori" class="form-control">
-              <option value="IT">IT</option>
-              <option value="HR">HR</option>
-              <option value="GA">GA</option>
+            <span class="text-[11px] font-bold uppercase text-[#2A3547]">Unit Tujuan *</span>
+            <select v-model="form.queue_id" class="form-control">
+              <option value="" disabled>-- Pilih Unit --</option>
+              <option v-for="q in queues" :key="q.id" :value="q.id">{{ q.kode }} — {{ q.nama }}</option>
             </select>
           </label>
 
@@ -717,11 +845,13 @@ onMounted(fetchTickets)
             </select>
           </label>
 
-          <label class="flex flex-col gap-1.5 sm:col-span-2">
+          <label v-if="modalMode === 'edit'" class="flex flex-col gap-1.5 sm:col-span-2">
             <span class="text-[11px] font-bold uppercase text-[#2A3547]">Status Tiket</span>
             <select v-model="form.status_tiket" class="form-control">
               <option value="Open">Open</option>
+              <option value="In Progress">In Progress</option>
               <option value="Pending">Pending</option>
+              <option value="Resolved">Resolved</option>
               <option value="Closed">Closed</option>
             </select>
           </label>
