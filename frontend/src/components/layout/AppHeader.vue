@@ -1,13 +1,14 @@
-﻿<script setup>
+<script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useApi } from '@/composables/useApi'
 
 defineProps({
-  isNavigationOpen: { type: Boolean, default: false },
+  isMobileOpen: { type: Boolean, default: false },
+  isCollapsed:  { type: Boolean, default: false },
 })
-defineEmits(['toggle-navigation'])
+defineEmits(['toggle-mobile', 'toggle-collapse'])
 
 const route  = useRoute()
 const router = useRouter()
@@ -138,15 +139,25 @@ onBeforeUnmount(() => clearInterval(pollTimer))
   <header class="relative z-20 flex h-[72px] shrink-0 items-center justify-between border-b border-[#E5EAEF] bg-white/95 px-4 backdrop-blur-md sm:px-6 xl:px-8">
 
     <div class="flex items-center gap-4 min-w-0">
+      <!-- Toggle Mobile Drawer (lg:hidden) -->
       <button
-        v-if="!isNavigationOpen"
         type="button"
-        aria-label="Buka Sidepanel"
-        title="Buka Sidepanel"
-        aria-controls="app-navigation"
-        :aria-expanded="isNavigationOpen"
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
-        @click="$emit('toggle-navigation')"
+        aria-label="Buka Navigasi Mobile"
+        title="Buka Navigasi Mobile"
+        class="flex lg:hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
+        @click="$emit('toggle-mobile')"
+      >
+        <span aria-hidden="true" class="material-symbols-outlined text-[22px]">menu</span>
+      </button>
+
+      <!-- Toggle Desktop Collapse (hidden lg:flex) saat collapsed -->
+      <button
+        v-if="isCollapsed"
+        type="button"
+        aria-label="Perluas Sidepanel Desktop"
+        title="Perluas Sidepanel Desktop"
+        class="hidden lg:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
+        @click="$emit('toggle-collapse')"
       >
         <span aria-hidden="true" class="material-symbols-outlined text-[22px]">menu</span>
       </button>

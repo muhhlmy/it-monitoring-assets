@@ -5,9 +5,10 @@ import { useApi } from '../composables/useApi.js'
 import { useAuth } from '@/composables/useAuth'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppModal from '../components/ui/AppModal.vue'
+import TicketCaspRating from '../components/tickets/TicketCaspRating.vue'
 
 const { get, post, put, del } = useApi()
-const { user, isSuperAdmin } = useAuth()
+const { user, isSuperAdmin, isAdmin, isUser, hasWritePermission } = useAuth()
 const route  = useRoute()
 const router = useRouter()
 
@@ -141,10 +142,38 @@ const filteredTickets = computed(() => {
   })
 })
 
+const queueAdmins   = ref({})       // mapping queue_id => array of admin objects
+const isReassigning = ref(null)     // ticket id being reassigned
+
+async function fetchQueueAdmins() {
+  try {
+    const adminMap = {}
+    await Promise.all(
+      queues.value.map(async (q) => {
+        const data = await get(`/api/ticket-queues/${q.id}/admins`).catch(() => [])
+        if (Array.isArray(data)) {
+          adminMap[q.id] = data
+        }
+      })
+    )
+    queueAdmins.value = adminMap
+  } catch (err) {
+    console.error('Gagal memuat admin queue:', err)
+  }
+}
+
+function getAdminsForQueue(queueId) {
+  if (!queueId) return []
+  return queueAdmins.value[queueId] || []
+}
+
 async function fetchQueues() {
   try {
     const data = await get('/api/ticket-queues')
-    if (Array.isArray(data)) queues.value = data
+    if (Array.isArray(data)) {
+      queues.value = data
+      await fetchQueueAdmins()
+    }
   } catch (_) {}
 }
 
@@ -227,7 +256,7 @@ async function sendComment() {
   }
 }
 
-// ── Claim Ticket ──────────────────────────────────────────────
+// ── Claim & Assign Ticket ──────────────────────────────────────
 async function claimTicket(ticket) {
   isClaiming.value = ticket.id
   try {
@@ -238,6 +267,26 @@ async function claimTicket(ticket) {
     toast(err.message || 'Gagal mengambil tiket.', 'error')
   } finally {
     isClaiming.value = null
+  }
+}
+
+async function assignTicketToUser(ticket, targetUserId) {
+  if (!targetUserId) return
+  const targetId = Number(targetUserId)
+  isReassigning.value = ticket.id
+  try {
+    if (targetId === user.value?.id && !ticket.assigned_to_user_id) {
+      await post(`/api/tickets/${ticket.id}/claim`, {})
+      toast(`Tiket '${ticket.judul}' berhasil Anda ambil!`)
+    } else {
+      await post(`/api/tickets/${ticket.id}/reassign`, { target_user_id: targetId })
+      toast(`Tiket '${ticket.judul}' berhasil ditugaskan!`)
+    }
+    await fetchTickets()
+  } catch (err) {
+    toast(err.message || 'Gagal menugaskan tiket.', 'error')
+  } finally {
+    isReassigning.value = null
   }
 }
 
@@ -503,6 +552,9 @@ function toast(message, type = 'success') {
 }
 
 onMounted(async () => {
+  if (isUser.value) {
+    activeTab.value = 'reported'
+  }
   await fetchQueues()
   await fetchTickets()
 })
@@ -596,6 +648,7 @@ onMounted(async () => {
 
       <!-- Unassigned Tickets -->
       <div
+        v-if="!isUser"
         class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border p-5 cursor-pointer transition-all"
         :class="activeTab === 'unassigned' ? 'border-[#5D87FF] bg-[#ECF2FF]' : 'border-[#E5EAEF] bg-white'"
         @click="switchTab('unassigned')"
@@ -614,7 +667,15 @@ onMounted(async () => {
     <!-- ── Tab Strip ──────────────────────────────────────── -->
     <div class="flex items-center gap-1 rounded-2xl border border-[#E5EAEF] bg-white p-1 shadow-card overflow-x-auto">
       <button
-        v-for="tab in [{ key: 'all', label: 'Semua Tiket', icon: 'list_alt' }, { key: 'unassigned', label: 'Belum Diambil', icon: 'inbox' }, { key: 'mine', label: 'Tiket Saya', icon: 'person' }]"
+        v-for="tab in (isUser
+          ? [{ key: 'reported', label: 'Tiket Saya', icon: 'person' }]
+          : [
+              { key: 'all', label: 'Semua Tiket', icon: 'list_alt' },
+              { key: 'unassigned', label: 'Belum Diambil', icon: 'inbox' },
+              { key: 'assigned', label: 'Ditangani Saya', icon: 'assignment_ind' },
+              { key: 'reported', label: 'Dibuat Saya', icon: 'edit_note' }
+            ]
+        )"
         :key="tab.key"
         type="button"
         @click="switchTab(tab.key)"
@@ -737,9 +798,9 @@ onMounted(async () => {
                 </div>
               </td>
               <td>
-                <div class="flex flex-col gap-0.5">
+                <div class="flex flex-col gap-1 min-w-[155px]">
                   <div class="flex items-center gap-2">
-                    <div class="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold"
+                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
                       :class="ticket.assigned_to_user_id ? 'bg-[#ECF2FF] text-[#5D87FF]' : 'bg-[#F3F4F6] text-[#9CA3AF]'"
                     >
                       {{ (ticket.assigned_to_nama || ticket.assigned_to || '?').charAt(0).toUpperCase() }}
@@ -748,13 +809,36 @@ onMounted(async () => {
                       {{ ticket.assigned_to_nama || ticket.assigned_to || 'Belum diambil' }}
                     </span>
                   </div>
-                  <!-- Tombol Ambil Tiket -->
+
+                  <!-- Dropdown Penugasan HANYA untuk Superadmin -->
+                  <div
+                    v-if="isSuperAdmin && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
+                    class="mt-0.5 flex flex-col gap-1"
+                  >
+                    <select
+                      :value="ticket.assigned_to_user_id || ''"
+                      @change="assignTicketToUser(ticket, $event.target.value)"
+                      :disabled="isReassigning === ticket.id || isClaiming === ticket.id"
+                      class="h-7 w-full rounded-lg border border-[#D2E3FF] bg-[#F4F8FF] px-2 text-[10px] font-extrabold text-[#5D87FF] focus:border-[#5D87FF] focus:outline-none disabled:opacity-50 cursor-pointer"
+                    >
+                      <option value="" disabled>-- Tugaskan Admin {{ ticket.queue_kode || 'Queue' }} --</option>
+                      <option
+                        v-for="adm in getAdminsForQueue(ticket.queue_id)"
+                        :key="adm.id"
+                        :value="adm.id"
+                      >
+                        {{ adm.nama }} {{ adm.role ? `(${adm.role})` : '' }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- Tombol Ambil Tiket untuk Admin biasa -->
                   <button
-                    v-if="!ticket.assigned_to_user_id && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
+                    v-if="isAdmin && !isSuperAdmin && !ticket.assigned_to_user_id && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
                     type="button"
                     @click.stop="claimTicket(ticket)"
-                    :disabled="isClaiming === ticket.id"
-                    class="mt-1 flex items-center gap-1 rounded-lg bg-[#5D87FF] px-2 py-1 text-[10px] font-extrabold text-white hover:bg-[#4570EA] transition-all disabled:opacity-60"
+                    :disabled="isClaiming === ticket.id || isReassigning === ticket.id"
+                    class="mt-1 flex items-center justify-center gap-1 rounded-lg bg-[#5D87FF] px-2 py-1 text-[10px] font-extrabold text-white hover:bg-[#4570EA] transition-all disabled:opacity-60 cursor-pointer"
                   >
                     <span v-if="isClaiming === ticket.id" class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
                     <span v-else class="material-symbols-outlined text-[13px]">person_add</span>
@@ -777,6 +861,7 @@ onMounted(async () => {
                     <span class="material-symbols-outlined text-[16px]">visibility</span>
                   </button>
                   <button
+                    v-if="isAdmin || hasWritePermission('tickets')"
                     type="button"
                     @click="openEdit(ticket)"
                     title="Edit Tiket"
@@ -785,6 +870,7 @@ onMounted(async () => {
                     <span class="material-symbols-outlined text-[16px]">edit</span>
                   </button>
                   <button
+                    v-if="isAdmin || isSuperAdmin"
                     type="button"
                     @click="openDelete(ticket)"
                     title="Hapus Tiket"
@@ -967,6 +1053,14 @@ onMounted(async () => {
             <div class="min-h-20 whitespace-pre-wrap rounded-2xl border border-[#E5EAEF] bg-white p-4 text-[12px] text-[#2A3547]">
               {{ selectedTicket.deskripsi || 'Tidak ada catatan deskripsi rincian.' }}
             </div>
+          </div>
+
+          <!-- Component CASP Rating Bintang 1-5 untuk Tiket Resolved -->
+          <div class="pt-2">
+            <TicketCaspRating
+              :ticket-id="selectedTicket.id"
+              @rated="fetchTickets"
+            />
           </div>
 
           <!-- Attachment Image Display in Detail Modal -->

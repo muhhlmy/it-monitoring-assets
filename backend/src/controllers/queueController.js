@@ -1,4 +1,4 @@
-﻿import { pool } from '../config/database.js'
+import { pool } from '../config/database.js'
 
 function createHttpError(statusCode, message) {
   const error = new Error(message)
@@ -124,7 +124,12 @@ export async function listQueueAdmins(req, res) {
   const queueId = parseInt(req.params.queueId, 10)
   if (isNaN(queueId)) throw createHttpError(400, 'Queue ID tidak valid.')
   const result = await pool.query(
-    `SELECT u.id, u.nama, u.email, u.role, utq.is_primary FROM user_ticket_queues utq JOIN users u ON u.id = utq.user_id WHERE utq.queue_id = $1 ORDER BY utq.is_primary DESC, u.nama ASC`,
+    `SELECT DISTINCT u.id, u.nama, u.email, u.role, COALESCE(utq.is_primary, false) AS is_primary
+     FROM users u
+     LEFT JOIN user_ticket_queues utq ON utq.user_id = u.id AND utq.queue_id = $1
+     WHERE u.is_active = true
+       AND (utq.queue_id = $1 OR LOWER(u.role) IN ('superadmin', 'super admin'))
+     ORDER BY u.nama ASC`,
     [queueId]
   )
   res.json(result.rows)

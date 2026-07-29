@@ -8,6 +8,10 @@ import { useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
 import AppBadge from '../components/ui/AppBadge.vue'
 import { downloadAssetsCsv } from '../utils/exportAssetsCsv.js'
+import AssetTrendLineChart from '../components/charts/AssetTrendLineChart.vue'
+import AssetTypeBarChart from '../components/charts/AssetTypeBarChart.vue'
+import AssetConditionPieChart from '../components/charts/AssetConditionPieChart.vue'
+import AssetStatusDonutChart from '../components/charts/AssetStatusDonutChart.vue'
 
 const { get } = useApi()
 const router = useRouter()
@@ -322,34 +326,34 @@ onMounted(fetchStats)
       <!-- ─── ROW 1: Hero Banner + Pastel Stat Cards ────────── -->
       <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
 
-        <!-- Total Aset (Modernize Royal Blue Gradient Hero Card) -->
-        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#5D87FF] to-[#4570EA] p-6 text-white sm:col-span-2 shadow-lg shadow-blue-500/20 border border-white/10 flex flex-col justify-between">
+        <!-- Total Aset (ESB Primary Orange Hero Card) -->
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#FC841B] to-[#E26F10] p-6 text-white sm:col-span-2 shadow-lg shadow-orange-500/25 border border-white/10 flex flex-col justify-between">
           <!-- Decorative SVG circle pattern -->
           <div class="absolute -right-8 -top-8 h-40 w-40 rounded-full border-[24px] border-white/10"></div>
           <div class="absolute -bottom-16 -left-8 h-44 w-44 rounded-full bg-white/10 blur-md"></div>
           
           <div class="relative z-10">
             <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold uppercase tracking-widest text-white/80">TOTAL ASET IT</span>
+              <span class="text-[11px] font-bold uppercase tracking-widest text-white/90">TOTAL ASET IT</span>
               <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-md">
                 <span class="material-symbols-outlined text-[18px]">inventory_2</span>
               </span>
             </div>
-            <p class="font-num mt-3 text-[42px] font-black leading-none tracking-tight">{{ totalAssets }}</p>
-            <p class="mt-1 text-[12px] font-medium text-white/80">Unit terdaftar dalam sistem perusahaan</p>
+            <p class="font-num mt-3 text-[42px] font-black leading-none tracking-tight text-white">{{ totalAssets }}</p>
+            <p class="mt-1 text-[12px] font-medium text-white/90">Unit terdaftar dalam sistem perusahaan</p>
           </div>
 
           <div class="relative z-10 flex gap-3 mt-6">
             <button
               type="button"
-              class="rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-[#5D87FF] shadow-sm hover:bg-[#ECF2FF] transition-all"
+              class="rounded-xl bg-white px-4 py-2.5 text-xs font-extrabold text-[#E26F10] shadow-sm hover:bg-[#FFF2E7] transition-all"
               @click="goToAddAsset"
             >
               + Tambah Aset
             </button>
             <button
               type="button"
-              class="rounded-xl border border-white/30 bg-white/15 px-4 py-2.5 text-xs font-bold text-white backdrop-blur-md hover:bg-white/25 disabled:opacity-50 transition-all"
+              class="rounded-xl border border-white/40 bg-white/15 px-4 py-2.5 text-xs font-bold text-white backdrop-blur-md hover:bg-white/25 disabled:opacity-50 transition-all"
               :disabled="isExporting"
               @click="exportAssets"
             >
@@ -412,20 +416,36 @@ onMounted(fetchStats)
 
       </div>
 
-      <!-- ─── ROW 2: Bar Chart + Donut Status + Health Overview ── -->
+      <!-- ─── ROW 2: Line Chart (8 col) + Donut Chart (4 col) ── -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <AssetTrendLineChart
+          class="lg:col-span-8 min-h-[300px]"
+          :data="stats.monthlyTrend || []"
+          :loading="isLoading"
+          :error="error"
+        />
+        <AssetStatusDonutChart
+          class="lg:col-span-4 min-h-[300px]"
+          :data="stats.byStatus || []"
+          :loading="isLoading"
+          :error="error"
+        />
+      </div>
 
-
-
-
-
-        <!-- Health Score & Summary (span 4) -->
-        <div class="lg:col-span-4 flex flex-col gap-5">
-
-
-
-        </div>
-
+      <!-- ─── ROW 3: Bar Chart (7 col) + Pie Chart (5 col) ── -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <AssetTypeBarChart
+          class="lg:col-span-7 min-h-[300px]"
+          :data="stats.byType || []"
+          :loading="isLoading"
+          :error="error"
+        />
+        <AssetConditionPieChart
+          class="lg:col-span-5 min-h-[300px]"
+          :data="stats.byCondition || []"
+          :loading="isLoading"
+          :error="error"
+        />
       </div>
 
       <!-- ─── ROW 3: Lokasi Aset ─────────────────────────────── -->

@@ -1,4 +1,4 @@
-﻿import { Router } from 'express'
+import { Router } from 'express'
 import {
   listTickets,
   getTicketStats,
@@ -9,7 +9,9 @@ import {
   updateTicket,
   claimTicket,
   reassignTicket,
-  deleteTicket
+  deleteTicket,
+  getTicketCasp,
+  submitTicketCasp
 } from '../controllers/ticketController.js'
 import { authorizeRoles } from '../middleware/authMiddleware.js'
 
@@ -22,7 +24,9 @@ ticketRouter.get('/',               listTickets)
 ticketRouter.get('/:id/history',    getTicketHistory)
 ticketRouter.get('/:id/comments',   getTicketComments)
 ticketRouter.post('/:id/comments',  createTicketComment)
-ticketRouter.post('/:id/claim',     claimTicket)
+ticketRouter.get('/:id/casp',       getTicketCasp)
+ticketRouter.post('/:id/casp',      submitTicketCasp)
+ticketRouter.post('/:id/claim',     requireAdmin, claimTicket)
 ticketRouter.post('/:id/reassign',  requireAdmin, reassignTicket)
 ticketRouter.post('/',              createTicket)
 ticketRouter.put('/:id',            requireAdmin, updateTicket)
