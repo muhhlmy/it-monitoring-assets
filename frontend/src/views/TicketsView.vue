@@ -1,14 +1,16 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '@/composables/useAuth'
+import { useTicketEvents } from '../composables/useTicketEvents.js'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppModal from '../components/ui/AppModal.vue'
 import TicketCaspRating from '../components/tickets/TicketCaspRating.vue'
 
 const { get, post, put, del } = useApi()
 const { user, isSuperAdmin, isAdmin, isUser, hasWritePermission } = useAuth()
+const { connect: connectSSE, disconnect: disconnectSSE, on: onSSE } = useTicketEvents()
 const route  = useRoute()
 const router = useRouter()
 
@@ -177,8 +179,8 @@ async function fetchQueues() {
   } catch (_) {}
 }
 
-async function fetchTickets() {
-  isLoading.value = true
+async function fetchTickets(silent = false) {
+  if (!silent) isLoading.value = true
   pageError.value = ''
   try {
     const params = new URLSearchParams()
@@ -196,8 +198,10 @@ async function fetchTickets() {
     tickets.value = Array.isArray(data) ? data : []
     stats.value = statsData || { totalTickets: 0, pendingTickets: 0, openTickets: 0, closedTickets: 0, unassignedTickets: 0 }
   } catch (err) {
-    console.error('Gagal memuat tiket:', err)
-    pageError.value = err.message || 'Gagal memuat data tiket.'
+    if (!silent) {
+      console.error('Gagal memuat tiket:', err)
+      pageError.value = err.message || 'Gagal memuat data tiket.'
+    }
   } finally {
     isLoading.value = false
   }
@@ -221,16 +225,47 @@ async function fetchTicketHistory(ticketId) {
   }
 }
 
-async function fetchTicketComments(ticketId) {
-  isCommentsLoading.value = true
+async function fetchTicketComments(ticketId, silent = false) {
+  if (!silent) isCommentsLoading.value = true
   try {
     const res = await get(`/api/tickets/${ticketId}/comments`)
-    ticketComments.value = Array.isArray(res) ? res : []
+    const newComments = Array.isArray(res) ? res : []
+    const hadNewMsg = newComments.length > ticketComments.value.length
+    ticketComments.value = newComments
+    if (hadNewMsg && silent) {
+      await nextTick()
+      scrollChatToBottom()
+    }
   } catch (err) {
-    console.error('Gagal memuat komentar tiket:', err)
-    ticketComments.value = []
+    if (!silent) {
+      console.error('Gagal memuat komentar tiket:', err)
+      ticketComments.value = []
+    }
   } finally {
     isCommentsLoading.value = false
+  }
+}
+
+const chatContainer = ref(null)
+function scrollChatToBottom() {
+  const el = chatContainer.value
+  if (el) el.scrollTop = el.scrollHeight
+}
+
+// ── Realtime Chat Polling ──────────────────────────────────────
+let chatPollInterval = null
+function startChatPoll(ticketId) {
+  stopChatPoll()
+  chatPollInterval = setInterval(() => {
+    if (showDetailModal.value && activeDetailTab.value === 'comments' && ticketId) {
+      fetchTicketComments(ticketId, true)
+    }
+  }, 3000)
+}
+function stopChatPoll() {
+  if (chatPollInterval) {
+    clearInterval(chatPollInterval)
+    chatPollInterval = null
   }
 }
 
@@ -249,6 +284,8 @@ async function sendComment() {
     newCommentText.value = ''
     commentAttachment.value = null
     await fetchTicketComments(selectedTicket.value.id)
+    await nextTick()
+    scrollChatToBottom()
   } catch (err) {
     console.error('Gagal mengirim komentar:', err)
   } finally {
@@ -320,6 +357,7 @@ function openDetail(ticket) {
   showDetailModal.value = true
   fetchTicketHistory(ticket.id)
   fetchTicketComments(ticket.id)
+  startChatPoll(ticket.id)
 }
 
 function openDelete(ticket) {
@@ -333,6 +371,7 @@ function closeModal() {
   showDeleteModal.value = false
   showDetailModal.value = false
   modalError.value = ''
+  stopChatPoll()
 }
 
 async function saveTicket() {
@@ -552,11 +591,37 @@ function toast(message, type = 'success') {
 }
 
 onMounted(async () => {
-  if (isUser.value) {
-    activeTab.value = 'reported'
+  if (!isAdmin.value) {
+    activeTab.value = 'all'
   }
   await fetchQueues()
   await fetchTickets()
+
+  // Connect SSE for realtime events
+  connectSSE()
+
+  onSSE('TICKET_CREATED', (data) => {
+    toast(`🔔 Tiket Baru! ${data.nomor_tiket || ''}: ${data.judul || 'Tanpa Judul'} — oleh ${data.pelapor || 'User'}`, 'info')
+    fetchTickets(true)
+  })
+
+  onSSE('TICKET_UPDATED', () => {
+    fetchTickets(true)
+  })
+
+  onSSE('COMMENT_CREATED', (data) => {
+    // Update comment count in ticket list silently
+    fetchTickets(true)
+    // If chat modal is open for this ticket, refresh comments
+    if (showDetailModal.value && selectedTicket.value?.id === data.ticketId) {
+      fetchTicketComments(data.ticketId, true)
+    }
+  })
+})
+
+onUnmounted(() => {
+  disconnectSSE()
+  stopChatPoll()
 })
 </script>
 
@@ -594,7 +659,7 @@ onMounted(async () => {
           class="flex items-center gap-2 rounded-xl bg-[#5D87FF] px-5 py-3 text-[13px] font-bold text-white shadow-md shadow-blue-500/20 hover:bg-[#4570EA] transition-all cursor-pointer"
         >
           <span class="material-symbols-outlined text-[18px]">add</span>
-          + Buat Tiket Baru
+          Buat Tiket Baru
         </button>
       </div>
     </div>
@@ -648,7 +713,7 @@ onMounted(async () => {
 
       <!-- Unassigned Tickets -->
       <div
-        v-if="!isUser"
+        v-if="isAdmin"
         class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border p-5 cursor-pointer transition-all"
         :class="activeTab === 'unassigned' ? 'border-[#5D87FF] bg-[#ECF2FF]' : 'border-[#E5EAEF] bg-white'"
         @click="switchTab('unassigned')"
@@ -667,8 +732,12 @@ onMounted(async () => {
     <!-- ── Tab Strip ──────────────────────────────────────── -->
     <div class="flex items-center gap-1 rounded-2xl border border-[#E5EAEF] bg-white p-1 shadow-card overflow-x-auto">
       <button
-        v-for="tab in (isUser
-          ? [{ key: 'reported', label: 'Tiket Saya', icon: 'person' }]
+        v-for="tab in (!isAdmin
+          ? [
+              { key: 'all', label: 'Semua Tiket Saya', icon: 'list_alt' },
+              { key: 'open', label: 'Proses / Open', icon: 'pending_actions' },
+              { key: 'closed', label: 'Selesai / Closed', icon: 'task_alt' }
+            ]
           : [
               { key: 'all', label: 'Semua Tiket', icon: 'list_alt' },
               { key: 'unassigned', label: 'Belum Diambil', icon: 'inbox' },
@@ -774,9 +843,22 @@ onMounted(async () => {
                   <div class="flex items-center gap-2">
                     <p class="text-[13px] font-bold text-[#2A3547] leading-tight">{{ ticket.judul }}</p>
                     <span v-if="ticket.attachment" class="material-symbols-outlined text-[16px] text-[#5D87FF]" title="Ada Lampiran Gambar">attach_file</span>
+                    <span
+                      v-if="ticket.total_komentar > 0"
+                      class="inline-flex items-center gap-0.5 rounded-full bg-[#ECF2FF] px-1.5 py-0.5 text-[10px] font-bold text-[#5D87FF]"
+                      title="Jumlah Komentar Diskusi"
+                    >
+                      <span class="material-symbols-outlined text-[12px]">chat_bubble</span>
+                      {{ ticket.total_komentar }}
+                    </span>
                   </div>
                   <p class="text-[11px] text-[#7C8BAC] line-clamp-1">{{ ticket.deskripsi || 'Tidak ada deskripsi' }}</p>
-                  <p class="text-[10px] font-medium text-[#7C8BAC] mt-0.5">Pelapor: <span class="font-bold text-[#2A3547]">{{ ticket.pelapor || '—' }}</span></p>
+                  <p class="text-[10px] font-medium text-[#7C8BAC] mt-0.5">
+                    Pelapor: <span class="font-bold text-[#2A3547]">{{ ticket.pelapor_nama || ticket.pelapor || '—' }}</span>
+                    <span v-if="ticket.pelapor_jabatan || ticket.pelapor_nik" class="text-[10px] text-[#7C8BAC]">
+                      • {{ ticket.pelapor_jabatan || 'User' }} <template v-if="ticket.pelapor_nik">({{ ticket.pelapor_nik }})</template>
+                    </span>
+                  </p>
                 </div>
               </td>
               <td>
@@ -819,9 +901,9 @@ onMounted(async () => {
                       :value="ticket.assigned_to_user_id || ''"
                       @change="assignTicketToUser(ticket, $event.target.value)"
                       :disabled="isReassigning === ticket.id || isClaiming === ticket.id"
-                      class="h-7 w-full rounded-lg border border-[#D2E3FF] bg-[#F4F8FF] px-2 text-[10px] font-extrabold text-[#5D87FF] focus:border-[#5D87FF] focus:outline-none disabled:opacity-50 cursor-pointer"
+                      class="h-10 w-full rounded-lg border border-[#D2E3FF] bg-[#F4F8FF] px-2 text-[10px] font-extrabold text-[#5D87FF] focus:border-[#5D87FF] focus:outline-none disabled:opacity-50 cursor-pointer"
                     >
-                      <option value="" disabled>-- Tugaskan Admin {{ ticket.queue_kode || 'Queue' }} --</option>
+                      <option value="" disabled>Assign to {{ ticket.queue_kode || 'Queue' }}</option>
                       <option
                         v-for="adm in getAdminsForQueue(ticket.queue_id)"
                         :key="adm.id"
@@ -1030,7 +1112,11 @@ onMounted(async () => {
           <div class="grid grid-cols-2 gap-3 text-[12px]">
             <div class="rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] p-3">
               <span class="block text-[10px] font-bold uppercase text-[#7C8BAC]">Pelapor</span>
-              <span class="font-bold text-[#2A3547]">{{ selectedTicket.pelapor || '—' }}</span>
+              <span class="font-bold text-[#2A3547]">{{ selectedTicket.pelapor_nama || selectedTicket.pelapor || '—' }}</span>
+              <p v-if="selectedTicket.pelapor_jabatan || selectedTicket.pelapor_nik" class="text-[10px] text-[#7C8BAC] mt-0.5 font-medium">
+                {{ selectedTicket.pelapor_jabatan || 'User' }}
+                <span v-if="selectedTicket.pelapor_nik" class="font-mono text-[#94A3B8]">({{ selectedTicket.pelapor_nik }})</span>
+              </p>
             </div>
             <div class="rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] p-3">
               <span class="block text-[10px] font-bold uppercase text-[#7C8BAC]">Petugas IT (Assigned)</span>
@@ -1154,7 +1240,7 @@ onMounted(async () => {
         <!-- TAB 3: Diskusi & Komentar (Chat Feed) -->
         <div v-else-if="activeDetailTab === 'comments'" class="flex flex-col gap-3">
           <!-- Scrollable Chat Bubble Area -->
-          <div class="rounded-2xl border border-[#E5EAEF] bg-[#F8FAFC] p-4 flex flex-col gap-3.5 min-h-[260px] max-h-96 overflow-y-auto">
+          <div ref="chatContainer" class="rounded-2xl border border-[#E5EAEF] bg-[#F8FAFC] p-4 flex flex-col gap-3.5 min-h-[260px] max-h-96 overflow-y-auto">
             <div v-if="isCommentsLoading" class="flex flex-col items-center justify-center py-10 gap-2 text-[#7C8BAC]">
               <span class="material-symbols-outlined text-[26px] animate-spin text-[#5D87FF]">progress_activity</span>
               <span class="text-[12px] font-medium">Memuat percakapan...</span>
@@ -1204,8 +1290,13 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Chat Bottom Input Bar -->
-          <div class="flex flex-col gap-2 rounded-2xl border border-[#DFE5EF] bg-white p-3 shadow-xs">
+          <!-- Chat Bottom Input Bar / Locked Banner -->
+          <div v-if="selectedTicket.status_tiket === 'Resolved' || selectedTicket.status_tiket === 'Closed'" class="flex items-center justify-center gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 text-[12px] font-bold text-[#64748B]">
+            <span class="material-symbols-outlined text-[18px] text-[#94A3B8]">lock</span>
+            Diskusi untuk tiket ini telah ditutup karena status tiket sudah {{ selectedTicket.status_tiket }}.
+          </div>
+
+          <div v-else class="flex flex-col gap-2 rounded-2xl border border-[#DFE5EF] bg-white p-3 shadow-xs">
             <!-- Attachment Preview Bar if selected -->
             <div v-if="commentAttachment" class="flex items-center justify-between gap-2 rounded-xl bg-[#F8FAFC] p-2 border border-[#E5EAEF]">
               <div class="flex items-center gap-2 min-w-0">

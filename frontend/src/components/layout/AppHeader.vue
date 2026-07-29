@@ -307,19 +307,28 @@ onBeforeUnmount(() => clearInterval(pollTimer))
           </div>
           <div class="hidden text-left lg:block">
             <p class="text-[12px] font-bold leading-tight text-[#2A3547]">{{ user ? user.nama : 'Pengguna' }}</p>
-            <p class="text-[10px] font-medium leading-none text-[#7C8BAC] capitalize">{{ user ? user.role : 'Guest' }}</p>
+            <p class="text-[10px] font-medium leading-tight text-[#7C8BAC] capitalize">
+              {{ user?.jabatan || user?.role || 'Guest' }}
+              <span v-if="user?.nik" class="font-mono text-[#94A3B8]">({{ user.nik }})</span>
+            </p>
           </div>
         </button>
 
         <Transition name="dropdown">
           <div
             v-if="isProfileOpen"
-            class="absolute right-0 mt-2 w-56 rounded-2xl border border-[#E5EAEF] bg-white p-2 shadow-xl z-50"
+            class="absolute right-0 mt-2 w-60 rounded-2xl border border-[#E5EAEF] bg-white p-2 shadow-xl z-50"
             @click="isProfileOpen = false"
           >
             <div class="px-3 py-2 border-b border-[#F1F5F9] mb-1">
               <p class="text-[12px] font-bold text-[#2A3547]">{{ user ? user.nama : 'Pengguna' }}</p>
-              <p class="text-[10px] text-[#7C8BAC] capitalize">{{ user ? user.role : 'Guest' }} {{ user && user.email ? '• ' + user.email : '' }}</p>
+              <p class="text-[10px] font-semibold text-[#5D87FF] capitalize mt-0.5">
+                {{ user?.jabatan || user?.role || 'Guest' }}
+              </p>
+              <p v-if="user?.nik" class="text-[10px] font-mono text-[#7C8BAC]">
+                NIK: {{ user.nik }}
+              </p>
+              <p v-if="user?.email" class="text-[10px] text-[#94A3B8]">{{ user.email }}</p>
             </div>
             <button
               type="button"

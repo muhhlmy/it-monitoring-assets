@@ -6,10 +6,10 @@ import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 
 const { get } = useApi()
-const { isUser, user } = useAuth()
+const { isUser, isAdmin, isSuperAdmin, user } = useAuth()
 
 // ── Tampilan: 'list' = daftar karyawan, 'detail' = aset karyawan terpilih
-const view = ref(isUser.value ? 'detail' : 'list')
+const view = ref(isAdmin.value ? 'list' : 'detail')
 
 // ── State: Daftar Karyawan ─────────────────────────────────────────────────────
 const employees = ref([])
@@ -21,7 +21,7 @@ const filterLokasi = ref('')
 
 // ── State: Aset Karyawan Terpilih ─────────────────────────────────────────────
 // Jika role user, 'selectedEmployee' adalah diri mereka sendiri
-const selectedEmployee = ref(isUser.value ? { nama_karyawan: user.value?.nama || 'Saya', nik: '' } : null)
+const selectedEmployee = ref(!isAdmin.value ? { nama_karyawan: user.value?.nama || 'Saya', nik: user.value?.nik || '' } : null)
 const myAssets = ref([])
 const isLoadingAssets = ref(false)
 const assetError = ref('')
@@ -89,7 +89,7 @@ const assetStats = computed(() => ({
 
 // ── Methods: Karyawan ──────────────────────────────────────────────────────────
 async function fetchEmployees() {
-  if (isUser.value) return // User tidak boleh ambil data semua karyawan
+  if (!isAdmin.value) return // Non-admin tidak boleh ambil data semua karyawan
 
   isLoadingEmployees.value = true
   employeeError.value = ''
@@ -107,10 +107,8 @@ async function loadMyOwnAssets() {
   isLoadingAssets.value = true
   assetError.value = ''
   try {
-    const assetData = await get(`/api/assets/my`)
+    const assetData = await get('/api/assets/my')
     myAssets.value = Array.isArray(assetData) ? assetData : []
-    // Untuk role user, jika NIK ada di response pertama, mungkin kita bisa ambil cycle, tapi kita biarkan kosong dulu
-    // (Atau abaikan saja cycle jika mereka tidak berhak melihat seluruh riwayat)
   } catch (err) {
     assetError.value = err.message || 'Gagal memuat data aset Anda.'
   } finally {
@@ -119,7 +117,7 @@ async function loadMyOwnAssets() {
 }
 
 async function selectEmployee(employee) {
-  if (isUser.value) return // Mencegah role user berpindah karyawan
+  if (!isAdmin.value) return // Mencegah non-admin berpindah karyawan
 
   selectedEmployee.value = employee
   view.value = 'detail'
@@ -131,27 +129,40 @@ async function selectEmployee(employee) {
   assetError.value = ''
   cycleError.value = ''
 
-  // Fetch aset aktif dan riwayat siklus secara bersamaan
   isLoadingAssets.value = true
-  isLoadingCycle.value = true
   try {
-    const [assetData, cycleData] = await Promise.all([
-      get(`/api/assets/my?nik=${encodeURIComponent(employee.nik)}`),
-      get(`/api/assets/cycle/${encodeURIComponent(employee.nik)}`),
-    ])
+    const assetData = await get(`/api/assets/my?nik=${encodeURIComponent(employee.nik)}`)
     myAssets.value = Array.isArray(assetData) ? assetData : []
-    deviceCycle.value = Array.isArray(cycleData) ? cycleData : []
+
+    // Fetch cycle HANYA jika pengguna adalah Admin / Super Admin
+    if ((isAdmin.value || isSuperAdmin.value) && employee?.nik) {
+      isLoadingCycle.value = true
+      try {
+        const cycleData = await get(`/api/assets/cycle/${encodeURIComponent(employee.nik)}`)
+        deviceCycle.value = Array.isArray(cycleData) ? cycleData : []
+      } catch (_) {
+        deviceCycle.value = []
+      } finally {
+        isLoadingCycle.value = false
+      }
+    }
   } catch (err) {
     assetError.value = err.message || 'Gagal memuat data karyawan.'
-    cycleError.value = err.message || 'Gagal memuat riwayat perangkat.'
   } finally {
     isLoadingAssets.value = false
-    isLoadingCycle.value = false
   }
 }
 
+onMounted(() => {
+  if (isAdmin.value) {
+    fetchEmployees()
+  } else {
+    loadMyOwnAssets()
+  }
+})
+
 function backToList() {
-  if (isUser.value) return // Role user tidak bisa kembali ke daftar karyawan
+  if (!isAdmin.value) return // Non-admin tidak bisa kembali ke daftar karyawan
   
   view.value = 'list'
   selectedEmployee.value = null
@@ -464,7 +475,7 @@ onMounted(() => {
             <p class="mt-1 text-[9px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">Maintenance</p>
           </div>
         </div>
-        <div class="shadow-card flex items-center gap-3 rounded-2xl border border-[#E8EDF3] bg-white p-4">
+        <div v-if="isAdmin || isSuperAdmin" class="shadow-card flex items-center gap-3 rounded-2xl border border-[#E8EDF3] bg-white p-4">
           <span class="flex h-10 w-10 items-center justify-center rounded-[13px] bg-[#EDE9FE] text-[#7C3AED]">
             <span class="material-symbols-outlined text-[20px]">history</span>
           </span>
@@ -496,6 +507,7 @@ onMounted(() => {
             </span>
           </button>
           <button
+            v-if="isAdmin || isSuperAdmin"
             type="button"
             @click="detailTab = 'cycle'"
             class="flex items-center gap-2 px-5 py-3.5 text-[12px] font-bold transition-all duration-150 border-b-2 -mb-[1px]"

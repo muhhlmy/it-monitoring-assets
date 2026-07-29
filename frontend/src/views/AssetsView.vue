@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
+import { useAuth } from '../composables/useAuth.js'
 import { downloadAssetsCsv } from '../utils/exportAssetsCsv.js'
 import { downloadAssetsPdf } from '../utils/exportAssetsPdf.js'
 import AppModal from '../components/ui/AppModal.vue'
@@ -9,6 +10,7 @@ import AppBadge from '../components/ui/AppBadge.vue'
 import SearchableSelect from '../components/ui/SearchableSelect.vue'
 
 const { get, post, put, del } = useApi()
+const { isAdmin, isSuperAdmin } = useAuth()
 const route = useRoute()
 const router = useRouter()
 
@@ -596,6 +598,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
             Informasi Detail
           </button>
           <button
+            v-if="isAdmin || isSuperAdmin"
             type="button"
             @click="detailsTab = 'logs'"
             class="flex items-center gap-2 px-4 py-3 text-[12px] font-bold transition-all duration-150 border-b-2 -mb-[2px]"

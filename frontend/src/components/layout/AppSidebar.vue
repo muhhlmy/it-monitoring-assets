@@ -295,7 +295,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
               {{ user?.nama || 'Pengguna' }}
             </p>
             <p class="mt-0.5 truncate text-[10px] font-medium text-[#7C8BAC] capitalize">
-              {{ user?.role || 'Guest' }}
+              {{ user?.jabatan || user?.role || 'Guest' }}
+            </p>
+            <p v-if="user?.nik" class="truncate font-mono text-[9px] text-[#9CA3AF]">
+              NIK: {{ user.nik }}
             </p>
           </div>
         </div>

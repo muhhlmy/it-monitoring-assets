@@ -47,8 +47,16 @@ export async function login(req, res) {
       return res.status(400).json({ message: 'Email dan password wajib diisi.' });
     }
 
-    // Cari user berdasarkan email
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    // Cari user berdasarkan email beserta NIK & Jabatan dari tabel karyawan (jika terhubung)
+    const result = await pool.query(`
+      SELECT 
+        u.*,
+        COALESCE(k.nik, '') AS nik,
+        COALESCE(k.jabatan, u.role) AS jabatan
+      FROM users u
+      LEFT JOIN karyawan k ON LOWER(TRIM(u.email)) = LOWER(TRIM(k.email_kantor))
+      WHERE u.email = $1
+    `, [email]);
     
     if (result.rowCount === 0) {
       // Catat log gagal
@@ -83,12 +91,14 @@ export async function login(req, res) {
       ? SUPERADMIN_PERMISSIONS
       : (typeof user.permissions === 'object' && user.permissions !== null ? user.permissions : DEFAULT_USER_PERMISSIONS)
 
-    // Buat JWT Token
+    // Buat JWT Token dengan NIK & Jabatan
     const payload = {
       id: user.id,
       nama: user.nama,
       email: user.email,
       role: user.role,
+      nik: user.nik || '',
+      jabatan: user.jabatan || user.role,
       permissions
     };
 
@@ -115,7 +125,15 @@ export async function getMe(req, res) {
   try {
     await ensureUsersPermissionsColumnExists()
     // req.user disisipkan oleh middleware authenticateToken
-    const result = await pool.query('SELECT id, nama, email, role, permissions, is_active, dibuat_pada FROM users WHERE id = $1', [req.user.id]);
+    const result = await pool.query(`
+      SELECT 
+        u.id, u.nama, u.email, u.role, u.permissions, u.is_active, u.dibuat_pada,
+        COALESCE(k.nik, '') AS nik,
+        COALESCE(k.jabatan, u.role) AS jabatan
+      FROM users u
+      LEFT JOIN karyawan k ON LOWER(TRIM(u.email)) = LOWER(TRIM(k.email_kantor))
+      WHERE u.id = $1
+    `, [req.user.id]);
     
     if (result.rowCount === 0) {
       return res.status(404).json({ message: 'User tidak ditemukan.' });

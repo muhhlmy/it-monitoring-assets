@@ -1,5 +1,6 @@
 import { pool } from '../config/database.js'
 import { ensureQueueTablesExist } from './queueController.js'
+import { addSseClient, broadcastEvent } from '../services/realtimeService.js'
 
 function createHttpError(statusCode, message) {
   const error = new Error(message)
@@ -123,7 +124,7 @@ export async function listTickets(req, res) {
   const userNama = req.user.nama
   const superAdmin = isSuperAdmin(req.user.role)
   const userRole = (req.user.role || '').trim().toLowerCase()
-  const isRegularUser = userRole === 'user'
+  const isRegularUser = userRole !== 'admin' && userRole !== 'superadmin' && userRole !== 'super admin'
 
   const params = []
   let conditions = []
@@ -133,7 +134,14 @@ export async function listTickets(req, res) {
   if (isRegularUser) {
     params.push(userId)
     params.push(userNama)
-    conditions.push(`(t.pelapor_user_id = $1 OR (t.pelapor_user_id IS NULL AND t.pelapor = $2))`)
+    conditions.push(`(t.pelapor_user_id = $1 OR (t.pelapor_user_id IS NULL AND LOWER(TRIM(t.pelapor)) = LOWER(TRIM($2))))`)
+    if (tab === 'open') {
+      conditions.push(`t.status_tiket IN ('Open', 'In Progress')`)
+    } else if (tab === 'pending') {
+      conditions.push(`t.status_tiket = 'Pending'`)
+    } else if (tab === 'closed' || tab === 'resolved') {
+      conditions.push(`t.status_tiket IN ('Closed', 'Resolved')`)
+    }
   } else if (!superAdmin) {
     // Admin/Teknisi:
     if (tab === 'assigned') {
@@ -202,11 +210,20 @@ export async function listTickets(req, res) {
       q.kode   AS queue_kode,
       q.nama   AS queue_nama,
       assignee.nama  AS assigned_to_nama,
-      reporter.nama  AS pelapor_nama
+      reporter.nama  AS pelapor_nama,
+      COALESCE(k_rep.nik, '') AS pelapor_nik,
+      COALESCE(k_rep.jabatan, 'User') AS pelapor_jabatan,
+      COALESCE(comm_count.total_komentar, 0)::int AS total_komentar
     FROM tickets t
     LEFT JOIN ticket_queues q    ON q.id = t.queue_id
     LEFT JOIN users assignee     ON assignee.id = t.assigned_to_user_id
     LEFT JOIN users reporter     ON reporter.id = t.pelapor_user_id
+    LEFT JOIN karyawan k_rep     ON LOWER(TRIM(reporter.email)) = LOWER(TRIM(k_rep.email_kantor))
+    LEFT JOIN (
+      SELECT id_tiket, COUNT(*)::int AS total_komentar
+      FROM komentar_tiket
+      GROUP BY id_tiket
+    ) comm_count ON comm_count.id_tiket = t.id
     ${whereClause}
     ORDER BY
       CASE t.prioritas
@@ -230,7 +247,7 @@ export async function getTicketStats(req, res) {
   const userNama = req.user.nama
   const superAdmin = isSuperAdmin(req.user.role)
   const userRole = (req.user.role || '').trim().toLowerCase()
-  const isRegularUser = userRole === 'user'
+  const isRegularUser = userRole !== 'admin' && userRole !== 'superadmin' && userRole !== 'super admin'
 
   let whereClause = ''
   const params = []
@@ -238,7 +255,7 @@ export async function getTicketStats(req, res) {
   if (isRegularUser) {
     params.push(userId)
     params.push(userNama)
-    whereClause = `WHERE (t.pelapor_user_id = $1 OR (t.pelapor_user_id IS NULL AND t.pelapor = $2))`
+    whereClause = `WHERE (t.pelapor_user_id = $1 OR (t.pelapor_user_id IS NULL AND LOWER(TRIM(t.pelapor)) = LOWER(TRIM($2))))`
   } else if (!superAdmin) {
     params.push(userId)
     whereClause = `WHERE EXISTS (SELECT 1 FROM user_ticket_queues utq WHERE utq.user_id = $1 AND utq.queue_id = t.queue_id)`
@@ -314,13 +331,36 @@ export async function createTicketComment(req, res) {
   if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
   const { pesan, attachment, nama_pengguna, role_pengguna } = req.body
   if (!pesan || !String(pesan).trim()) throw createHttpError(400, 'Pesan komentar wajib diisi.')
+
+  const ticketCheck = await pool.query('SELECT status_tiket FROM tickets WHERE id = $1', [id])
+  if (ticketCheck.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
+  const statusTiket = ticketCheck.rows[0].status_tiket
+  if (statusTiket === 'Resolved' || statusTiket === 'Closed') {
+    throw createHttpError(403, 'Diskusi untuk tiket ini telah ditutup karena status tiket sudah Resolved/Closed.')
+  }
+
   const userNama = nama_pengguna || req.user?.nama || 'User'
   const userRole = role_pengguna || req.user?.role || 'user'
   const result = await pool.query(
     `INSERT INTO komentar_tiket (id_tiket, nama_pengguna, role_pengguna, pesan, attachment) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
     [id, userNama, userRole, String(pesan).trim(), attachment || null]
   )
-  res.status(201).json(result.rows[0])
+  const newComment = result.rows[0]
+
+  broadcastEvent('COMMENT_CREATED', { ticketId: id, comment: newComment })
+
+  res.status(201).json(newComment)
+}
+
+// ── STREAM REALTIME TICKET EVENTS (SSE) ───────────────────────
+export function streamTicketEvents(req, res) {
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  if (res.flushHeaders) res.flushHeaders()
+
+  addSseClient(res)
+  res.write(`data: ${JSON.stringify({ type: 'CONNECTED', timestamp: Date.now() })}\n\n`)
 }
 
 // ── CREATE TICKET ─────────────────────────────────────────────
@@ -370,6 +410,8 @@ export async function createTicket(req, res) {
   await addTicketLog(newTicket.id, newTicket.nomor_tiket, 'PEMBUATAN',
     `Tiket '${newTicket.judul}' dibuat untuk unit ${queue.nama}. Prioritas: ${newTicket.prioritas}.`,
     pelaporNama)
+
+  broadcastEvent('TICKET_CREATED', newTicket)
 
   res.status(201).json(newTicket)
 }
@@ -439,6 +481,8 @@ export async function updateTicket(req, res) {
 
   await addTicketLog(id, oldTicket.nomor_tiket, aksi, logDetail, req.user?.nama || 'Admin')
 
+  broadcastEvent('TICKET_UPDATED', updatedTicket)
+
   res.json(updatedTicket)
 }
 
@@ -498,6 +542,9 @@ export async function claimTicket(req, res) {
 
   const ticket = result.rows[0]
   await addTicketLog(id, ticket.nomor_tiket, 'CLAIM', `Tiket diambil oleh ${userName}.`, userName)
+
+  broadcastEvent('TICKET_UPDATED', ticket)
+
   res.json(ticket)
 }
 
@@ -545,7 +592,10 @@ export async function reassignTicket(req, res) {
     `Tiket di-reassign ke ${targetName} oleh ${req.user.nama || 'Admin'}.`,
     req.user.nama || 'Admin')
 
-  res.json(result.rows[0])
+  const reassignedTicket = result.rows[0]
+  broadcastEvent('TICKET_UPDATED', reassignedTicket)
+
+  res.json(reassignedTicket)
 }
 
 // ── DELETE TICKET ─────────────────────────────────────────────
@@ -574,7 +624,7 @@ export async function getTicketCasp(req, res) {
   const userId = req.user?.id
   const isReporter = userId ? ticket.pelapor_user_id === userId : ticket.pelapor === req.user?.nama
   const isAssignee = userId && ticket.assigned_to_user_id === userId
-  const isResolved = ticket.status_tiket === 'Resolved'
+  const isResolved = ticket.status_tiket === 'Resolved' || ticket.status_tiket === 'Closed'
 
   let eligible = false
   let reason = null
@@ -582,7 +632,7 @@ export async function getTicketCasp(req, res) {
   if (existingRating) {
     reason = 'CASP sudah dikirim.'
   } else if (!isResolved) {
-    reason = 'Tiket belum berstatus Resolved.'
+    reason = 'Tiket belum berstatus Resolved atau Closed.'
   } else if (isAssignee) {
     reason = 'Petugas penanggung jawab tidak dapat memberikan penilaian CASP.'
   } else if (!isReporter) {
@@ -634,8 +684,8 @@ export async function submitTicketCasp(req, res) {
     if (ticketRes.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
     const ticket = ticketRes.rows[0]
 
-    if (ticket.status_tiket !== 'Resolved') {
-      throw createHttpError(409, 'Tiket belum berstatus Resolved.')
+    if (ticket.status_tiket !== 'Resolved' && ticket.status_tiket !== 'Closed') {
+      throw createHttpError(409, 'Tiket belum berstatus Resolved atau Closed.')
     }
 
     const userId = req.user?.id

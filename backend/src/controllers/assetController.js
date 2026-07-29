@@ -241,30 +241,29 @@ export async function listAssets(req, res) {
 }
 
 export async function listMyAssets(req, res) {
-  const userEmail = req.user.email;
-  const userRole = req.user.role ? req.user.role.trim().toLowerCase() : '';
+  const userEmail = req.user?.email;
+  const userNik   = req.user?.nik;
+  const userRole  = req.user?.role ? req.user.role.trim().toLowerCase() : '';
   let nik = null;
 
   // Jika admin/superadmin dan mengirimkan query nik, gunakan nik tersebut
   if ((userRole === 'admin' || userRole === 'super admin' || userRole === 'superadmin') && req.query.nik) {
     nik = String(req.query.nik).trim();
-  } else {
-    // Jika bukan admin, atau admin tidak mengirimkan query nik, gunakan email login
-    if (!userEmail) {
-      const error = new Error("Token tidak memiliki informasi email.");
-      error.statusCode = 400;
-      throw error;
-    }
-
+  } else if (userNik) {
+    nik = userNik;
+  } else if (userEmail) {
     const employeeCheck = await pool.query(
-      "SELECT nik FROM karyawan WHERE email_kantor = $1",
+      "SELECT nik FROM karyawan WHERE LOWER(TRIM(email_kantor)) = LOWER(TRIM($1))",
       [userEmail]
     );
 
-    if (employeeCheck.rowCount === 0) {
-      return res.json([]);
+    if (employeeCheck.rowCount > 0) {
+      nik = employeeCheck.rows[0].nik;
     }
-    nik = employeeCheck.rows[0].nik;
+  }
+
+  if (!nik) {
+    return res.json([]);
   }
 
   const sql =

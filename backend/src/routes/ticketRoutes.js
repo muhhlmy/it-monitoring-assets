@@ -11,7 +11,8 @@ import {
   reassignTicket,
   deleteTicket,
   getTicketCasp,
-  submitTicketCasp
+  submitTicketCasp,
+  streamTicketEvents
 } from '../controllers/ticketController.js'
 import { authorizeRoles } from '../middleware/authMiddleware.js'
 
@@ -19,6 +20,7 @@ export const ticketRouter = Router()
 
 const requireAdmin = authorizeRoles('admin', 'super admin', 'superadmin')
 
+ticketRouter.get('/events',         streamTicketEvents)
 ticketRouter.get('/stats',          getTicketStats)
 ticketRouter.get('/',               listTickets)
 ticketRouter.get('/:id/history',    getTicketHistory)
