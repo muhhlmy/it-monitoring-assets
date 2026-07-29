@@ -1,16 +1,35 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 
 const router = useRouter()
 const { login } = useAuth()
 
+const isMounting = ref(true)
 const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
+
+onMounted(() => {
+  // Preload logo image agar tampilan mulus tanpa kedipan
+  const img = new Image()
+  img.src = '/ESB Logo.svg'
+  const finishMounting = () => {
+    setTimeout(() => {
+      isMounting.value = false
+    }, 200)
+  }
+  img.onload = finishMounting
+  img.onerror = finishMounting
+
+  // Fallback timeout jika gambar gagal dimuat dalam 1 detik
+  setTimeout(() => {
+    if (isMounting.value) isMounting.value = false
+  }, 1000)
+})
 
 const handleLogin = async () => {
   if (!email.value || !password.value) {
@@ -39,8 +58,48 @@ const handleLogin = async () => {
 </script>
 
 <template>
+  <!-- ── Skeleton Loading State (Before Mount) ── -->
+  <div v-if="isMounting" class="relative min-h-screen w-full bg-gradient-to-br from-[#9ACDFB] via-[#FFE3D4] to-[#FAD496] overflow-hidden flex font-sans">
+    <div class="absolute -top-[10%] -left-[5%] w-[60%] h-[70%] rounded-full bg-[#0892F5] opacity-80 blur-[100px] pointer-events-none z-0"></div>
+    <div class="absolute top-[30%] left-[30%] w-[50%] h-[50%] rounded-full bg-[#FAA425] opacity-80 blur-[120px] pointer-events-none z-0"></div>
+    <div class="absolute -bottom-[10%] -right-[5%] w-[70%] h-[70%] rounded-full bg-[#0A51B0] opacity-80 blur-[120px] pointer-events-none z-0"></div>
+
+    <div class="relative z-10 mx-auto flex w-full max-w-[1280px] flex-col md:flex-row items-center justify-center gap-12 lg:gap-24 min-h-screen px-6 sm:px-12 lg:px-16">
+      <!-- Left Branding Skeleton -->
+      <div class="flex w-full md:w-[55%] flex-col justify-center relative py-12">
+        <div class="relative z-10 w-full animate-pulse">
+          <div class="mb-8 flex w-40 h-40 md:w-56 md:h-56 lg:w-64 lg:h-64 items-center justify-center rounded-full bg-white/60 shadow-lg">
+            <div class="w-28 h-28 md:w-40 md:h-40 rounded-full bg-slate-200/70"></div>
+          </div>
+          <div class="h-10 md:h-12 w-3/4 rounded-2xl bg-white/60 mb-4"></div>
+          <div class="h-4 w-1/2 rounded-lg bg-white/50"></div>
+        </div>
+      </div>
+
+      <!-- Right Form Skeleton -->
+      <div class="flex w-full md:w-[45%] items-center justify-center py-12">
+        <div class="w-full max-w-[440px] rounded-[32px] bg-white/85 p-8 sm:p-10 lg:p-12 shadow-2xl backdrop-blur-2xl border border-white/80 animate-pulse space-y-6">
+          <div>
+            <div class="h-8 w-2/3 rounded-xl bg-slate-200/80 mb-3"></div>
+            <div class="h-4 w-5/6 rounded-lg bg-slate-100"></div>
+          </div>
+          <div class="space-y-2">
+            <div class="h-3 w-1/3 rounded bg-slate-200/60"></div>
+            <div class="h-14 w-full rounded-2xl bg-slate-100"></div>
+          </div>
+          <div class="space-y-2">
+            <div class="h-3 w-1/4 rounded bg-slate-200/60"></div>
+            <div class="h-14 w-full rounded-2xl bg-slate-100"></div>
+          </div>
+          <div class="h-5 w-1/3 rounded bg-slate-100"></div>
+          <div class="h-14 w-full rounded-2xl bg-slate-200/90"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Background with ESB Logo Gradients -->
-  <div class="relative min-h-screen w-full bg-gradient-to-br from-[#9ACDFB] via-[#FFE3D4] to-[#FAD496] overflow-hidden flex font-sans">
+  <div v-else class="relative min-h-screen w-full bg-gradient-to-br from-[#9ACDFB] via-[#FFE3D4] to-[#FAD496] overflow-hidden flex font-sans">
     
     <!-- Background Mesh Gradients / Blobs -->
     <div class="absolute -top-[10%] -left-[5%] w-[60%] h-[70%] rounded-full bg-[#0892F5] opacity-100 blur-[100px] pointer-events-none z-0"></div>
@@ -98,7 +157,7 @@ const handleLogin = async () => {
                 Email atau Nama Pengguna
               </label>
               <div class="relative">
-                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[#0A51B0]">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[#0A51B0] pointer-events-none">
                   <span class="material-symbols-outlined text-[20px]">person</span>
                 </span>
                 <input
@@ -118,7 +177,7 @@ const handleLogin = async () => {
                 Kata Sandi
               </label>
               <div class="relative">
-                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8] pointer-events-none">
                   <span class="material-symbols-outlined text-[20px]">lock</span>
                 </span>
                 <input

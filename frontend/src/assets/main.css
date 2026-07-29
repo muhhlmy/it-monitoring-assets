@@ -13,6 +13,10 @@
   --color-danger: #FA896B;
   --color-danger-light: #FDEDE8;
 
+  --color-esb-primary: #FC841B;
+  --color-esb-primary-dark: #E26F10;
+  --color-esb-primary-light: #FFF2E7;
+
   --color-brand: #5D87FF;
   --color-brand-dark: #4570EA;
   --color-brand-light: #ECF2FF;
@@ -165,11 +169,33 @@ aside {
   border-right: 1px solid #E5EAEF;
 }
 
+/* ── Material Symbols FOUT & Icon Layout Shift Prevention ── */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'liga';
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
+  vertical-align: middle;
+  user-select: none;
+  flex-shrink: 0;
+}
+
 /* ── Modernize Form Inputs & Select Controls ── */
-input:not([type="checkbox"]):not([type="radio"]):not(.form-control-static),
-select,
-textarea,
-.form-control {
+:where(input:not([type="checkbox"]):not([type="radio"]):not(.form-control-static), select, textarea, .form-control) {
   background: #FFFFFF;
   border: 1px solid #DFE5EF;
   color: #2A3547;
@@ -179,10 +205,18 @@ textarea,
   font-weight: 500;
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not(.form-control-static):focus,
-select:focus,
-textarea:focus,
-.form-control:focus {
+/* Specificity overrides to ensure input left/right icon padding (pl-8, pl-9, pl-10, pl-12) is NEVER cut off */
+input.pl-8, input[class*="pl-8"] { padding-left: 2rem !important; }
+input.pl-9, input[class*="pl-9"] { padding-left: 2.25rem !important; }
+input.pl-10, input[class*="pl-10"] { padding-left: 2.5rem !important; }
+input.pl-11, input[class*="pl-11"] { padding-left: 2.75rem !important; }
+input.pl-12, input[class*="pl-12"] { padding-left: 3rem !important; }
+input.pl-14, input[class*="pl-14"] { padding-left: 3.5rem !important; }
+
+input.pr-10, input[class*="pr-10"] { padding-right: 2.5rem !important; }
+input.pr-12, input[class*="pr-12"] { padding-right: 3rem !important; }
+
+:where(input:not([type="checkbox"]):not([type="radio"]):not(.form-control-static):focus, select:focus, textarea:focus, .form-control:focus) {
   background: #FFFFFF;
   border-color: #5D87FF !important;
   box-shadow: 0 0 0 4px rgba(93, 135, 255, 0.15) !important;

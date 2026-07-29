@@ -404,10 +404,10 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
     <div class="shadow-card grid min-w-0 grid-cols-2 items-center gap-3 rounded-2xl border border-[#E5EAEF] bg-white p-4 sm:flex sm:flex-wrap">
       <div class="relative col-span-2 min-w-0 sm:min-w-[260px] sm:flex-1">
         <label for="asset-search" class="sr-only">Cari aset</label>
-        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#7C8BAC]">search</span>
+        <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-[#7C8BAC] pointer-events-none">search</span>
         <input id="asset-search" v-model="searchQuery" type="search" autocomplete="off"
           placeholder="Cari label, serial, karyawan, tipe, merek..."
-          class="h-10 w-full rounded-xl border border-[#DFE5EF] bg-[#F8FAFC] pl-9 pr-4 text-[12px] font-medium text-[#2A3547] focus:border-[#5D87FF] focus:bg-white focus:outline-none" />
+          class="h-10 w-full rounded-xl border border-[#DFE5EF] bg-[#F8FAFC] pl-10 pr-4 text-[12px] font-medium text-[#2A3547] focus:border-[#5D87FF] focus:bg-white focus:outline-none" />
       </div>
       <select v-model="filterStatus" aria-label="Filter status aset" class="h-10 min-w-0 rounded-xl border border-[#DFE5EF] bg-white px-3 text-[12px] font-semibold text-[#2A3547]">
         <option value="">Semua Status</option>

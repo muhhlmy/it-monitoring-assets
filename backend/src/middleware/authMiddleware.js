@@ -38,3 +38,27 @@ export function authorizeRoles(...allowedRoles) {
     }
   };
 }
+
+export function authorizePermission(featureKey) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Akses ditolak.' });
+    }
+
+    const userRole = (req.user.role || '').trim().toLowerCase();
+    if (userRole === 'super admin' || userRole === 'superadmin') {
+      return next();
+    }
+
+    const perms = req.user.permissions;
+    if (perms && typeof perms === 'object') {
+      const level = perms[featureKey];
+      // Support new string levels ('full', 'read_only') AND legacy boolean
+      if (level === 'full' || level === 'read_only' || level === true) {
+        return next();
+      }
+    }
+
+    return res.status(403).json({ message: `Anda tidak memiliki hak akses ke fitur '${featureKey}'.` });
+  };
+}

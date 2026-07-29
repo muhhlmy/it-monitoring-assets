@@ -12,13 +12,45 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet" />
+
+    <style>
+      [v-cloak] { display: none !important; }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: normal;
+        font-style: normal;
+        font-size: 24px;
+        line-height: 1;
+        display: inline-block;
+        white-space: nowrap;
+        word-wrap: normal;
+        direction: ltr;
+        -webkit-font-smoothing: antialiased;
+        width: 1em;
+        height: 1em;
+        overflow: hidden;
+        vertical-align: middle;
+        user-select: none;
+        flex-shrink: 0;
+      }
+    </style>
 
     <title>IT Assets Monitoring</title>
   </head>
-  <body>
+  <body class="bg-[#F4F6F9]">
     <!-- Vue akan me-render aplikasi ke dalam div#app ini -->
-    <div id="app"></div>
+    <div id="app" v-cloak>
+      <div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background-color: #F4F6F9; font-family: 'Plus Jakarta Sans', sans-serif;">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px 24px; background: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); border: 1px solid #E2E8F0;">
+          <div style="width: 28px; height: 28px; border: 3px solid #FC841B; border-top-color: transparent; border-radius: 50%; animation: appSpin 0.8s linear infinite;"></div>
+          <span style="font-size: 14px; font-weight: 700; color: #2A3547;">Memuat IT Assets Monitoring...</span>
+        </div>
+      </div>
+      <style>
+        @keyframes appSpin { to { transform: rotate(360deg); } }
+      </style>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

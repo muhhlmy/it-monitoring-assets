@@ -17,7 +17,10 @@ function checkCorsOrigin(origin, callback) {
   const allowsAllOrigins = env.corsOrigins.indexOf("*") !== -1;
   const originIsAllowed = env.corsOrigins.indexOf(origin) !== -1;
 
-  if (allowsAllOrigins || originIsAllowed) {
+  // Izinkan localhost, 127.0.0.1, serta semua IP Private Network (192.168.x.x, 10.x.x.x, 172.x.x.x)
+  const isLocalNetwork = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin);
+
+  if (allowsAllOrigins || originIsAllowed || isLocalNetwork) {
     callback(null, true);
     return;
   }
@@ -28,7 +31,8 @@ function checkCorsOrigin(origin, callback) {
 }
 
 app.use(cors({ origin: checkCorsOrigin }));
-app.use(express.json({ limit: "100kb" }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use(router);
 
 function handleNotFound(req, res) {

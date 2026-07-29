@@ -11,10 +11,10 @@ try {
 }
 
 function showServerMessage() {
-  console.log('API berjalan di http://localhost:' + env.port)
+  console.log('API berjalan di http://0.0.0.0:' + env.port)
 }
 
-const server = app.listen(env.port, showServerMessage)
+const server = app.listen(env.port, '0.0.0.0', showServerMessage)
 
 async function closeServer(signal) {
   console.log(signal + ' diterima, menutup server...')

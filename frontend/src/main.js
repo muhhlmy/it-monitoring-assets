@@ -22,5 +22,7 @@ const app = createApp(App)
 // Pasang router agar bisa navigasi antar halaman
 app.use(router)
 
-// Pasang aplikasi ke elemen <div id="app"> di index.html
-app.mount('#app')
+// Pasang aplikasi ke elemen <div id="app"> di index.html setelah router siap
+router.isReady().then(() => {
+  app.mount('#app')
+})

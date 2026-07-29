@@ -217,7 +217,7 @@ function parsePerubahan(perubahan, aksi) {
     <div class="shadow-card grid min-w-0 grid-cols-1 items-center gap-3 rounded-2xl border border-[#E8EDF3] bg-white p-3 sm:flex sm:flex-wrap">
       <!-- Search -->
       <div class="relative flex-1 min-w-[200px]">
-        <span aria-hidden="true" class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-[#94A3B8]">
+        <span aria-hidden="true" class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-[#94A3B8] pointer-events-none">
           search
         </span>
         <input

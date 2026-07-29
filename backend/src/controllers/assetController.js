@@ -341,16 +341,37 @@ export async function showAssetStats(req, res) {
     LIMIT 5
   `);
 
+  const monthlyTrend = await pool.query(`
+    WITH months AS (
+      SELECT date_trunc('month', CURRENT_DATE) - (n || ' month')::interval AS month_start
+      FROM generate_series(11, 0, -1) AS n
+    ), monthly AS (
+      SELECT date_trunc('month', dibuat_pada) AS month_start, COUNT(*)::int AS added
+      FROM aset_ti
+      WHERE dibuat_pada >= date_trunc('month', CURRENT_DATE) - interval '11 month'
+      GROUP BY 1
+    )
+    SELECT
+      to_char(m.month_start, 'YYYY-MM') AS period,
+      to_char(m.month_start, 'Mon YYYY') AS label,
+      COALESCE(x.added, 0)::int AS added
+    FROM months m
+    LEFT JOIN monthly x USING (month_start)
+    ORDER BY m.month_start
+  `);
+
   res.json({
-    totalAssets: totals.rows[0].total_assets,
-    totalEmployees: totals.rows[0].total_employees,
+    totalAssets: parseInt(totals.rows[0]?.total_assets || 0, 10),
+    totalEmployees: parseInt(totals.rows[0]?.total_employees || 0, 10),
     totalUsers: parseInt(usersCount.rows[0]?.total || 0, 10),
     activeUsers: parseInt(usersCount.rows[0]?.active || 0, 10),
     byStatus: byStatus.rows,
     byCondition: byCondition.rows,
     byType: byType.rows,
     byLocation: byLocation.rows,
+    monthlyTrend: monthlyTrend.rows,
     recentAssets: recentAssets.rows,
+    generatedAt: new Date().toISOString()
   });
 }
 

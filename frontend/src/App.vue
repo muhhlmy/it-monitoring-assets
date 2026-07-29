@@ -1,23 +1,44 @@
 <script setup>
 // App.vue — Layout utama: sidebar kiri + konten kanan
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useApi } from './composables/useApi.js'
 import AppSidebar from './components/layout/AppSidebar.vue'
 import AppHeader  from './components/layout/AppHeader.vue'
 
 const route = useRoute()
-const isNavigationOpen = ref(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true)
-const { post } = useApi()
+
+// Evaluasi robust apakah halaman saat ini adalah Login / Unauthenticated
+const isLoginPage = computed(() => {
+  if (route.name === 'login') return true
+  if (route.path === '/login') return true
+  if (typeof window !== 'undefined' && window.location.pathname.endsWith('/login')) return true
+  if (typeof window !== 'undefined' && !localStorage.getItem('token')) return true
+  return false
+})
+
+// Dual state navigasi sesuai Plan.md (mobile drawer vs desktop collapse)
+const isMobileNavigationOpen = ref(false)
+const isDesktopSidebarCollapsed = ref(
+  typeof window !== 'undefined'
+    ? localStorage.getItem('app_sidebar_collapsed') === 'true'
+    : false
+)
+
+watch(isDesktopSidebarCollapsed, (val) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('app_sidebar_collapsed', String(val))
+  }
+})
 
 watch(
   () => route.fullPath,
   () => {
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      isNavigationOpen.value = false
-    }
+    isMobileNavigationOpen.value = false
   },
 )
+
+const { post } = useApi()
 
 onMounted(async () => {
   try {
@@ -36,7 +57,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <template v-if="route.name === 'login'">
+  <template v-if="isLoginPage">
     <RouterView />
   </template>
 
@@ -50,10 +71,12 @@ onMounted(async () => {
 
     <div class="app-shell relative flex h-dvh min-h-0 overflow-hidden bg-[#F8FAFC]">
 
-      <!-- ── Sidebar Navigasi (lebar tetap 240px) ── -->
+      <!-- ── Sidebar Navigasi ── -->
       <AppSidebar
-        :is-open="isNavigationOpen"
-        @close="isNavigationOpen = false"
+        :is-mobile-open="isMobileNavigationOpen"
+        :is-collapsed="isDesktopSidebarCollapsed"
+        @close-mobile="isMobileNavigationOpen = false"
+        @toggle-collapse="isDesktopSidebarCollapsed = !isDesktopSidebarCollapsed"
       />
 
       <!-- ── Area Konten Kanan ── -->
@@ -61,8 +84,10 @@ onMounted(async () => {
 
         <!-- Header: search + actions -->
         <AppHeader
-          :is-navigation-open="isNavigationOpen"
-          @toggle-navigation="isNavigationOpen = !isNavigationOpen"
+          :is-mobile-open="isMobileNavigationOpen"
+          :is-collapsed="isDesktopSidebarCollapsed"
+          @toggle-mobile="isMobileNavigationOpen = !isMobileNavigationOpen"
+          @toggle-collapse="isDesktopSidebarCollapsed = !isDesktopSidebarCollapsed"
         />
 
         <!-- Konten halaman aktif, scrollable -->

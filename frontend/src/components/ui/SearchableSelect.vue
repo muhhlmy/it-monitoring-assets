@@ -99,13 +99,13 @@ onBeforeUnmount(() => {
     >
       <!-- Search Input -->
       <div class="relative border-b border-[#F1F5F9] p-2">
-        <span class="material-symbols-outlined absolute left-4.5 top-1/2 -translate-y-1/2 text-[16px] text-[#94A3B8]">search</span>
+        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[16px] text-[#94A3B8] pointer-events-none">search</span>
         <input
           ref="searchInputRef"
           v-model="searchQuery"
           type="text"
           :placeholder="searchPlaceholder"
-          class="h-8 w-full rounded-lg border border-[#EBEFF5] bg-[#F8FAFC] pl-8 pr-3 text-[11px] font-medium text-[#334155] placeholder-[#94A3B8] focus:border-brand focus:outline-none"
+          class="h-8 w-full rounded-lg border border-[#EBEFF5] bg-[#F8FAFC] pl-9 pr-3 text-[11px] font-medium text-[#334155] placeholder-[#94A3B8] focus:border-brand focus:outline-none"
           @keydown.stop
         />
       </div>

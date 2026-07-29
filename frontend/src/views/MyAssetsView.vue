@@ -291,10 +291,10 @@ onMounted(() => {
       <div class="shadow-card grid min-w-0 grid-cols-2 items-center gap-3 rounded-2xl border border-[#E8EDF3] bg-white p-3 sm:flex sm:flex-wrap">
         <div class="relative col-span-2 min-w-0 sm:min-w-[240px] sm:flex-1">
           <label for="emp-search" class="sr-only">Cari karyawan</label>
-          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#9CA3AF]">search</span>
+          <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-[#9CA3AF] pointer-events-none">search</span>
           <input id="emp-search" v-model="employeeSearch" type="search" autocomplete="off"
             placeholder="Cari nama, NIK, jabatan, email..."
-            class="h-10 w-full rounded-xl border border-[#DCE3EC] bg-[#F8FAFC] pl-9 pr-4 text-[12px] font-medium text-[#334155] focus:outline-none focus:border-brand" />
+            class="h-10 w-full rounded-xl border border-[#DCE3EC] bg-[#F8FAFC] pl-10 pr-4 text-[12px] font-medium text-[#334155] focus:outline-none focus:border-brand" />
         </div>
         <select v-model="filterDepartemen" aria-label="Filter departemen" class="h-10 min-w-0 rounded-xl border border-[#DCE3EC] bg-white px-3 text-[11px] font-semibold text-[#475569]">
           <option value="">Semua Departemen</option>
@@ -517,10 +517,10 @@ onMounted(() => {
           <div class="grid min-w-0 grid-cols-2 items-center gap-3 border-b border-[#F3F4F6] p-3 sm:flex sm:flex-wrap">
             <div class="relative col-span-2 min-w-0 sm:min-w-[220px] sm:flex-1">
               <label for="asset-search" class="sr-only">Cari aset</label>
-              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#9CA3AF]">search</span>
+              <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-[#9CA3AF] pointer-events-none">search</span>
               <input id="asset-search" v-model="assetSearch" type="search" autocomplete="off"
                 placeholder="Cari label, serial, tipe, merek..."
-                class="h-10 w-full rounded-xl border border-[#DCE3EC] bg-[#F8FAFC] pl-9 pr-4 text-[12px] font-medium text-[#334155] focus:outline-none focus:border-brand" />
+                class="h-10 w-full rounded-xl border border-[#DCE3EC] bg-[#F8FAFC] pl-10 pr-4 text-[12px] font-medium text-[#334155] focus:outline-none focus:border-brand" />
             </div>
             <select v-model="filterTipe" aria-label="Filter tipe perangkat" class="h-10 min-w-0 rounded-xl border border-[#DCE3EC] bg-white px-3 text-[11px] font-semibold text-[#475569]">
               <option value="">Semua Tipe</option>

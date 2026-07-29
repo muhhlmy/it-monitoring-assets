@@ -76,10 +76,13 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(150) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'user',
+    permissions JSONB DEFAULT '{"dashboard":"none","assets":"none","my_assets":"read_only","tickets":"read_only","submissions":"none","users":"none","logs":"none","karyawan":"none"}'::jsonb,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     dibuat_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     diperbarui_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{"dashboard":"none","assets":"none","my_assets":"read_only","tickets":"read_only","submissions":"none","users":"none","logs":"none","karyawan":"none"}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS log_riwayat_aset (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -153,5 +156,40 @@ WHERE NOT EXISTS (
     WHERE r.id_aset = a.id_aset
       AND r.id_karyawan = k.id_karyawan
       AND r.tanggal_selesai IS NULL
+-- ============================================================
+-- Tabel ticket_casp_ratings
+-- Penilaian CASP (1-5) dari pelapor setelah tiket Resolved
+-- ============================================================
+ALTER TABLE tickets
+  ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP NULL,
+  ADD COLUMN IF NOT EXISTS resolved_by_user_id BIGINT NULL;
+
+CREATE TABLE IF NOT EXISTS ticket_casp_ratings (
+  id                     BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  ticket_id              BIGINT NOT NULL UNIQUE,
+  reporter_user_id       BIGINT NULL,
+  assignee_user_id       BIGINT NULL,
+  reporter_name_snapshot VARCHAR(150) NOT NULL,
+  assignee_name_snapshot VARCHAR(150) NOT NULL,
+  rating                 SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  feedback               TEXT,
+  submitted_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_casp_ticket
+    FOREIGN KEY (ticket_id)
+    REFERENCES tickets(id)
+    ON DELETE CASCADE,
+
+  CONSTRAINT fk_casp_reporter
+    FOREIGN KEY (reporter_user_id)
+    REFERENCES users(id)
+    ON DELETE SET NULL,
+
+  CONSTRAINT fk_casp_assignee
+    FOREIGN KEY (assignee_user_id)
+    REFERENCES users(id)
+    ON DELETE SET NULL
 );
+
 
