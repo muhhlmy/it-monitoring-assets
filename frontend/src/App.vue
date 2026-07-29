@@ -8,6 +8,7 @@ import AppHeader  from './components/layout/AppHeader.vue'
 
 const route = useRoute()
 
+<<<<<<< HEAD
 // Evaluasi robust apakah halaman saat ini adalah Login / Unauthenticated
 const isLoginPage = computed(() => {
   if (route.name === 'login') return true
@@ -17,6 +18,8 @@ const isLoginPage = computed(() => {
   return false
 })
 
+=======
+>>>>>>> 363ebba4e374582a6e7403d28d843bfe212ba4ab
 // Dual state navigasi sesuai Plan.md (mobile drawer vs desktop collapse)
 const isMobileNavigationOpen = ref(false)
 const isDesktopSidebarCollapsed = ref(
