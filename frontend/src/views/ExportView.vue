@@ -24,7 +24,7 @@ const startDate = ref('')
 const endDate = ref('')
 const searchQuery = ref('')
 const statusFilter = ref('semua')
-const rowLimit = ref('all')
+const rowLimit = ref(1000)
 const exportFormat = ref('csv') // 'csv' | 'excel' | 'json' | 'pdf'
 
 // Live Preview State
@@ -209,7 +209,7 @@ async function handleQuickExport(tableName, format = 'csv') {
   try {
     const res = await api.post('/api/export/data', {
       tableName,
-      limit: 'all',
+      limit: 1000,
     })
     if (!res.success || !res.data || res.data.length === 0) {
       showToast('Tabel ini tidak memiliki data untuk diekspor.', 'warning')
@@ -322,7 +322,8 @@ onMounted(() => {
             Pusat Ekspor Data Database
           </h1>
           <p class="text-slate-300 text-sm leading-relaxed">
-            Ekspor seluruh dataset inventaris aset IT, data karyawan, tiket kendala, dan log audit sistem ke format berkas CSV, Excel, JSON, maupun PDF Laporan secara fleksibel.
+            Ekspor data inventaris aset IT, karyawan, tiket kendala, dan log audit
+            ke CSV, Excel, JSON, atau PDF dengan batas maksimum 1.000 baris per permintaan.
           </p>
         </div>
 
@@ -592,11 +593,10 @@ onMounted(() => {
                 v-model="rowLimit"
                 class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-[#5D87FF] focus:outline-hidden"
               >
-                <option value="all">Semua Baris Data</option>
-                <option value="50">50 Baris Pertama</option>
-                <option value="100">100 Baris Pertama</option>
-                <option value="500">500 Baris Pertama</option>
-                <option value="1000">1000 Baris Pertama</option>
+                <option :value="50">50 Baris Pertama</option>
+                <option :value="100">100 Baris Pertama</option>
+                <option :value="500">500 Baris Pertama</option>
+                <option :value="1000">1000 Baris Pertama</option>
               </select>
             </div>
           </div>
@@ -609,6 +609,7 @@ onMounted(() => {
                 <input
                   type="text"
                   v-model="searchQuery"
+                  maxlength="200"
                   placeholder="Cari kata kunci data..."
                   class="w-full rounded-xl border border-slate-300 pl-9 pr-3 py-2 text-xs text-slate-800 focus:border-[#5D87FF] focus:outline-hidden"
                 />
@@ -620,6 +621,7 @@ onMounted(() => {
               <input
                 type="text"
                 v-model="statusFilter"
+                maxlength="100"
                 placeholder="misal: Digunakan, Rusak, Resolved..."
                 class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-[#5D87FF] focus:outline-hidden"
               />

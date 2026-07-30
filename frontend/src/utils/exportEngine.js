@@ -23,6 +23,32 @@ function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
+function toExportText(value, nullValue = '') {
+  if (value === null || value === undefined) return nullValue
+  if (typeof value !== 'object') return String(value)
+
+  const serialized = JSON.stringify(value)
+  return serialized === undefined ? String(value) : serialized
+}
+
+function escapeHtml(value) {
+  const entities = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }
+
+  return toExportText(value).replace(/[&<>"']/g, (character) => entities[character])
+}
+
+function neutralizeSpreadsheetFormula(value) {
+  const text = toExportText(value)
+  if (typeof value !== 'string') return text
+  return /^\s*[=+\-@]/u.test(text) ? `'${text}` : text
+}
+
 /**
  * Ekspor Data ke CSV (UTF-8 BOM untuk MS Excel)
  */
@@ -33,8 +59,7 @@ export function exportToCsv(data, columns = [], filenamePrefix = 'Export_Data') 
   const colLabels = columns.length > 0 ? columns.map(c => c.label) : colKeys
 
   const escapeCsv = (val) => {
-    if (val === null || val === undefined) return '""'
-    let str = typeof val === 'object' ? JSON.stringify(val) : String(val)
+    let str = neutralizeSpreadsheetFormula(val)
     str = str.replace(/"/g, '""')
     return `"${str}"`
   }
@@ -73,18 +98,17 @@ export function exportToExcel(data, columns = [], tableName = 'Data', filenamePr
   const colKeys = columns.length > 0 ? columns.map(c => c.name) : Object.keys(data[0])
   const colLabels = columns.length > 0 ? columns.map(c => c.label) : colKeys
 
-  const headerHtml = colLabels.map(l => `<th style="background-color: #0252B3; color: #ffffff; font-weight: bold; padding: 10px; border: 1px solid #dcdcdc;">${l}</th>`).join('')
+  const headerHtml = colLabels.map(l => `<th style="background-color: #0252B3; color: #ffffff; font-weight: bold; padding: 10px; border: 1px solid #dcdcdc;">${escapeHtml(neutralizeSpreadsheetFormula(l))}</th>`).join('')
   
   const rowsHtml = data.map(row => {
     const cells = colKeys.map(key => {
-      let val = row[key]
-      if (val === null || val === undefined) val = ''
-      if (typeof val === 'object') val = JSON.stringify(val)
-      return `<td style="padding: 8px; border: 1px solid #e2e8f0; vertical-align: top;">${String(val)}</td>`
+      const value = neutralizeSpreadsheetFormula(row[key])
+      return `<td style="padding: 8px; border: 1px solid #e2e8f0; vertical-align: top;">${escapeHtml(value)}</td>`
     }).join('')
     return `<tr>${cells}</tr>`
   }).join('')
 
+  const safeTableName = escapeHtml(tableName)
   const excelHtml = `
     <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
     <head>
@@ -94,7 +118,7 @@ export function exportToExcel(data, columns = [], tableName = 'Data', filenamePr
         <x:ExcelWorkbook>
           <x:ExcelWorksheets>
             <x:ExcelWorksheet>
-              <x:Name>${tableName}</x:Name>
+              <x:Name>${safeTableName}</x:Name>
               <x:WorksheetOptions>
                 <x:DisplayGridlines/>
               </x:WorksheetOptions>
@@ -109,7 +133,7 @@ export function exportToExcel(data, columns = [], tableName = 'Data', filenamePr
       </style>
     </head>
     <body>
-      <h2 style="color: #0252B3; font-family: Arial, sans-serif;">Laporan Data: ${tableName}</h2>
+      <h2 style="color: #0252B3; font-family: Arial, sans-serif;">Laporan Data: ${safeTableName}</h2>
       <p style="color: #64748b; font-size: 11px;">Tanggal Ekspor: ${new Date().toLocaleString('id-ID')}</p>
       <table>
         <thead><tr>${headerHtml}</tr></thead>
@@ -141,34 +165,35 @@ export function exportToPdf(data, columns = [], tableName = 'Data', title = 'Lap
   const colKeys = columns.length > 0 ? columns.map(c => c.name) : Object.keys(data[0])
   const colLabels = columns.length > 0 ? columns.map(c => c.label) : colKeys
 
-  const headerTh = colLabels.map(l => `<th>${l}</th>`).join('')
+  const headerTh = colLabels.map(l => `<th>${escapeHtml(l)}</th>`).join('')
   
   const bodyTrs = data.map((row, idx) => {
     const cells = colKeys.map(key => {
       let val = row[key]
       if (val === null || val === undefined) val = '—'
       if (typeof val === 'boolean') val = val ? 'Aktif' : 'Non-Aktif'
-      if (typeof val === 'object') val = JSON.stringify(val)
-      return `<td>${String(val)}</td>`
+      return `<td>${escapeHtml(val)}</td>`
     }).join('')
     return `<tr class="${idx % 2 === 0 ? 'even' : 'odd'}">${cells}</tr>`
   }).join('')
 
   const filterSummary = Object.entries(filters)
     .filter(([_, v]) => v && v !== 'all' && v !== 'semua')
-    .map(([k, v]) => `<span><strong>${k}:</strong> ${v}</span>`)
+    .map(([k, v]) => `<span><strong>${escapeHtml(k)}:</strong> ${escapeHtml(v)}</span>`)
     .join(' | ') || 'Semua Data'
 
   const dateStr = new Date().toLocaleDateString('id-ID', {
     day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
   })
+  const safeTitle = escapeHtml(title)
+  const safeTableName = escapeHtml(tableName)
 
   const html = `
     <!DOCTYPE html>
     <html lang="id">
     <head>
       <meta charset="UTF-8">
-      <title>${title} - ${tableName}</title>
+      <title>${safeTitle} - ${safeTableName}</title>
       <style>
         @page { size: A4 landscape; margin: 12mm 15mm; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #1e293b; margin: 0; padding: 0; font-size: 10px; line-height: 1.4; }
@@ -191,8 +216,8 @@ export function exportToPdf(data, columns = [], tableName = 'Data', title = 'Lap
     <body>
       <div class="header">
         <div class="title">
-          <h1>${title}</h1>
-          <p>Tabel Database: <strong>${tableName}</strong> | IT Monitoring Assets System</p>
+          <h1>${safeTitle}</h1>
+          <p>Tabel Database: <strong>${safeTableName}</strong> | IT Monitoring Assets System</p>
         </div>
         <div class="meta">
           <div>Tanggal Cetak: <strong>${dateStr}</strong></div>
@@ -221,7 +246,7 @@ export function exportToPdf(data, columns = [], tableName = 'Data', title = 'Lap
       </table>
 
       <div class="footer">
-        Dicetak secara otomatis oleh Sistem Monitoring Aset IT • Dokumentasi Internal & Audit
+        Dicetak secara otomatis oleh Sistem Monitoring Aset IT • Dokumentasi Internal &amp; Audit
       </div>
 
       <script>

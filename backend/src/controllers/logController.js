@@ -39,26 +39,3 @@ export async function listLoginLogs(req, res) {
   )
   res.json(result.rows)
 }
-
-export async function storeLoginLog(req, res) {
-  const { nama_pengguna, email, aktifitas, ip_address, browser } = req.body
-
-  if (!nama_pengguna || !email || !aktifitas) {
-    throw createHttpError(400, 'Nama pengguna, email, dan aktifitas wajib diisi.')
-  }
-
-  const result = await pool.query(
-    `INSERT INTO log_audit_login (nama_pengguna, email, aktifitas, ip_address, browser)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, nama_pengguna, email, aktifitas, ip_address, browser, dibuat_pada`,
-    [
-      String(nama_pengguna).trim(),
-      String(email).trim().toLowerCase(),
-      String(aktifitas).trim(),
-      ip_address || req.ip || '127.0.0.1',
-      browser || req.headers['user-agent'] || 'Unknown'
-    ]
-  )
-
-  res.status(201).json(result.rows[0])
-}

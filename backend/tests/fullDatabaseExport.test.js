@@ -33,9 +33,9 @@ async function startServer(t) {
   return server.address().port
 }
 
-function createToken() {
+function createToken(role = 'superadmin') {
   return jwt.sign(
-    { id: 1, nama: 'Test Admin', role: 'superadmin' },
+    { id: 1, nama: 'Test User', role },
     testJwtSecret,
     { expiresIn: '5m' }
   )
@@ -54,15 +54,15 @@ test('GET /api/export/full-db returns 404 without querying the database', async 
   })
 
   const port = await startServer(t)
-  const token = createToken()
+  for (const role of ['user', 'admin', 'superadmin', 'super admin']) {
+    const response = await fetch(`http://127.0.0.1:${port}/api/export/full-db`, {
+      headers: { Authorization: `Bearer ${createToken(role)}` }
+    })
+    const body = await response.json()
 
-  const response = await fetch(`http://127.0.0.1:${port}/api/export/full-db`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  const body = await response.json()
-
-  assert.equal(response.status, 404)
-  assert.deepEqual(body, { message: 'Endpoint tidak ditemukan.' })
+    assert.equal(response.status, 404)
+    assert.deepEqual(body, { message: 'Endpoint tidak ditemukan.' })
+  }
   assert.equal(queryCount, 0)
 })
 

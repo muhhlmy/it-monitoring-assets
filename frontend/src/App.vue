@@ -1,8 +1,7 @@
 <script setup>
 // App.vue — Layout utama: sidebar kiri + konten kanan
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { useApi } from './composables/useApi.js'
 import AppSidebar from './components/layout/AppSidebar.vue'
 import AppHeader  from './components/layout/AppHeader.vue'
 
@@ -36,23 +35,6 @@ watch(
     isMobileNavigationOpen.value = false
   },
 )
-
-const { post } = useApi()
-
-onMounted(async () => {
-  try {
-    // Rekam audit log sukses login setiap kali aplikasi dimuat di browser
-    await post('/api/logs/audit', {
-      nama_pengguna: 'Admin IT',
-      email: 'admin@esb.co.id',
-      aktifitas: 'LOGIN',
-      ip_address: '127.0.0.1',
-      browser: navigator.userAgent
-    })
-  } catch (error) {
-    console.error('Gagal merekam audit login:', error)
-  }
-})
 </script>
 
 <template>

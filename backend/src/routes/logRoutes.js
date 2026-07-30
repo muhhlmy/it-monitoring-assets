@@ -9,5 +9,4 @@ logRouter.use(authenticateToken)
 // History Asset hanya Admin dan Super Admin yang bisa lihat
 logRouter.get('/assets', authorizeRoles('admin', 'superadmin'), logController.listAssetLogs)
 logRouter.get('/assets/:id', authorizeRoles('admin', 'superadmin'), logController.listAssetLogsByDevice)
-logRouter.get('/audit', authorizeRoles('admin', 'superadmin'), logController.listLoginLogs)
-logRouter.post('/audit', logController.storeLoginLog)
+logRouter.get('/audit', authorizeRoles('superadmin'), logController.listLoginLogs)

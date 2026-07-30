@@ -71,7 +71,7 @@ const routes = [
     path: '/export',
     name: 'export',
     component: ExportView,
-    meta: { title: 'Pusat Ekspor Data', permission: 'export' },
+    meta: { title: 'Pusat Ekspor Data', permission: 'export', superadminOnly: true },
   },
   {
     path: '/:pathMatch(.*)*',
@@ -98,6 +98,11 @@ router.beforeEach((to, from, next) => {
   const userRole = (user?.role || '').trim().toLowerCase()
   const isSuper = userRole === 'superadmin' || userRole === 'super admin'
   const userPerms = user?.permissions || {}
+
+  // Guard ini hanya untuk UX; otorisasi export tetap ditegakkan oleh backend.
+  if (to.meta.superadminOnly && !isSuper) {
+    return next({ name: 'dashboard' })
+  }
 
   const canAccess = (key) => {
     if (!key) return true

@@ -56,18 +56,26 @@ Arrow function, spread object, optional chaining, nullish coalescing,
    `DB_PASSWORD` wajib diisi dan `JWT_SECRET` wajib berupa secret acak minimal
    32 karakter. Aplikasi sengaja gagal start bila salah satunya kosong.
 2. Jalankan `npm install` jika dependency belum tersedia.
-3. Jalankan `npm run db:setup`. Perintah ini membuat database bila belum ada,
-   menerapkan `Schema.sql`, lalu mengisi data dummy dari `Seed.sql`.
+3. Hanya untuk database development baru yang boleh dibuang, jalankan
+   `npm run db:setup`. Perintah ini membuat database bila belum ada, menerapkan
+   `Schema.sql`, lalu mengisi data dummy dari `Seed.sql`.
 4. Jalankan `npm run dev`.
 5. Jalankan frontend dari folder `frontend` menggunakan `npm run dev`.
 
-Setup database dan seed bersifat idempotent sehingga aman dijalankan kembali.
+`Schema.sql`, `Seed.sql`, dan script setup saat ini adalah bootstrap legacy,
+bukan migration versioned yang telah terbukti repeatable. Jangan menjalankan
+`db:setup`, `migrate`, atau `seed` terhadap database production maupun database
+existing yang datanya perlu dipertahankan. Sampai migration versioned tersedia,
+gunakan script tersebut hanya pada database development baru dan disposable.
 
 ## Scripts
 
-- `npm run db:setup` - buat database, terapkan schema, dan isi dummy data.
-- `npm run migrate` - terapkan schema tanpa seed.
-- `npm run seed` - terapkan schema lalu sinkronkan dummy data.
+- `npm run db:setup` - bootstrap legacy: buat database, terapkan schema, dan isi
+  dummy data; hanya untuk development disposable.
+- `npm run migrate` - terapkan schema legacy tanpa seed; belum aman untuk
+  production/existing sampai migration versioned tersedia.
+- `npm run seed` - terapkan schema legacy lalu sinkronkan dummy data; hanya
+  untuk development disposable.
 - `npm run db:check` - validasi urutan kolom view dan hitung data.
 - `npm run dev` - jalankan API dengan nodemon.
 - `npm test` - jalankan automated test.

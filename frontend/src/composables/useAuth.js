@@ -52,6 +52,7 @@ export function useAuth() {
   const hasPermission = (featureKey) => {
     if (!token.value || !user.value) return false
     if (isSuperAdmin.value) return true
+    if (featureKey === 'export') return false
     if (!featureKey) return true
     const perms = user.value.permissions
     if (perms && typeof perms === 'object') {
@@ -59,11 +60,8 @@ export function useAuth() {
       // Support both new string levels and legacy boolean values
       if (level === 'full' || level === 'read_only') return true
       if (level === true) return true   // legacy boolean
-      // Fallback: Jika 'export', berikan akses ke Admin atau user yang berhak mengakses logs/assets
-      if (featureKey === 'export' && (isAdmin.value || perms['logs'] || perms['assets'])) return true
       return false
     }
-    if (featureKey === 'export' && isAdmin.value) return true
     return false
   }
 

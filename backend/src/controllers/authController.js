@@ -2,6 +2,8 @@ import { pool } from '../config/database.js';
 import { env } from '../config/env.js';
 import jwt from 'jsonwebtoken';
 
+const UNKNOWN_LOGIN_ACTOR = 'Tidak Diketahui'
+
 const SUPERADMIN_PERMISSIONS = {
   dashboard: true,
   assets: true,
@@ -63,7 +65,13 @@ export async function login(req, res) {
       // Catat log gagal
       await pool.query(
         'INSERT INTO log_audit_login (nama_pengguna, email, aktifitas, ip_address, browser) VALUES ($1, $2, $3, $4, $5)',
-        ['Tidak Diketahui', email, 'GAGAL_LOGIN', req.ip, req.headers['user-agent']]
+        [
+          UNKNOWN_LOGIN_ACTOR,
+          UNKNOWN_LOGIN_ACTOR,
+          'GAGAL_LOGIN',
+          req.ip,
+          req.headers['user-agent']
+        ]
       );
       return res.status(401).json({ message: 'Email atau password salah.' });
     }
@@ -81,7 +89,7 @@ export async function login(req, res) {
     if (!isPasswordValid) {
       await pool.query(
         'INSERT INTO log_audit_login (nama_pengguna, email, aktifitas, ip_address, browser) VALUES ($1, $2, $3, $4, $5)',
-        [user.nama, email, 'GAGAL_LOGIN', req.ip, req.headers['user-agent']]
+        [user.nama, user.email, 'GAGAL_LOGIN', req.ip, req.headers['user-agent']]
       );
       return res.status(401).json({ message: 'Email atau password salah.' });
     }
@@ -108,7 +116,7 @@ export async function login(req, res) {
     // Catat log sukses
     await pool.query(
       'INSERT INTO log_audit_login (nama_pengguna, email, aktifitas, ip_address, browser) VALUES ($1, $2, $3, $4, $5)',
-      [user.nama, email, 'LOGIN', req.ip, req.headers['user-agent']]
+      [user.nama, user.email, 'LOGIN', req.ip, req.headers['user-agent']]
     );
 
     res.json({

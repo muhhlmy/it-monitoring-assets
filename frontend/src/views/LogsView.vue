@@ -5,9 +5,11 @@
 // ============================================================
 import { computed, onMounted, ref } from 'vue'
 import { useApi } from '../composables/useApi.js'
+import { useAuth } from '../composables/useAuth.js'
 import AppBadge from '../components/ui/AppBadge.vue'
 
 const { get } = useApi()
+const { isSuperAdmin } = useAuth()
 
 // ── State Utama ──────────────────────────────────────────────
 const assetLogs    = ref([])
@@ -26,10 +28,12 @@ async function fetchLogs() {
   isLoading.value = true
   pageError.value = ''
   try {
-    const [assetsData, auditData] = await Promise.all([
-      get('/api/logs/assets'),
-      get('/api/logs/audit')
-    ])
+    const requests = [get('/api/logs/assets')]
+    if (isSuperAdmin.value) {
+      requests.push(get('/api/logs/audit'))
+    }
+
+    const [assetsData, auditData = []] = await Promise.all(requests)
     assetLogs.value = Array.isArray(assetsData) ? assetsData : []
     auditLogs.value = Array.isArray(auditData) ? auditData : []
   } catch (error) {
@@ -170,7 +174,11 @@ function parsePerubahan(perubahan, aksi) {
     <!-- Header deskripsi halaman -->
     <div class="flex flex-col gap-1.5">
       <p class="text-[11px] font-medium text-[#9CA3AF]">
-        Melihat rekam jejak perubahan sistem & audit login pengguna
+        {{
+          isSuperAdmin
+            ? 'Melihat rekam jejak perubahan sistem & audit login pengguna'
+            : 'Melihat rekam jejak perubahan aset'
+        }}
       </p>
     </div>
 
@@ -201,6 +209,7 @@ function parsePerubahan(perubahan, aksi) {
         Riwayat Perubahan Aset
       </button>
       <button
+        v-if="isSuperAdmin"
         type="button"
         @click="activeTab = 'audit'"
         class="flex items-center gap-2 px-5 py-3.5 text-[12px] font-bold transition-all duration-150 border-b-2 -mb-[2px]"

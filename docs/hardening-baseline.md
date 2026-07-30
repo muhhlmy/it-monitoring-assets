@@ -6,6 +6,9 @@ Branch kerja: `hardening/phase0-p0-slice-1`
 
 Commit awal: `aca4f33`
 
+Commit hasil Slice 1 yang diaudit:
+`603b6f22507a984b46150bf3b7a362858c83b236`
+
 Dokumen ini mencatat kondisi sebelum slice hardening pertama. Nilai credential
 dan isi password tidak pernah dicetak atau disalin ke dokumen ini.
 
@@ -13,7 +16,10 @@ dan isi password tidak pernah dicetak atau disalin ke dokumen ini.
 
 - Backend dan frontend dipertahankan sebagai dua package npm independen dengan
   lockfile masing-masing.
-- `Plan.md` dan `Prompt.md` adalah file user yang belum dilacak dan tidak diubah.
+- Pada baseline awal terhadap `main@aca4f33`, `Plan.md` dan `Prompt.md` adalah
+  file user yang belum dilacak dan tidak diubah selama eksekusi lokal. Keduanya
+  kemudian tercatat sebagai file baru dalam commit hasil Slice 1 yang diaudit
+  di atas.
 - Tidak ada migration, seed, backfill, atau operasi tulis database yang
   dijalankan selama baseline.
 - `npm run db:check` hanya menjalankan query baca.
@@ -62,22 +68,37 @@ Pemeriksaan read-only menemukan:
 Snapshot ini bukan pengganti backup. Row count harus diambil ulang sebelum
 setiap migration dan dibandingkan setelah restore pada database terisolasi.
 
-## Temuan yang Memengaruhi Urutan Kerja
+## Temuan Baseline dan Status Terkini
 
-- Source memiliki fallback aktif untuk password database dan JWT secret.
-- Full database export tersedia dari endpoint aplikasi dan membaca seluruh
-  kolom tabel dengan `SELECT *`.
-- Password login, create user, update user, dan seed masih memiliki alur
-  plaintext.
-- `Schema.sql` tidak dapat membangun database fresh secara tepercaya: blok
-  backfill tidak lengkap dan bagian berikutnya mereferensikan `tickets` sebelum
-  tabel itu dibuat oleh schema.
-- Controller auth, user, ticket, dan queue masih menjalankan DDL atau backfill
-  dari request path.
-- Audit login dan komentar masih menerima identitas aktor dari client.
-- Token disimpan di `localStorage` dan token SSE dikirim melalui query string.
-- Frontend route guard memperlakukan permission string `none` sebagai nilai
-  truthy.
+- **Ditutup pada Slice 1 (`603b6f2`):** source pada baseline memiliki fallback
+  aktif untuk password database dan JWT secret. Fallback sudah dihapus dan
+  konfigurasi sekarang gagal cepat.
+- **Ditutup pada Slice 1 (`603b6f2`):** full database export pada baseline
+  tersedia dari endpoint aplikasi dan membaca seluruh kolom tabel dengan
+  `SELECT *`. Route dan UI tersebut sudah dihapus.
+- **Terbuka:** password login, create user, update user, dan seed masih memiliki
+  alur plaintext.
+- **Terbuka:** `Schema.sql` tidak dapat membangun database fresh secara
+  tepercaya; blok backfill tidak lengkap dan bagian berikutnya mereferensikan
+  `tickets` sebelum tabel itu dibuat oleh schema.
+- **Terbuka:** controller auth, user, ticket, dan queue masih menjalankan DDL
+  atau backfill dari request path.
+- **Ditutup pada working tree Slice 2, belum menjadi commit yang diaudit:** fake
+  audit login di shell frontend dan endpoint audit yang dapat ditulis client
+  sudah dihapus; pembacaan audit login dibatasi ke superadmin. Untuk akun yang
+  ditemukan, login audit mengambil nama/email canonical dari database; akun
+  yang tidak ditemukan memakai penanda unknown milik server. IP/user-agent
+  berasal dari request, bukan field actor pada body.
+- **Terbuka:** komentar tiket masih perlu dipastikan selalu mengambil actor dari
+  `req.user`.
+- **Terbuka:** token disimpan di `localStorage` dan token SSE dikirim melalui
+  query string.
+- **Terbuka:** frontend route guard memperlakukan permission string `none`
+  sebagai nilai truthy.
+- **Terbuka di jalur lain:** renderer PDF/print di luar pusat export masih
+  memakai `document.write` dan utilitas CSV aset perlu review formula
+  injection tersendiri. Slice 2 hanya mengeraskan `exportEngine` yang dipakai
+  pusat export sensitif.
 
 ## Recovery Slice Pertama
 
@@ -92,6 +113,57 @@ Rollback aplikasi dapat dilakukan dengan mengembalikan perubahan source. Tidak
 ada rollback database untuk slice ini. Menghidupkan kembali fallback secret atau
 endpoint backup aplikasi bukan recovery yang aman; deployment harus memasang
 environment yang benar.
+
+### Status Item Containment Slice 1
+
+Status berikut sudah ditutup pada commit Slice 1 yang diaudit, tetapi tidak
+menyatakan seluruh hardening P0 selesai:
+
+| Item | Status pada `603b6f2` |
+| --- | --- |
+| Fallback `DB_PASSWORD` | Ditutup; konfigurasi gagal cepat bila secret kosong |
+| Fallback `JWT_SECRET` | Ditutup; sign dan verify memakai konfigurasi yang sama |
+| Full database export | Ditutup; route dan UI dihapus |
+| Regression secret dan full database export | Ditutup; test ditambahkan |
+| Migration schema/password | Tetap terbuka; menunggu bukti backup dan restore |
+| Otorisasi export kustom dan integritas actor audit | Tetap terbuka untuk Slice 2 |
+
+### Status Working Tree Slice 2
+
+Status ini mencerminkan working tree setelah dibandingkan dengan
+`603b6f22507a984b46150bf3b7a362858c83b236`; perubahan belum memiliki commit
+baru yang dapat disebut sebagai snapshot audit:
+
+| Item | Status working tree |
+| --- | --- |
+| Otorisasi export | Diimplementasikan: route backend dan navigasi frontend hanya untuk superadmin |
+| Batas export | Diimplementasikan: limit integer wajib `1..1000`; UI dan quick export maksimum 1.000 |
+| Allowlist/redaction export | Diimplementasikan: kolom di luar schema ditolak dan row response diproyeksikan ulang |
+| Kontrak ticket export | Diimplementasikan: nama kolom, tanggal, status, dan urutan memakai schema aktif |
+| Encoding output export kustom | Diimplementasikan: HTML dinamis di Excel/PDF di-escape dan formula CSV/Excel dinetralkan |
+| Client-writable login audit | Dihapus: `POST /api/logs/audit` dan side effect di `App.vue` tidak tersedia |
+| Pembacaan login audit | Dibatasi ke superadmin; UI admin biasa hanya meminta/menampilkan riwayat aset |
+| Actor login audit | Diperketat: akun dikenal memakai actor database, akun tidak dikenal memakai penanda server; IP/user-agent berasal dari request |
+| Regression test | Ditambahkan untuk role matrix, validasi/export redaction, actor spoofing, dan shell frontend |
+
+### Verifikasi Working Tree Slice 2
+
+| Command/check | Hasil aktual |
+| --- | --- |
+| Backend `npm run check` dengan secret dummy | Lulus, 27/27 test |
+| Frontend `npm test` | Lulus, 6/6 test |
+| Frontend `npm run build` | Lulus; warning chunk utama di atas 500 kB tetap ada |
+| Frontend `npm run lint:check` | Gagal pada 5 error oxlint baseline |
+| Frontend ESLint read-only | Gagal pada 30 error baseline; satu unused variable tertutup karena guard export sekarang memakainya |
+| Frontend `npm run format:check` | Gagal pada 33 file baseline |
+| Scan UTF-8/mojibake seluruh Markdown | Lulus, 4 file diperiksa tanpa temuan |
+| `git diff --check` | Lulus; hanya warning konversi line ending working tree |
+
+`npm ci` frontend di working tree tidak dapat mengganti native binding yang
+sedang dikunci proses Node lain. Reproducibility lockfile dibuktikan dengan
+`npm ci` pada salinan bersih `package.json` dan `package-lock.json` di direktori
+temporer; dependency working tree kemudian dipulihkan tanpa perubahan manifest
+atau lockfile.
 
 ## Verifikasi Setelah Slice Pertama
 

@@ -83,7 +83,7 @@ const menuGroups = computed(() => {
           to: '/logs',
           label: 'Log Aktivitas',
           icon: 'receipt_long',
-          caption: 'Riwayat & audit log',
+          caption: isSuperAdmin.value ? 'Riwayat & audit log' : 'Riwayat perubahan aset',
           permission: 'logs',
         },
         {
@@ -92,6 +92,7 @@ const menuGroups = computed(() => {
           icon: 'output',
           caption: 'Ekspor data terpilih',
           permission: 'export',
+          superadminOnly: true,
         },
       ],
     },
@@ -100,7 +101,9 @@ const menuGroups = computed(() => {
   return groups
     .map((g) => ({
       ...g,
-      items: g.items.filter((item) => hasPermission(item.permission)),
+      items: g.items.filter(
+        (item) => (!item.superadminOnly || isSuperAdmin.value) && hasPermission(item.permission),
+      ),
     }))
     .filter((g) => g.items.length > 0)
 })
