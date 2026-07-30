@@ -62,6 +62,34 @@ const chartOptions = computed(() => ({
 const totalUnits = computed(() =>
   props.data.reduce((acc, curr) => acc + (Number(curr.count) || 0), 0)
 )
+
+const centerTextPlugin = {
+  id: 'centerText',
+  afterDraw(chart) {
+    const meta = chart.getDatasetMeta(0)
+    if (!meta || !meta.data || !meta.data[0]) return
+
+    const { ctx } = chart
+    const x = meta.data[0].x
+    const y = meta.data[0].y
+
+    ctx.save()
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+
+    // Teks angka total unit (mis. 13)
+    ctx.font = '800 26px "Plus Jakarta Sans", sans-serif'
+    ctx.fillStyle = '#2A3547'
+    ctx.fillText(String(totalUnits.value), x, y - 8)
+
+    // Teks label "TOTAL UNIT"
+    ctx.font = '700 10px "Plus Jakarta Sans", sans-serif'
+    ctx.fillStyle = '#7C8BAC'
+    ctx.fillText('TOTAL UNIT', x, y + 14)
+
+    ctx.restore()
+  },
+}
 </script>
 
 <template>
@@ -73,11 +101,7 @@ const totalUnits = computed(() =>
     :error="error"
   >
     <div class="relative h-full w-full flex items-center justify-center">
-      <Doughnut :data="chartData" :options="chartOptions" />
-      <div class="pointer-events-none absolute flex flex-col items-center justify-center text-center pb-6">
-        <span class="text-[24px] font-black text-[#2A3547] font-num leading-none">{{ totalUnits }}</span>
-        <span class="text-[10px] font-bold text-[#7C8BAC] uppercase tracking-wider mt-0.5">Total Unit</span>
-      </div>
+      <Doughnut :data="chartData" :options="chartOptions" :plugins="[centerTextPlugin]" />
     </div>
   </BaseChartCard>
 </template>

@@ -181,42 +181,49 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
   >
     <!-- Brand Logo Top Header -->
     <div
-      class="relative flex h-[72px] shrink-0 items-center justify-between gap-2 px-4 border-b border-[#F1F5F9] transition-all"
+      class="relative flex h-[72px] shrink-0 items-center border-b border-[#F1F5F9] transition-all"
+      :class="isCollapsed ? 'justify-center px-0' : 'justify-between gap-2 px-4'"
     >
-      <div class="flex items-center gap-2 overflow-hidden px-1">
-        <!-- Logo Penuh saat Expanded -->
+      <!-- Logo Penuh saat Expanded -->
+      <div v-if="!isCollapsed" class="flex items-center justify-center shrink-0">
         <img
-          v-if="!isCollapsed"
           src="/ESB Logo.svg"
-          width="110"
           alt="ESB Logo"
-          class="transition-opacity duration-200"
-        />
-        <!-- Logo Ringkas/Brand Mark saat Collapsed -->
-        <img
-          v-else
-          src="/ESB Logo Mark.svg"
-          width="34"
-          height="34"
-          alt="ESB Logo Mark"
-          class="transition-opacity duration-200 mx-auto"
+          class="h-9 w-auto shrink-0 transition-all duration-200"
         />
       </div>
 
-      <!-- Toggle Button Desktop & Close Button Mobile -->
+      <!-- Logo saat Collapsed (Padding & Margin Simetris Presisi) -->
       <button
+        v-else
+        type="button"
+        @click="emit('toggle-collapse')"
+        title="Perluas Sidebar"
+        class="flex h-11 w-11 items-center justify-center rounded-2xl hover:bg-[#ECF2FF] transition-all cursor-pointer group shrink-0"
+      >
+        <img
+          src="/ESB Logo.svg"
+          alt="ESB Logo"
+          class="h-9 w-9 object-left object-cover transition-transform group-hover:scale-105 shrink-0 block"
+        />
+      </button>
+
+      <!-- Toggle Button Desktop (Saat Expanded) -->
+      <button
+        v-if="!isCollapsed"
         ref="closeButtonRef"
         type="button"
-        :aria-label="isCollapsed ? 'Buka Sidepanel' : 'Sembunyikan Sidepanel'"
-        :title="isCollapsed ? 'Perluas Sidebar' : 'Ciutkan Sidebar'"
+        aria-label="Sembunyikan Sidepanel"
+        title="Ciutkan Sidebar"
         class="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer shrink-0"
         @click="emit('toggle-collapse')"
       >
         <span aria-hidden="true" class="material-symbols-outlined text-[20px]">
-          {{ isCollapsed ? 'side_navigation' : 'menu_open' }}
+          menu_open
         </span>
       </button>
 
+      <!-- Close Button Mobile -->
       <button
         type="button"
         aria-label="Tutup navigasi mobile"
