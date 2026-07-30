@@ -11,7 +11,8 @@ const SUPERADMIN_PERMISSIONS = {
   submissions: true,
   users: true,
   logs: true,
-  karyawan: true
+  karyawan: true,
+  export: true
 }
 
 const DEFAULT_USER_PERMISSIONS = {
@@ -22,7 +23,8 @@ const DEFAULT_USER_PERMISSIONS = {
   submissions: false,
   users: false,
   logs: false,
-  karyawan: false
+  karyawan: false,
+  export: false
 }
 
 let isUserPermissionsChecked = false

@@ -1,4 +1,4 @@
-﻿import { pool } from '../config/database.js'
+import { pool } from '../config/database.js'
 
 function createHttpError(statusCode, message) {
   const error = new Error(message)
@@ -14,7 +14,8 @@ const SUPERADMIN_PERMISSIONS = {
   submissions: 'full',
   users: 'full',
   logs: 'full',
-  karyawan: 'full'
+  karyawan: 'full',
+  export: 'full'
 }
 
 const DEFAULT_USER_PERMISSIONS = {
@@ -25,7 +26,8 @@ const DEFAULT_USER_PERMISSIONS = {
   submissions: 'none',
   users: 'none',
   logs: 'none',
-  karyawan: 'none'
+  karyawan: 'none',
+  export: 'none'
 }
 
 function normaliseLegacyPermissions(raw) {

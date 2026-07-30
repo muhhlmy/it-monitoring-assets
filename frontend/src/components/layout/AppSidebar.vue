@@ -86,6 +86,13 @@ const menuGroups = computed(() => {
           caption: 'Riwayat & audit log',
           permission: 'logs',
         },
+        {
+          to: '/export',
+          label: 'Ekspor Data',
+          icon: 'output',
+          caption: 'Ekspor & backup data DB',
+          permission: 'export',
+        },
       ],
     },
   ]

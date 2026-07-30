@@ -15,6 +15,7 @@ import UsersView from '../views/UsersView.vue'
 import SubmissionsView from '../views/SubmissionsView.vue'
 import LogsView from '../views/LogsView.vue'
 import TicketsView from '../views/TicketsView.vue'
+import ExportView from '../views/ExportView.vue'
 
 // Daftar semua route aplikasi
 const routes = [
@@ -67,6 +68,12 @@ const routes = [
     meta: { title: 'Log Aktivitas', permission: 'logs' },
   },
   {
+    path: '/export',
+    name: 'export',
+    component: ExportView,
+    meta: { title: 'Pusat Ekspor Data', permission: 'export' },
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/',
   },
@@ -115,6 +122,7 @@ router.beforeEach((to, from, next) => {
       { key: 'submissions', name: 'submissions' },
       { key: 'logs', name: 'logs' },
       { key: 'users', name: 'users' },
+      { key: 'export', name: 'export' },
     ]
 
     const firstAllowed = allowedRouteMap.find(r => canAccess(r.key))
