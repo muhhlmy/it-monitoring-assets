@@ -487,3 +487,10 @@ svg circle {
   opacity: 1 !important;
   stroke-opacity: 1 !important;
 }
+
+/* Material Symbols Solid Fill Utility */
+.fill-1,
+.material-symbols-outlined.fill-1 {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+}
+

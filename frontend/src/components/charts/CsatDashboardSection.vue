@@ -140,7 +140,7 @@ onMounted(() => {
         <p class="text-[12px] font-medium text-[#7C8BAC] mt-0.5">Analisis skor CSAT perbulan dan sebaran ulasan penyelesaian tiket</p>
       </div>
       <span class="inline-flex items-center gap-1.5 rounded-full bg-[#FEF3C7] px-3.5 py-1 text-[11px] font-bold text-[#FFAE1F]">
-        <span class="material-symbols-outlined text-[15px]">star</span>
+        <span class="material-symbols-outlined text-[15px] fill-1">star</span>
         CSAT Analytics
       </span>
     </div>
@@ -155,7 +155,7 @@ onMounted(() => {
             <p class="text-[11px] font-medium text-[#7C8BAC] mt-0.5">Penilaian pelapor terhadap penyelesaian tiket</p>
           </div>
           <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FEF3C7] text-[#FFAE1F]">
-            <span class="material-symbols-outlined text-[20px]">star</span>
+            <span class="material-symbols-outlined text-[20px] fill-1">star</span>
           </span>
         </div>
 

@@ -118,8 +118,8 @@ watch(() => props.ticketId, fetchCasp, { immediate: true })
             class="text-amber-400 focus:outline-none transition-transform hover:scale-110 cursor-pointer"
           >
             <span
-              class="material-symbols-outlined text-[30px]"
-              :class="(hoverRating || selectedRating) >= star ? 'text-[#FFAE1F] fill-1' : 'text-[#CBD5E1]'"
+              class="material-symbols-outlined text-[30px] fill-1"
+              :class="(hoverRating || selectedRating) >= star ? 'text-[#FFAE1F]' : 'text-[#CBD5E1]'"
             >
               star
             </span>
