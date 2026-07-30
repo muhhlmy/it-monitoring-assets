@@ -14,7 +14,9 @@ export function useAuth() {
   const userRole = computed(() => (user.value?.role || '').trim().toLowerCase())
   const isSuperAdmin = computed(() => userRole.value === 'super admin' || userRole.value === 'superadmin')
   const isAdmin = computed(() => userRole.value === 'admin' || isSuperAdmin.value)
-  const isUser = computed(() => userRole.value === 'user')
+  // Semua role selain admin/superadmin (mis. 'user', 'teknisi', atau nilai tak dikenal lainnya)
+  // diperlakukan sebagai user biasa (pelapor), konsisten dengan filter notifikasi di backend.
+  const isUser = computed(() => !isAdmin.value)
 
   const login = async (email, password) => {
     try {

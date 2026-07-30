@@ -5,7 +5,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'rahasia_super_aman_esb_it';
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   // Token berbentuk: "Bearer <token>"
-  const token = authHeader && authHeader.split(' ')[1];
+  let token = authHeader && authHeader.split(' ')[1];
+
+  // Fallback: baca token dari query param.
+  // Diperlukan untuk SSE/EventSource yang tidak bisa mengirim custom header
+  // (lihat frontend/src/composables/useTicketEvents.js -> ?token=...).
+  if (!token && req.query && req.query.token) {
+    token = req.query.token;
+  }
 
   if (!token) {
     return res.status(401).json({ message: 'Akses ditolak. Token tidak ditemukan.' });

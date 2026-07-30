@@ -600,23 +600,30 @@ onMounted(async () => {
   // Connect SSE for realtime events
   connectSSE()
 
-  onSSE('TICKET_CREATED', (data) => {
-    toast(`🔔 Tiket Baru! ${data.nomor_tiket || ''}: ${data.judul || 'Tanpa Judul'} — oleh ${data.pelapor || 'User'}`, 'info')
-    fetchTickets(true)
-  })
+  // ── ADMIN / SUPERADMIN: toast tiket baru + refresh otomatis ──
+  if (isAdmin.value) {
+    onSSE('TICKET_CREATED', (data) => {
+      toast(`🔔 Tiket Baru! ${data.nomor_tiket || ''}: ${data.judul || 'Tanpa Judul'} — oleh ${data.pelapor || 'User'}`, 'info')
+      fetchTickets(true)
+    })
+  }
 
+  // ── SEMUA ROLE: refresh saat tiket di-update ──
   onSSE('TICKET_UPDATED', () => {
     fetchTickets(true)
   })
 
-  onSSE('COMMENT_CREATED', (data) => {
-    // Update comment count in ticket list silently
-    fetchTickets(true)
-    // If chat modal is open for this ticket, refresh comments
-    if (showDetailModal.value && selectedTicket.value?.id === data.ticketId) {
-      fetchTicketComments(data.ticketId, true)
-    }
-  })
+  // ── ADMIN / SUPERADMIN: refresh komentar saat ada komentar baru ──
+  if (isAdmin.value) {
+    onSSE('COMMENT_CREATED', (data) => {
+      // Update comment count in ticket list silently
+      fetchTickets(true)
+      // If chat modal is open for this ticket, refresh comments
+      if (showDetailModal.value && selectedTicket.value?.id === data.ticketId) {
+        fetchTicketComments(data.ticketId, true)
+      }
+    })
+  }
 })
 
 onUnmounted(() => {

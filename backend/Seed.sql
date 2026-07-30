@@ -63,7 +63,7 @@ ON CONFLICT (label_aset) DO UPDATE SET
 INSERT INTO users (nama, email, password, role, is_active) VALUES
     ('Admin IT', 'admin@esb.co.id', 'admin123', 'superadmin', true),
     ('Siti Rahma', 'siti.rahma@esb.co.id', 'siti123', 'admin', true),
-    ('Andi Specialist', 'andi.pratama@esb.co.id', 'andi123', 'teknisi', true)
+    ('Andi Specialist', 'andi.pratama@esb.co.id', 'andi123', 'user', true)
 ON CONFLICT (email) DO NOTHING;
 
 -- Seed log_riwayat_aset table

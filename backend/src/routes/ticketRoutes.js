@@ -2,6 +2,8 @@ import { Router } from 'express'
 import {
   listTickets,
   getTicketStats,
+  getTicketCaspStats,
+  getCaspTrend,
   getTicketHistory,
   getTicketComments,
   createTicketComment,
@@ -22,6 +24,8 @@ const requireAdmin = authorizeRoles('admin', 'super admin', 'superadmin')
 
 ticketRouter.get('/events',         streamTicketEvents)
 ticketRouter.get('/stats',          getTicketStats)
+ticketRouter.get('/casp/stats',     getTicketCaspStats)
+ticketRouter.get('/casp/trend',     getCaspTrend)
 ticketRouter.get('/',               listTickets)
 ticketRouter.get('/:id/history',    getTicketHistory)
 ticketRouter.get('/:id/comments',   getTicketComments)

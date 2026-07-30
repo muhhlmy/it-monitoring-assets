@@ -1,14 +1,17 @@
 // ============================================================
 // composables/useTicketEvents.js - SSE Realtime Ticket Events
 // ============================================================
+// Setiap pemanggil useTicketEvents() mengembalikan instance TERPISAH.
+// EventSource dan handler-Map hidup dalam closure, bukan shared module state.
+// Jadi komponen berbeda (AppHeader vs TicketsView) saling independen.
 import { onUnmounted, ref } from 'vue'
 
-const API_BASE = import.meta.env.VITE_API_URL || ''
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 
 export function useTicketEvents() {
   const isConnected = ref(false)
   let eventSource = null
-  const handlers = new Map()
+  const handlers = new Map() // ← per-instance, tidak shared antar komponen
 
   function connect() {
     if (eventSource) return

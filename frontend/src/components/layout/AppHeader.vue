@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useApi } from '@/composables/useApi'
+import { useTicketEvents } from '@/composables/useTicketEvents'
 
 defineProps({
   isMobileOpen: { type: Boolean, default: false },
@@ -12,8 +13,9 @@ defineEmits(['toggle-mobile', 'toggle-collapse'])
 
 const route  = useRoute()
 const router = useRouter()
-const { user, logout } = useAuth()
+const { user, logout, isAdmin, isUser } = useAuth()
 const { get } = useApi()
+const { connect: connectSSE, disconnect: disconnectSSE, on: onSSE } = useTicketEvents()
 
 const searchQuery     = ref('')
 const isProfileOpen   = ref(false)
@@ -53,9 +55,21 @@ function toggleNotif() {
   isProfileOpen.value = false
 }
 
+function persistSeenIds() {
+  localStorage.setItem('seen_ticket_ids', JSON.stringify([...seenTicketIds.value]))
+}
+
 function markAllSeen() {
   latestTickets.value.forEach(t => seenTicketIds.value.add(t.id))
-  localStorage.setItem('seen_ticket_ids', JSON.stringify([...seenTicketIds.value]))
+  persistSeenIds()
+}
+
+// Tandai sebuah tiket sebagai UNREAD (sehingga badge lonceng naik kembali),
+// dipakai saat user menerima notifikasi perubahan tiket miliknya.
+function markTicketUnread(id) {
+  if (id == null) return
+  seenTicketIds.value.delete(id)
+  persistSeenIds()
 }
 
 function goToTicket(id) {
@@ -130,9 +144,41 @@ watch(
 let pollTimer
 onMounted(() => {
   fetchTickets()
+  // Polling 30 detik dipertahankan sebagai safety net bila SSE putus / gagal reconnect.
   pollTimer = setInterval(fetchTickets, 30000)
+
+  // Realtime push via SSE: bell update instan saat ada tiket baru / perubahan.
+  connectSSE()
+
+  if (isUser.value) {
+    // ── USER BIASA (pelapor) ──
+    // Tidak mendapat notif "tiket baru" (backend juga sudah memfilter).
+    // Hanya mendapat notif SETIAP PERUBAHAN pada tiket miliknya sendiri.
+    onSSE('TICKET_UPDATED', (data) => {
+      if (data && data.id != null) {
+        markTicketUnread(data.id)   // naikkan badge lonceng
+      }
+      fetchTickets()                // refresh list (sudah role-aware: hanya tiket milik user)
+    })
+  } else if (isAdmin.value) {
+    // ── ADMIN / SUPERADMIN ──
+    // Mendapat notif tiket baru + semua perubahan tiket.
+    onSSE('TICKET_CREATED', (data) => {
+      if (data && typeof data === 'object') {
+        if (!allTickets.value.some(t => t.id === data.id)) {
+          allTickets.value = [data, ...allTickets.value]
+        }
+      }
+      fetchTickets()
+    })
+    onSSE('TICKET_UPDATED', () => fetchTickets())
+    onSSE('COMMENT_CREATED', () => fetchTickets())
+  }
 })
-onBeforeUnmount(() => clearInterval(pollTimer))
+onBeforeUnmount(() => {
+  clearInterval(pollTimer)
+  disconnectSSE()
+})
 </script>
 
 <template>

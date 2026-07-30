@@ -12,6 +12,7 @@ import AssetTrendLineChart from '../components/charts/AssetTrendLineChart.vue'
 import AssetTypeBarChart from '../components/charts/AssetTypeBarChart.vue'
 import AssetConditionPieChart from '../components/charts/AssetConditionPieChart.vue'
 import AssetStatusDonutChart from '../components/charts/AssetStatusDonutChart.vue'
+import CsatDashboardSection from '../components/charts/CsatDashboardSection.vue'
 
 const { get } = useApi()
 const router = useRouter()
@@ -94,6 +95,8 @@ function percentage(count, total = totalAssets.value) {
 // Persentase penggunaan untuk bar dan kartu ringkasan.
 const pctDipakai = computed(() => percentage(countDipakai.value, statusChartTotal.value))
 const pctTersedia = computed(() => percentage(countTersedia.value, statusChartTotal.value))
+const pctMaintenance = computed(() => percentage(countMaintenance.value, statusChartTotal.value))
+const pctRusak = computed(() => percentage(countRusak.value, statusChartTotal.value))
 
 const statusItems = computed(() => {
   const items = [
@@ -324,41 +327,28 @@ onMounted(fetchStats)
     <template v-else-if="stats">
 
       <!-- ─── ROW 1: Hero Banner + Pastel Stat Cards ────────── -->
-      <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
 
         <!-- Total Aset (ESB Primary Orange Hero Card) -->
-        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#FC841B] to-[#E26F10] p-6 text-white sm:col-span-2 shadow-lg shadow-orange-500/25 border border-white/10 flex flex-col justify-between">
-          <!-- Decorative SVG circle pattern -->
-          <div class="absolute -right-8 -top-8 h-40 w-40 rounded-full border-[24px] border-white/10"></div>
-          <div class="absolute -bottom-16 -left-8 h-44 w-44 rounded-full bg-white/10 blur-md"></div>
-          
-          <div class="relative z-10">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold uppercase tracking-widest text-white/90">TOTAL ASET IT</span>
-              <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-md">
-                <span class="material-symbols-outlined text-[18px]">inventory_2</span>
-              </span>
-            </div>
-            <p class="font-num mt-3 text-[42px] font-black leading-none tracking-tight text-white">{{ totalAssets }}</p>
-            <p class="mt-1 text-[12px] font-medium text-white/90">Unit terdaftar dalam sistem perusahaan</p>
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#FC841B] to-[#E26F10] p-5 text-white shadow-md shadow-orange-500/20 border border-white/10 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-white/90">Total Aset</span>
+            <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-md">
+              <span class="material-symbols-outlined text-[18px]">inventory_2</span>
+            </span>
           </div>
-
-          <div class="relative z-10 flex gap-3 mt-6">
-            <button
-              type="button"
-              class="rounded-xl bg-white px-4 py-2.5 text-xs font-extrabold text-[#E26F10] shadow-sm hover:bg-[#FFF2E7] transition-all"
-              @click="goToAddAsset"
-            >
-              + Tambah Aset
-            </button>
-            <button
-              type="button"
-              class="rounded-xl border border-white/40 bg-white/15 px-4 py-2.5 text-xs font-bold text-white backdrop-blur-md hover:bg-white/25 disabled:opacity-50 transition-all"
-              :disabled="isExporting"
-              @click="exportAssets"
-            >
-              {{ isExporting ? 'Menyiapkan…' : 'Export CSV ↗' }}
-            </button>
+          <div class="mt-3">
+            <p class="font-num text-[30px] font-black leading-none tracking-tight text-white">{{ totalAssets }}</p>
+            <div class="mt-3 flex items-center justify-between gap-1">
+              <span class="text-[11px] font-medium text-white/90">Unit terdaftar</span>
+              <button
+                type="button"
+                class="rounded-lg bg-white px-2.5 py-1 text-[10px] font-extrabold text-[#E26F10] shadow-xs hover:bg-[#FFF2E7] transition-all cursor-pointer"
+                @click="goToAddAsset"
+              >
+                + Tambah
+              </button>
+            </div>
           </div>
         </div>
 
@@ -366,11 +356,11 @@ onMounted(fetchStats)
         <div class="shadow-card shadow-card-hover flex flex-col justify-between rounded-2xl border border-[#C3F3E8] bg-[#EDFBF7] p-5">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-[#13DEB9]">Digunakan</span>
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#13DEB9] shadow-xs">
-              <span class="material-symbols-outlined text-[20px]">check_circle</span>
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#13DEB9] shadow-xs">
+              <span class="material-symbols-outlined text-[18px]">check_circle</span>
             </div>
           </div>
-          <div class="mt-4">
+          <div class="mt-3">
             <p class="font-num text-[30px] font-extrabold text-[#2A3547] leading-none">{{ countDipakai }}</p>
             <div class="flex items-center gap-2 mt-3">
               <div class="flex-1 h-2 bg-white rounded-full overflow-hidden">
@@ -385,11 +375,11 @@ onMounted(fetchStats)
         <div class="shadow-card shadow-card-hover flex flex-col justify-between rounded-2xl border border-[#C8EDFF] bg-[#E8F7FF] p-5">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-[#49BEFF]">Tersedia</span>
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#49BEFF] shadow-xs">
-              <span class="material-symbols-outlined text-[20px]">inventory_2</span>
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#49BEFF] shadow-xs">
+              <span class="material-symbols-outlined text-[18px]">inventory</span>
             </div>
           </div>
-          <div class="mt-4">
+          <div class="mt-3">
             <p class="font-num text-[30px] font-extrabold text-[#2A3547] leading-none">{{ countTersedia }}</p>
             <div class="flex items-center gap-2 mt-3">
               <div class="flex-1 h-2 bg-white rounded-full overflow-hidden">
@@ -400,17 +390,41 @@ onMounted(fetchStats)
           </div>
         </div>
 
-        <!-- Card: Maintenance & Warning -->
+        <!-- Card: Maintenance -->
         <div class="shadow-card shadow-card-hover flex flex-col justify-between rounded-2xl border border-[#FCE6BE] bg-[#FEF5E5] p-5">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-[#FFAE1F]">Maintenance</span>
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#FFAE1F] shadow-xs">
-              <span class="material-symbols-outlined text-[20px]">build</span>
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#FFAE1F] shadow-xs">
+              <span class="material-symbols-outlined text-[18px]">build</span>
             </div>
           </div>
-          <div class="mt-4">
+          <div class="mt-3">
             <p class="font-num text-[30px] font-extrabold text-[#2A3547] leading-none">{{ countMaintenance }}</p>
-            <p class="text-[11px] font-medium text-[#FFAE1F] mt-2">{{ countRusak }} unit kondisi rusak</p>
+            <div class="flex items-center gap-2 mt-3">
+              <div class="flex-1 h-2 bg-white rounded-full overflow-hidden">
+                <div class="h-full bg-[#FFAE1F] rounded-full transition-all duration-500" :style="{ width: pctMaintenance + '%' }"></div>
+              </div>
+              <span class="text-[11px] font-bold text-[#FFAE1F]">{{ pctMaintenance }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Kondisi Rusak -->
+        <div class="shadow-card shadow-card-hover flex flex-col justify-between rounded-2xl border border-[#FAD9D0] bg-[#FDEDE8] p-5">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#FA896B]">Rusak</span>
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#FA896B] shadow-xs">
+              <span class="material-symbols-outlined text-[18px]">report_problem</span>
+            </div>
+          </div>
+          <div class="mt-3">
+            <p class="font-num text-[30px] font-extrabold text-[#2A3547] leading-none">{{ countRusak }}</p>
+            <div class="flex items-center gap-2 mt-3">
+              <div class="flex-1 h-2 bg-white rounded-full overflow-hidden">
+                <div class="h-full bg-[#FA896B] rounded-full transition-all duration-500" :style="{ width: pctRusak + '%' }"></div>
+              </div>
+              <span class="text-[11px] font-bold text-[#FA896B]">{{ pctRusak }}%</span>
+            </div>
           </div>
         </div>
 
@@ -448,7 +462,10 @@ onMounted(fetchStats)
         />
       </div>
 
-      <!-- ─── ROW 3: Lokasi Aset ─────────────────────────────── -->
+      <!-- ─── ROW 4: CSAT / Kepuasan Penanganan Tiket ────────── -->
+      <CsatDashboardSection />
+
+      <!-- ─── ROW 5: Lokasi Aset ─────────────────────────────── -->
       <div class="shadow-card rounded-2xl border border-[#E5EAEF] bg-white p-6">
         <div class="flex items-center justify-between mb-4 pb-3 border-b border-[#F1F5F9]">
           <div>
@@ -484,7 +501,7 @@ onMounted(fetchStats)
         </div>
       </div>
 
-      <!-- ─── ROW 4: Tabel 5 Aset Terbaru ────────────────────── -->
+      <!-- ─── ROW 6: Tabel 5 Aset Terbaru ────────────────────── -->
       <div class="shadow-card rounded-2xl border border-[#E5EAEF] bg-white overflow-hidden">
         <div class="flex items-center justify-between px-6 py-4.5 border-b border-[#E5EAEF]">
           <div>
@@ -546,7 +563,7 @@ onMounted(fetchStats)
         </div>
       </div>
 
-      <!-- ─── ROW 5: Tabel Tiket Permintaan Terbaru ──────────────── -->
+      <!-- ─── ROW 7: Tabel Tiket Permintaan Terbaru ──────────────── -->
       <div class="shadow-card rounded-2xl border border-[#E5EAEF] bg-white overflow-hidden">
         <div class="flex items-center justify-between px-6 py-4.5 border-b border-[#E5EAEF]">
           <div>

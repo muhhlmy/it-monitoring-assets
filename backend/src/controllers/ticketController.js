@@ -143,7 +143,7 @@ export async function listTickets(req, res) {
       conditions.push(`t.status_tiket IN ('Closed', 'Resolved')`)
     }
   } else if (!superAdmin) {
-    // Admin/Teknisi:
+    // Admin (non-superadmin):
     if (tab === 'assigned') {
       // Ditangani Saya: tiket yang di-assign ke saya
       params.push(userId)
@@ -286,6 +286,111 @@ export async function getTicketStats(req, res) {
   res.json(stats)
 }
 
+// ── CASP/CSAT STATS (dashboard) ───────────────────────────────
+export async function getTicketCaspStats(req, res) {
+  await ensureTicketsTableExists()
+  const userId = req.user.id
+  const superAdmin = isSuperAdmin(req.user.role)
+  const userRole = (req.user.role || '').trim().toLowerCase()
+  const isRegularUser = userRole !== 'admin' && userRole !== 'superadmin' && userRole !== 'super admin'
+
+  // Akses sesuai role (konsisten dengan getTicketStats):
+  //  - Admin / superadmin: agregasi SEMUA rating CSAT.
+  //  - User biasa: agregasi rating CSAT untuk tiket miliknya (sebagai pelapor).
+  let whereClause = ''
+  const params = []
+  if (isRegularUser) {
+    params.push(userId)
+    whereClause = 'WHERE cr.reporter_user_id = $1'
+  }
+
+  const result = await pool.query(`
+    SELECT
+      COUNT(*)::int                                          AS "totalRatings",
+      COALESCE(AVG(cr.rating), 0)::float                     AS "averageRating",
+      COUNT(CASE WHEN cr.rating = 1 THEN 1 END)::int         AS "r1",
+      COUNT(CASE WHEN cr.rating = 2 THEN 1 END)::int         AS "r2",
+      COUNT(CASE WHEN cr.rating = 3 THEN 1 END)::int         AS "r3",
+      COUNT(CASE WHEN cr.rating = 4 THEN 1 END)::int         AS "r4",
+      COUNT(CASE WHEN cr.rating = 5 THEN 1 END)::int         AS "r5"
+    FROM ticket_casp_ratings cr
+    ${whereClause}
+  `, params)
+
+  const row = result.rows[0] || {}
+  const totalRatings = Number(row.totalRatings) || 0
+  const averageRating = totalRatings > 0
+    ? Math.round((Number(row.averageRating) || 0) * 100) / 100
+    : 0
+
+  // Distribusi selalu 5 baris (rating 1–5), meskipun count = 0.
+  const distribution = [
+    { rating: 1, count: Number(row.r1) || 0 },
+    { rating: 2, count: Number(row.r2) || 0 },
+    { rating: 3, count: Number(row.r3) || 0 },
+    { rating: 4, count: Number(row.r4) || 0 },
+    { rating: 5, count: Number(row.r5) || 0 },
+  ]
+
+  res.json({ averageRating, totalRatings, distribution })
+}
+
+// ── CASP/CSAT TREND (line chart per bulan) ───────────────────
+export async function getCaspTrend(req, res) {
+  await ensureTicketsTableExists()
+  const userId = req.user.id
+  const superAdmin = isSuperAdmin(req.user.role)
+  const userRole = (req.user.role || '').trim().toLowerCase()
+  const isRegularUser = userRole !== 'admin' && userRole !== 'superadmin' && userRole !== 'super admin'
+
+  let whereClause = ''
+  const params = []
+  if (isRegularUser) {
+    params.push(userId)
+    whereClause = 'WHERE cr.reporter_user_id = $1'
+  }
+
+  const result = await pool.query(`
+    SELECT
+      TO_CHAR(cr.submitted_at, 'Mon YYYY') AS "period",
+      TO_CHAR(cr.submitted_at, 'YYYY-MM')  AS "ym",
+      ROUND(AVG(cr.rating)::numeric, 2)    AS "averageRating",
+      COUNT(*)::int                         AS "totalRatings"
+    FROM ticket_casp_ratings cr
+    ${whereClause}
+    GROUP BY TO_CHAR(cr.submitted_at, 'Mon YYYY'), TO_CHAR(cr.submitted_at, 'YYYY-MM')
+    ORDER BY TO_CHAR(cr.submitted_at, 'YYYY-MM') DESC
+    LIMIT 12
+  `, params)
+
+  const dbMap = new Map()
+  for (const row of result.rows) {
+    dbMap.set(row.ym, {
+      period: row.period,
+      averageRating: Number(row.averageRating) || 0,
+      totalRatings: Number(row.totalRatings) || 0,
+    })
+  }
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+  const now = new Date()
+  const timeline = []
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const period = `${monthNames[d.getMonth()]} ${d.getFullYear()}`
+
+    if (dbMap.has(ym)) {
+      timeline.push(dbMap.get(ym))
+    } else {
+      timeline.push({ period, averageRating: 0, totalRatings: 0 })
+    }
+  }
+
+  res.json(timeline)
+}
+
 // ── GET TICKET HISTORY ────────────────────────────────────────
 export async function getTicketHistory(req, res) {
   await ensureTicketsTableExists()
@@ -359,7 +464,7 @@ export function streamTicketEvents(req, res) {
   res.setHeader('Connection', 'keep-alive')
   if (res.flushHeaders) res.flushHeaders()
 
-  addSseClient(res)
+  addSseClient(res, req.user)
   res.write(`data: ${JSON.stringify({ type: 'CONNECTED', timestamp: Date.now() })}\n\n`)
 }
 

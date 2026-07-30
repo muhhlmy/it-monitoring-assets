@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue'
 import { useApi } from '@/composables/useApi'
+import CsatStars from './CsatStars.vue'
 
 const props = defineProps({
   ticketId: { type: Number, required: true },
@@ -81,14 +82,7 @@ watch(() => props.ticketId, fetchCasp, { immediate: true })
         <span class="text-[10px] text-[#7C8BAC]">Terkirim</span>
       </div>
       <div class="flex items-center gap-1 my-1">
-        <span
-          v-for="star in 5"
-          :key="star"
-          class="material-symbols-outlined text-[24px]"
-          :class="star <= existingRating.value ? 'text-[#FFAE1F] fill-1' : 'text-[#CBD5E1]'"
-        >
-          star
-        </span>
+        <CsatStars :value="existingRating.value" size="24px" />
         <span class="ml-2 text-[13px] font-bold text-[#2A3547]">
           {{ existingRating.value }}/5 — {{ existingRating.label }}
         </span>
