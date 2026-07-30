@@ -1,8 +1,7 @@
 import { Router } from 'express'
 import {
   getExportTablesMetadata,
-  exportTableData,
-  exportFullDatabase
+  exportTableData
 } from '../controllers/exportController.js'
 
 export const exportRouter = Router()
@@ -12,6 +11,3 @@ exportRouter.get('/tables', getExportTablesMetadata)
 
 // POST /api/export/data -> Mengambil data kustom dari tabel dengan filter & kolom tertentu
 exportRouter.post('/data', exportTableData)
-
-// GET /api/export/full-db -> Download snapshot full database
-exportRouter.get('/full-db', exportFullDatabase)

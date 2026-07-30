@@ -239,22 +239,6 @@ async function handleQuickExport(tableName, format = 'csv') {
   }
 }
 
-// Full DB Dump Backup
-async function handleFullDatabaseBackup() {
-  isExporting.value = true
-  try {
-    const res = await api.get('/api/export/full-db')
-    if (res.success) {
-      exportToJson(res, 'Backup_Full_Database_ITAM')
-      showToast(`Backup Full Database berhasil diunduh (${res.metadata.totalRecords} total record)!`)
-    }
-  } catch (error) {
-    showToast(error.message || 'Gagal mengunduh backup database.', 'error')
-  } finally {
-    isExporting.value = false
-  }
-}
-
 // Presets Export Launcher
 async function applyPreset(presetKey) {
   activeTab.value = 'custom'
@@ -332,7 +316,7 @@ onMounted(() => {
         <div class="space-y-2 max-w-2xl">
           <div class="inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-3.5 py-1 text-xs font-semibold text-blue-300 border border-blue-400/30">
             <span class="material-symbols-outlined text-[16px]">database</span>
-            <span>Pusat Data & Backup System</span>
+            <span>Pusat Ekspor Data Sistem</span>
           </div>
           <h1 class="text-2xl lg:text-3xl font-extrabold tracking-tight text-white">
             Pusat Ekspor Data Database
@@ -354,15 +338,6 @@ onMounted(() => {
               {{ isLoading ? '...' : totalDbRecords.toLocaleString('id-ID') }}
             </p>
           </div>
-          <button
-            type="button"
-            @click="handleFullDatabaseBackup"
-            :disabled="isExporting || isLoading"
-            class="group flex flex-col items-center justify-center rounded-2xl bg-blue-600 hover:bg-blue-500 text-white p-4 transition-all shadow-lg shadow-blue-600/30 cursor-pointer disabled:opacity-50 min-w-[120px]"
-          >
-            <span class="material-symbols-outlined text-[24px] group-hover:scale-110 transition-transform">cloud_download</span>
-            <span class="mt-1 text-[11px] font-bold">Backup Full DB</span>
-          </button>
         </div>
       </div>
     </div>

@@ -1,7 +1,6 @@
 import { pool } from '../config/database.js';
+import { env } from '../config/env.js';
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'rahasia_super_aman_esb_it';
 
 const SUPERADMIN_PERMISSIONS = {
   dashboard: true,
@@ -104,7 +103,7 @@ export async function login(req, res) {
       permissions
     };
 
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '12h' });
+    const token = jwt.sign(payload, env.jwt.secret, { expiresIn: '12h' });
 
     // Catat log sukses
     await pool.query(

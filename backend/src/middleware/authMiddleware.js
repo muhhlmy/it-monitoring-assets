@@ -1,6 +1,5 @@
+import { env } from '../config/env.js';
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'rahasia_super_aman_esb_it';
 
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -18,7 +17,7 @@ export function authenticateToken(req, res, next) {
     return res.status(401).json({ message: 'Akses ditolak. Token tidak ditemukan.' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, env.jwt.secret, (err, user) => {
     if (err) {
       return res.status(403).json({ message: 'Token tidak valid atau sudah kedaluwarsa.' });
     }

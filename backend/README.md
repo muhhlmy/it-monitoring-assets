@@ -53,6 +53,8 @@ Arrow function, spread object, optional chaining, nullish coalescing,
 ## Menjalankan aplikasi
 
 1. Pastikan PostgreSQL aktif dan isi koneksi pada `.env` (lihat `.env.example`).
+   `DB_PASSWORD` wajib diisi dan `JWT_SECRET` wajib berupa secret acak minimal
+   32 karakter. Aplikasi sengaja gagal start bila salah satunya kosong.
 2. Jalankan `npm install` jika dependency belum tersedia.
 3. Jalankan `npm run db:setup`. Perintah ini membuat database bila belum ada,
    menerapkan `Schema.sql`, lalu mengisi data dummy dari `Seed.sql`.
@@ -70,6 +72,14 @@ Setup database dan seed bersifat idempotent sehingga aman dijalankan kembali.
 - `npm run dev` - jalankan API dengan nodemon.
 - `npm test` - jalankan automated test.
 - `npm run check` - periksa sintaks entry point dan jalankan test.
+
+## Backup Database
+
+Full database backup tidak tersedia melalui endpoint atau UI aplikasi. Backup
+harus dijalankan sebagai proses operasional terpisah dengan akses terbatas,
+enkripsi, retention policy, dan restore rehearsal pada database terisolasi.
+Jangan menjalankan migration destruktif sebelum backup tersebut berhasil
+diverifikasi.
 
 ## Endpoint
 

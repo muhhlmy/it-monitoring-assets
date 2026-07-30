@@ -1,5 +1,26 @@
 import "dotenv/config";
 
+// Secret tidak boleh memiliki fallback karena nilai bawaan di source akan
+// digunakan oleh setiap deployment yang lupa mengatur environment.
+function readRequiredSecret(name, minimumLength = 1) {
+  const value = process.env[name];
+  const normalizedLength = typeof value === "string" ? value.trim().length : 0;
+
+  if (normalizedLength < minimumLength) {
+    if (minimumLength > 1) {
+      throw new Error(
+        `${name} wajib diisi melalui environment dengan minimal ${minimumLength} karakter.`,
+      );
+    }
+
+    throw new Error(
+      `${name} wajib diisi melalui environment dan tidak boleh kosong.`,
+    );
+  }
+
+  return value;
+}
+
 // Membaca angka dari file .env.
 // Jika nilainya kosong atau tidak valid, gunakan nilai default.
 function readNumber(name, defaultValue) {
@@ -53,6 +74,9 @@ if (!/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(databaseName)) {
   );
 }
 
+const databasePassword = readRequiredSecret("DB_PASSWORD");
+const jwtSecret = readRequiredSecret("JWT_SECRET", 32);
+
 let sslConfig = false;
 
 if (process.env.DB_SSL === "true") {
@@ -67,9 +91,12 @@ export const env = {
     host: process.env.DB_HOST || "localhost",
     port: readNumber("DB_PORT", 5432),
     user: process.env.DB_USER || "postgres",
-    password: process.env.DB_PASSWORD || "Peter7711",
+    password: databasePassword,
     database: databaseName,
     ssl: sslConfig,
+  },
+  jwt: {
+    secret: jwtSecret,
   },
   corsOrigins: readCorsOrigins(),
 };

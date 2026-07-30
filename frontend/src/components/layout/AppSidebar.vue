@@ -90,7 +90,7 @@ const menuGroups = computed(() => {
           to: '/export',
           label: 'Ekspor Data',
           icon: 'output',
-          caption: 'Ekspor & backup data DB',
+          caption: 'Ekspor data terpilih',
           permission: 'export',
         },
       ],
