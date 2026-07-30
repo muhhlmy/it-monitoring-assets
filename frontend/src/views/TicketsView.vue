@@ -212,6 +212,28 @@ async function switchTab(tab) {
   await fetchTickets()
 }
 
+async function filterByStat(statusName) {
+  if (statusName === 'all' || !statusName) {
+    filterStatus.value = ''
+    if (activeTab.value === 'unassigned') activeTab.value = 'all'
+  } else if (statusName === 'unassigned') {
+    if (activeTab.value === 'unassigned') {
+      activeTab.value = 'all'
+    } else {
+      activeTab.value = 'unassigned'
+      filterStatus.value = ''
+    }
+  } else {
+    if (filterStatus.value === statusName) {
+      filterStatus.value = ''
+    } else {
+      filterStatus.value = statusName
+      if (activeTab.value === 'unassigned') activeTab.value = 'all'
+    }
+  }
+  await fetchTickets()
+}
+
 async function fetchTicketHistory(ticketId) {
   isHistoryLoading.value = true
   try {
@@ -671,11 +693,20 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- ── 4 Pastel Stat Cards (Modernize Overview) ────────── -->
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <!-- ── 4/5 Interactive Stat Cards ────────── -->
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2" :class="isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'">
       
       <!-- Total Tickets -->
-      <div class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border border-[#D2E3FF] bg-[#ECF2FF] p-5">
+      <div
+        @click="filterByStat('all')"
+        class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border p-5 cursor-pointer transition-all hover:scale-[1.02] active:scale-95"
+        :class="
+          activeTab !== 'unassigned' && !filterStatus
+            ? 'border-[#5D87FF] bg-[#ECF2FF] ring-2 ring-[#5D87FF]/30 shadow-md font-semibold'
+            : 'border-[#D2E3FF] bg-[#ECF2FF] hover:border-[#5D87FF]'
+        "
+        title="Klik untuk melihat semua tiket"
+      >
         <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#5D87FF] shadow-xs">
           <span class="material-symbols-outlined text-[24px]">confirmation_number</span>
         </div>
@@ -686,7 +717,16 @@ onUnmounted(() => {
       </div>
 
       <!-- Pending Tickets -->
-      <div class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border border-[#FCE6BE] bg-[#FEF5E5] p-5">
+      <div
+        @click="filterByStat('Pending')"
+        class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border p-5 cursor-pointer transition-all hover:scale-[1.02] active:scale-95"
+        :class="
+          filterStatus === 'Pending'
+            ? 'border-[#FFAE1F] bg-[#FEF5E5] ring-2 ring-[#FFAE1F]/30 shadow-md font-semibold'
+            : 'border-[#FCE6BE] bg-[#FEF5E5] hover:border-[#FFAE1F]'
+        "
+        title="Klik untuk filter tiket status Pending"
+      >
         <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#FFAE1F] shadow-xs">
           <span class="material-symbols-outlined text-[24px]">pending_actions</span>
         </div>
@@ -697,7 +737,16 @@ onUnmounted(() => {
       </div>
 
       <!-- Open Tickets -->
-      <div class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border border-[#C3F3E8] bg-[#EDFBF7] p-5">
+      <div
+        @click="filterByStat('Open')"
+        class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border p-5 cursor-pointer transition-all hover:scale-[1.02] active:scale-95"
+        :class="
+          filterStatus === 'Open'
+            ? 'border-[#13DEB9] bg-[#EDFBF7] ring-2 ring-[#13DEB9]/30 shadow-md font-semibold'
+            : 'border-[#C3F3E8] bg-[#EDFBF7] hover:border-[#13DEB9]'
+        "
+        title="Klik untuk filter tiket status Open"
+      >
         <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#13DEB9] shadow-xs">
           <span class="material-symbols-outlined text-[24px]">adjust</span>
         </div>
@@ -708,7 +757,16 @@ onUnmounted(() => {
       </div>
 
       <!-- Closed Tickets -->
-      <div class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border border-[#FAD9D0] bg-[#FDEDE8] p-5">
+      <div
+        @click="filterByStat('Closed')"
+        class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border p-5 cursor-pointer transition-all hover:scale-[1.02] active:scale-95"
+        :class="
+          filterStatus === 'Closed'
+            ? 'border-[#FA896B] bg-[#FDEDE8] ring-2 ring-[#FA896B]/30 shadow-md font-semibold'
+            : 'border-[#FAD9D0] bg-[#FDEDE8] hover:border-[#FA896B]'
+        "
+        title="Klik untuk filter tiket status Closed"
+      >
         <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#FA896B] shadow-xs">
           <span class="material-symbols-outlined text-[24px]">task_alt</span>
         </div>
@@ -721,9 +779,14 @@ onUnmounted(() => {
       <!-- Unassigned Tickets -->
       <div
         v-if="isAdmin"
-        class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border p-5 cursor-pointer transition-all"
-        :class="activeTab === 'unassigned' ? 'border-[#5D87FF] bg-[#ECF2FF]' : 'border-[#E5EAEF] bg-white'"
-        @click="switchTab('unassigned')"
+        @click="filterByStat('unassigned')"
+        class="shadow-card shadow-card-hover flex items-center gap-4 rounded-2xl border p-5 cursor-pointer transition-all hover:scale-[1.02] active:scale-95"
+        :class="
+          activeTab === 'unassigned'
+            ? 'border-[#5D87FF] bg-[#ECF2FF] ring-2 ring-[#5D87FF]/30 shadow-md font-semibold'
+            : 'border-[#E5EAEF] bg-white hover:border-[#5D87FF]'
+        "
+        title="Klik untuk melihat tiket belum diambil"
       >
         <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ECF2FF] text-[#5D87FF] shadow-xs">
           <span class="material-symbols-outlined text-[24px]">inbox</span>
