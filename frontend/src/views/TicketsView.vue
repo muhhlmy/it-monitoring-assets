@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '@/composables/useAuth'
 import { useTicketEvents } from '../composables/useTicketEvents.js'
+import { validateAttachmentFile } from '../utils/attachmentPolicy.js'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppModal from '../components/ui/AppModal.vue'
 import TicketCaspRating from '../components/tickets/TicketCaspRating.vue'
@@ -67,6 +68,10 @@ const isCommentsLoading    = ref(false)
 const newCommentText       = ref('')
 const commentAttachment    = ref(null)
 const isSubmittingComment  = ref(false)
+const isTicketAttachmentLoading = ref(false)
+const ticketAttachmentError = ref('')
+const attachmentChanged = ref(false)
+let ticketAttachmentRequestVersion = 0
 
 const activeDetailTab2 = activeDetailTab // alias
 
@@ -86,13 +91,9 @@ function handleFileChange(event) {
   const file = event.target.files?.[0]
   if (!file) return
 
-  if (!file.type.startsWith('image/')) {
-    modalError.value = 'File attachment harus berupa gambar (JPG, PNG, WebP, dll).'
-    return
-  }
-
-  if (file.size > 5 * 1024 * 1024) {
-    modalError.value = 'Ukuran gambar maksimal 5MB.'
+  const validationError = validateAttachmentFile(file)
+  if (validationError) {
+    modalError.value = validationError
     return
   }
 
@@ -100,21 +101,25 @@ function handleFileChange(event) {
   const reader = new FileReader()
   reader.onload = (e) => {
     form.value.attachment = e.target.result
+    attachmentChanged.value = true
   }
   reader.readAsDataURL(file)
 }
 
 function removeAttachment() {
   form.value.attachment = null
+  attachmentChanged.value = true
 }
 
 function handleCommentFileChange(event) {
   const file = event.target.files?.[0]
   if (!file) return
-  if (!file.type.startsWith('image/')) {
-    modalError.value = 'Attachment komentar harus berupa gambar.'
+  const validationError = validateAttachmentFile(file)
+  if (validationError) {
+    modalError.value = validationError
     return
   }
+  modalError.value = ''
   const reader = new FileReader()
   reader.onload = (e) => {
     commentAttachment.value = e.target.result
@@ -148,6 +153,10 @@ const queueAdmins   = ref({})       // mapping queue_id => array of admin object
 const isReassigning = ref(null)     // ticket id being reassigned
 
 async function fetchQueueAdmins() {
+  if (!isSuperAdmin.value) {
+    queueAdmins.value = {}
+    return
+  }
   try {
     const adminMap = {}
     await Promise.all(
@@ -251,7 +260,16 @@ async function fetchTicketComments(ticketId, silent = false) {
   if (!silent) isCommentsLoading.value = true
   try {
     const res = await get(`/api/tickets/${ticketId}/comments`)
-    const newComments = Array.isArray(res) ? res : []
+    const previousComments = new Map(ticketComments.value.map((comment) => [comment.id, comment]))
+    const newComments = (Array.isArray(res) ? res : []).map((comment) => {
+      const previousComment = previousComments.get(comment.id)
+      return {
+        ...comment,
+        attachment: previousComment?.attachment || null,
+        is_attachment_loading: previousComment?.is_attachment_loading === true,
+        attachment_error: previousComment?.attachment_error || '',
+      }
+    })
     const hadNewMsg = newComments.length > ticketComments.value.length
     ticketComments.value = newComments
     if (hadNewMsg && silent) {
@@ -265,6 +283,41 @@ async function fetchTicketComments(ticketId, silent = false) {
     }
   } finally {
     isCommentsLoading.value = false
+  }
+}
+
+async function loadCommentAttachment(comment) {
+  const ticketId = selectedTicket.value?.id
+  if (
+    !ticketId ||
+    !comment?.has_attachment ||
+    comment.attachment ||
+    comment.is_attachment_loading
+  ) {
+    return
+  }
+
+  comment.is_attachment_loading = true
+  comment.attachment_error = ''
+  try {
+    const result = await get(
+      `/api/tickets/${ticketId}/comments/${comment.id}/attachment`,
+    )
+    if (selectedTicket.value?.id !== ticketId) return
+
+    const currentComment = ticketComments.value.find((item) => item.id === comment.id)
+    if (currentComment && typeof result?.attachment === 'string') {
+      currentComment.attachment = result.attachment
+    }
+  } catch (err) {
+    if (selectedTicket.value?.id !== ticketId) return
+    const currentComment = ticketComments.value.find((item) => item.id === comment.id)
+    if (currentComment) {
+      currentComment.attachment_error = err.message || 'Gagal memuat lampiran.'
+    }
+  } finally {
+    const currentComment = ticketComments.value.find((item) => item.id === comment.id)
+    if (currentComment) currentComment.is_attachment_loading = false
   }
 }
 
@@ -300,8 +353,6 @@ async function sendComment() {
     await post(`/api/tickets/${selectedTicket.value.id}/comments`, {
       pesan: newCommentText.value.trim() || 'Melampirkan gambar',
       attachment: commentAttachment.value,
-      nama_pengguna: user.value?.nama || 'User',
-      role_pengguna: user.value?.role || 'user'
     })
     newCommentText.value = ''
     commentAttachment.value = null
@@ -353,13 +404,15 @@ function openAdd() {
   modalMode.value = 'add'
   selectedTicket.value = null
   form.value = emptyForm()
+  attachmentChanged.value = false
+  ticketAttachmentError.value = ''
   modalError.value = ''
   showFormModal.value = true
 }
 
 function openEdit(ticket) {
   modalMode.value = 'edit'
-  selectedTicket.value = ticket
+  selectedTicket.value = { ...ticket, attachment: null }
   form.value = {
     judul: ticket.judul || '',
     deskripsi: ticket.deskripsi || '',
@@ -367,19 +420,57 @@ function openEdit(ticket) {
     prioritas: ticket.prioritas || 'Medium (3d)',
     status_tiket: ticket.status_tiket || 'Open',
     assigned_to_user_id: ticket.assigned_to_user_id || null,
-    attachment: ticket.attachment || null,
+    attachment: null,
   }
+  attachmentChanged.value = false
+  ticketAttachmentError.value = ''
   modalError.value = ''
   showFormModal.value = true
+  if (ticket.has_attachment) loadSelectedTicketAttachment(ticket.id, 'edit')
 }
 
 function openDetail(ticket) {
-  selectedTicket.value = ticket
+  selectedTicket.value = { ...ticket, attachment: null }
   activeDetailTab.value = 'detail'
+  ticketAttachmentError.value = ''
   showDetailModal.value = true
+  if (ticket.has_attachment) loadSelectedTicketAttachment(ticket.id, 'detail')
   fetchTicketHistory(ticket.id)
   fetchTicketComments(ticket.id)
   startChatPoll(ticket.id)
+}
+
+async function loadSelectedTicketAttachment(ticketId, target) {
+  const requestVersion = ++ticketAttachmentRequestVersion
+  isTicketAttachmentLoading.value = true
+  ticketAttachmentError.value = ''
+  try {
+    const result = await get(`/api/tickets/${ticketId}/attachment`)
+    if (
+      requestVersion !== ticketAttachmentRequestVersion ||
+      selectedTicket.value?.id !== ticketId ||
+      typeof result?.attachment !== 'string'
+    ) {
+      return
+    }
+
+    if (target === 'edit') {
+      if (!attachmentChanged.value) form.value.attachment = result.attachment
+    } else {
+      selectedTicket.value = { ...selectedTicket.value, attachment: result.attachment }
+    }
+  } catch (err) {
+    if (
+      requestVersion === ticketAttachmentRequestVersion &&
+      selectedTicket.value?.id === ticketId
+    ) {
+      ticketAttachmentError.value = err.message || 'Gagal memuat lampiran tiket.'
+    }
+  } finally {
+    if (requestVersion === ticketAttachmentRequestVersion) {
+      isTicketAttachmentLoading.value = false
+    }
+  }
 }
 
 function openDelete(ticket) {
@@ -389,6 +480,9 @@ function openDelete(ticket) {
 }
 
 function closeModal() {
+  ticketAttachmentRequestVersion += 1
+  isTicketAttachmentLoading.value = false
+  ticketAttachmentError.value = ''
   showFormModal.value = false
   showDeleteModal.value = false
   showDetailModal.value = false
@@ -401,7 +495,7 @@ async function saveTicket() {
     modalError.value = 'Judul tiket wajib diisi.'
     return
   }
-  if (modalMode.value === 'add' && !form.value.queue_id) {
+  if (!form.value.queue_id) {
     modalError.value = 'Unit tujuan wajib dipilih.'
     return
   }
@@ -410,11 +504,23 @@ async function saveTicket() {
   modalError.value = ''
 
   try {
+    const payload = {
+      judul: form.value.judul.trim(),
+      deskripsi: form.value.deskripsi || '',
+      queue_id: Number(form.value.queue_id),
+      prioritas: form.value.prioritas,
+    }
+
     if (modalMode.value === 'add') {
-      await post('/api/tickets', form.value)
+      payload.attachment = form.value.attachment || null
+      await post('/api/tickets', payload)
       toast('Tiket baru berhasil dibuat.')
     } else {
-      await put(`/api/tickets/${selectedTicket.value.id}`, form.value)
+      if (attachmentChanged.value) payload.attachment = form.value.attachment || null
+      await put(`/api/tickets/${selectedTicket.value.id}`, {
+        ...payload,
+        status_tiket: form.value.status_tiket,
+      })
       toast('Tiket berhasil diperbarui.')
     }
     closeModal()
@@ -912,7 +1018,7 @@ onUnmounted(() => {
                 <div class="flex flex-col gap-0.5 max-w-md">
                   <div class="flex items-center gap-2">
                     <p class="text-[13px] font-bold text-[#2A3547] leading-tight">{{ ticket.judul }}</p>
-                    <span v-if="ticket.attachment" class="material-symbols-outlined text-[16px] text-[#5D87FF]" title="Ada Lampiran Gambar">attach_file</span>
+                    <span v-if="ticket.has_attachment" class="material-symbols-outlined text-[16px] text-[#5D87FF]" title="Ada Lampiran Gambar">attach_file</span>
                     <span
                       v-if="ticket.total_komentar > 0"
                       class="inline-flex items-center gap-0.5 rounded-full bg-[#ECF2FF] px-1.5 py-0.5 text-[10px] font-bold text-[#5D87FF]"
@@ -979,14 +1085,14 @@ onUnmounted(() => {
                         :key="adm.id"
                         :value="adm.id"
                       >
-                        {{ adm.nama }} {{ adm.role ? `(${adm.role})` : '' }}
+                        {{ adm.nama }}
                       </option>
                     </select>
                   </div>
 
                   <!-- Tombol Ambil Tiket untuk Admin biasa -->
                   <button
-                    v-if="isAdmin && !isSuperAdmin && !ticket.assigned_to_user_id && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
+                    v-if="isAdmin && !isSuperAdmin && hasWritePermission('tickets') && !ticket.assigned_to_user_id && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
                     type="button"
                     @click.stop="claimTicket(ticket)"
                     :disabled="isClaiming === ticket.id || isReassigning === ticket.id"
@@ -1013,7 +1119,7 @@ onUnmounted(() => {
                     <span class="material-symbols-outlined text-[16px]">visibility</span>
                   </button>
                   <button
-                    v-if="isAdmin || hasWritePermission('tickets')"
+                    v-if="isAdmin && hasWritePermission('tickets')"
                     type="button"
                     @click="openEdit(ticket)"
                     title="Edit Tiket"
@@ -1022,7 +1128,7 @@ onUnmounted(() => {
                     <span class="material-symbols-outlined text-[16px]">edit</span>
                   </button>
                   <button
-                    v-if="isAdmin || isSuperAdmin"
+                    v-if="isSuperAdmin"
                     type="button"
                     @click="openDelete(ticket)"
                     title="Hapus Tiket"
@@ -1101,12 +1207,19 @@ onUnmounted(() => {
               <label class="flex h-10 items-center gap-2 rounded-xl border border-[#DFE5EF] bg-[#F8FAFC] px-4 text-[12px] font-semibold text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer">
                 <span class="material-symbols-outlined text-[18px]">add_a_photo</span>
                 <span>Pilih Gambar...</span>
-                <input type="file" accept="image/*" class="hidden" @change="handleFileChange" />
+                <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="handleFileChange" />
               </label>
               <span v-if="form.attachment" class="text-[11px] font-bold text-[#13DEB9] flex items-center gap-1">
                 <span class="material-symbols-outlined text-[16px]">check_circle</span> Gambar dipilih
               </span>
+              <span v-else-if="isTicketAttachmentLoading" class="text-[11px] font-medium text-[#7C8BAC]">
+                Memuat lampiran...
+              </span>
             </div>
+
+            <p v-if="ticketAttachmentError" class="text-[11px] font-medium text-red-600">
+              {{ ticketAttachmentError }}
+            </p>
 
             <!-- Preview Image if selected -->
             <div v-if="form.attachment" class="relative mt-2 inline-block max-w-xs overflow-hidden rounded-2xl border border-[#E5EAEF] shadow-sm">
@@ -1220,6 +1333,9 @@ onUnmounted(() => {
           </div>
 
           <!-- Attachment Image Display in Detail Modal -->
+          <div v-if="isTicketAttachmentLoading" class="rounded-2xl border border-[#E5EAEF] bg-[#F8FAFC] p-4 text-[12px] text-[#7C8BAC]">
+            Memuat lampiran tiket...
+          </div>
           <div v-if="selectedTicket.attachment">
             <span class="block text-[11px] font-bold uppercase text-[#7C8BAC] mb-1.5 flex items-center gap-1">
               <span class="material-symbols-outlined text-[16px] text-[#5D87FF]">attach_file</span> Lampiran Gambar
@@ -1228,6 +1344,9 @@ onUnmounted(() => {
               <img :src="selectedTicket.attachment" alt="Attachment Kendala" class="max-h-64 w-full object-contain rounded-xl" />
             </div>
           </div>
+          <p v-else-if="ticketAttachmentError" class="text-[11px] font-medium text-red-600">
+            {{ ticketAttachmentError }}
+          </p>
         </div>
 
         <!-- TAB 2: Riwayat Perubahan (Audit Log Style) -->
@@ -1351,7 +1470,20 @@ onUnmounted(() => {
                 >
                   <p class="whitespace-pre-wrap">{{ c.pesan }}</p>
                   
-                  <!-- Attachment in Chat Bubble -->
+                  <!-- Comment attachments are fetched only after an explicit click. -->
+                  <button
+                    v-if="c.has_attachment && !c.attachment"
+                    type="button"
+                    :disabled="c.is_attachment_loading"
+                    class="mt-2 flex items-center gap-1 rounded-lg border border-current/20 px-2 py-1 text-[10px] font-bold disabled:opacity-60"
+                    @click="loadCommentAttachment(c)"
+                  >
+                    <span class="material-symbols-outlined text-[14px]">image</span>
+                    {{ c.is_attachment_loading ? 'Memuat...' : 'Tampilkan lampiran' }}
+                  </button>
+                  <p v-if="c.attachment_error" class="mt-1 text-[10px] font-medium text-red-200">
+                    {{ c.attachment_error }}
+                  </p>
                   <div v-if="c.attachment" class="mt-2 overflow-hidden rounded-xl border border-white/20">
                     <img :src="c.attachment" alt="Attachment Komentar" class="max-h-40 w-full object-cover" />
                   </div>
@@ -1361,7 +1493,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Chat Bottom Input Bar / Locked Banner -->
-          <div v-if="selectedTicket.status_tiket === 'Resolved' || selectedTicket.status_tiket === 'Closed'" class="flex items-center justify-center gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 text-[12px] font-bold text-[#64748B]">
+          <div v-if="['Resolved', 'Closed', 'Cancelled'].includes(selectedTicket.status_tiket)" class="flex items-center justify-center gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 text-[12px] font-bold text-[#64748B]">
             <span class="material-symbols-outlined text-[18px] text-[#94A3B8]">lock</span>
             Diskusi untuk tiket ini telah ditutup karena status tiket sudah {{ selectedTicket.status_tiket }}.
           </div>
@@ -1382,7 +1514,7 @@ onUnmounted(() => {
               <!-- Attachment Icon Button -->
               <label title="Tambah Lampiran Gambar" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer">
                 <span class="material-symbols-outlined text-[20px]">add_a_photo</span>
-                <input type="file" accept="image/*" class="hidden" @change="handleCommentFileChange" />
+                <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="handleCommentFileChange" />
               </label>
 
               <!-- Input Message Field -->
@@ -1440,4 +1572,3 @@ onUnmounted(() => {
 
   </div>
 </template>
-

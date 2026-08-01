@@ -1,6 +1,24 @@
+import { randomUUID } from 'node:crypto'
 import { pool } from '../config/database.js'
-import { ensureQueueTablesExist } from './queueController.js'
-import { addSseClient, broadcastEvent } from '../services/realtimeService.js'
+import { addSseClient, broadcastTicketEvent } from '../services/realtimeService.js'
+import {
+  TICKET_ROLES,
+  buildTicketScopeQuery,
+  canClaimTicket,
+  canCommentTicket,
+  canDeleteTicket,
+  canManageTicket,
+  canRateTicket,
+  canReadTicket,
+  canReadTicketCasp,
+  canReassignTicket,
+  createTicketIdentity,
+  hasTicketWritePermission,
+  isTicketAssignee,
+  isTicketReporter,
+  loadTicketAccessContext,
+  normalizeTicketRole,
+} from '../services/ticketAccessService.js'
 
 function createHttpError(statusCode, message) {
   const error = new Error(message)
@@ -8,186 +26,320 @@ function createHttpError(statusCode, message) {
   return error
 }
 
-const isSuperAdmin = (role) => {
-  const r = (role || '').trim().toLowerCase()
-  return r === 'superadmin' || r === 'super admin'
+const MAX_COMMENT_LENGTH = 4000
+const MAX_COMMENT_ATTACHMENT_LENGTH = 7_000_000
+const COMMENT_BODY_FIELDS = new Set(['pesan', 'attachment'])
+const RASTER_DATA_URL_PATTERN = /^data:image\/(png|jpeg|gif|webp);base64,([a-z0-9+/]+={0,2})$/i
+const MAX_RASTER_ATTACHMENT_BYTES = 5 * 1024 * 1024
+const MAX_TICKET_TITLE_LENGTH = 255
+const MAX_TICKET_DESCRIPTION_LENGTH = 20_000
+const MAX_TICKET_ATTACHMENT_LENGTH = 7_000_000
+const TICKET_CREATE_FIELDS = new Set(['judul', 'deskripsi', 'prioritas', 'queue_id', 'attachment'])
+const TICKET_UPDATE_FIELDS = new Set([
+  'judul',
+  'deskripsi',
+  'prioritas',
+  'status_tiket',
+  'queue_id',
+  'attachment',
+])
+const TICKET_PRIORITIES = new Set(['Urgent (4h)', 'High (1day)', 'Medium (3d)', 'Low (7d)'])
+const TICKET_STATUSES = new Set([
+  'Open',
+  'In Progress',
+  'Pending',
+  'Resolved',
+  'Closed',
+  'Cancelled',
+])
+
+function getTicketIdentity(req) {
+  return req.ticketIdentity || createTicketIdentity(req.user)
+}
+
+function assertCanonicalTicketIdentity(req) {
+  const identity = getTicketIdentity(req)
+  if (!identity.valid) {
+    throw createHttpError(403, 'Identitas pengguna tidak valid untuk akses tiket.')
+  }
+  return identity
+}
+
+function parsePositiveId(value, message = 'ID tiket tidak valid.') {
+  const id = Number(value)
+  if (!Number.isSafeInteger(id) || id <= 0) throw createHttpError(400, message)
+  return id
+}
+
+function assertPlainObject(body, message) {
+  if (
+    body == null ||
+    typeof body !== 'object' ||
+    Array.isArray(body) ||
+    (Object.getPrototypeOf(body) !== Object.prototype && Object.getPrototypeOf(body) !== null)
+  ) {
+    throw createHttpError(400, message)
+  }
+}
+
+function hasRasterMagicBytes(mimeSubtype, bytes) {
+  if (mimeSubtype === 'png') {
+    return (
+      bytes.length >= 8 &&
+      bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    )
+  }
+  if (mimeSubtype === 'jpeg') {
+    return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+  }
+  if (mimeSubtype === 'gif') {
+    if (bytes.length < 6) return false
+    const signature = bytes.subarray(0, 6).toString('ascii')
+    return signature === 'GIF87a' || signature === 'GIF89a'
+  }
+  return (
+    mimeSubtype === 'webp' &&
+    bytes.length >= 12 &&
+    bytes.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    bytes.subarray(8, 12).toString('ascii') === 'WEBP'
+  )
+}
+
+function normalizeRasterAttachment(attachment, label, maxLength) {
+  if (attachment !== null && attachment !== undefined && typeof attachment !== 'string') {
+    throw createHttpError(400, `Attachment ${label} tidak valid.`)
+  }
+  if (typeof attachment === 'string' && attachment.length > maxLength) {
+    throw createHttpError(413, `Attachment ${label} terlalu besar.`)
+  }
+
+  const normalized = typeof attachment === 'string' && attachment.trim() ? attachment.trim() : null
+  if (!normalized) return null
+
+  const match = RASTER_DATA_URL_PATTERN.exec(normalized)
+  if (!match || match[2].length % 4 !== 0) {
+    throw createHttpError(400, `Attachment ${label} harus berupa data gambar yang didukung.`)
+  }
+
+  const mimeSubtype = match[1].toLowerCase()
+  const encoded = match[2]
+  const bytes = Buffer.from(encoded, 'base64')
+  if (bytes.length > MAX_RASTER_ATTACHMENT_BYTES) {
+    throw createHttpError(413, `Attachment ${label} terlalu besar.`)
+  }
+  if (bytes.toString('base64') !== encoded || !hasRasterMagicBytes(mimeSubtype, bytes)) {
+    throw createHttpError(400, `Attachment ${label} tidak cocok dengan format gambar.`)
+  }
+
+  return normalized
+}
+
+function normalizeTicketAttachment(attachment) {
+  return normalizeRasterAttachment(attachment, 'tiket', MAX_TICKET_ATTACHMENT_LENGTH)
+}
+
+function withoutInlineAttachment(record) {
+  if (!record || typeof record !== 'object') return record
+
+  const { attachment, ...safeRecord } = record
+  return {
+    ...safeRecord,
+    has_attachment:
+      safeRecord.has_attachment === true ||
+      (typeof attachment === 'string' && attachment.trim().length > 0),
+  }
+}
+
+function validateTicketCreateBody(body) {
+  assertPlainObject(body, 'Payload pembuatan tiket tidak valid.')
+
+  const unknownField = Object.keys(body).find((field) => !TICKET_CREATE_FIELDS.has(field))
+  if (unknownField) {
+    throw createHttpError(400, `Field pembuatan tiket tidak diizinkan: ${unknownField}.`)
+  }
+
+  if (typeof body.judul !== 'string' || !body.judul.trim()) {
+    throw createHttpError(400, 'Judul tiket wajib diisi.')
+  }
+  const judul = body.judul.trim()
+  if (judul.length > MAX_TICKET_TITLE_LENGTH) {
+    throw createHttpError(400, `Judul tiket maksimal ${MAX_TICKET_TITLE_LENGTH} karakter.`)
+  }
+
+  if (body.deskripsi !== undefined && typeof body.deskripsi !== 'string') {
+    throw createHttpError(400, 'Deskripsi tiket harus berupa teks.')
+  }
+  const deskripsi = typeof body.deskripsi === 'string' ? body.deskripsi.trim() : ''
+  if (deskripsi.length > MAX_TICKET_DESCRIPTION_LENGTH) {
+    throw createHttpError(
+      400,
+      `Deskripsi tiket maksimal ${MAX_TICKET_DESCRIPTION_LENGTH} karakter.`,
+    )
+  }
+
+  if (!Number.isSafeInteger(body.queue_id) || body.queue_id <= 0) {
+    throw createHttpError(400, 'Unit tujuan tidak valid.')
+  }
+  if (
+    body.prioritas !== undefined &&
+    (typeof body.prioritas !== 'string' || !TICKET_PRIORITIES.has(body.prioritas))
+  ) {
+    throw createHttpError(400, 'Prioritas tiket tidak valid.')
+  }
+
+  return {
+    judul,
+    deskripsi,
+    queue_id: body.queue_id,
+    prioritas: body.prioritas ?? 'Medium (3d)',
+    attachment: normalizeTicketAttachment(body.attachment),
+  }
+}
+
+function validateTicketUpdateBody(body) {
+  assertPlainObject(body, 'Payload pembaruan tiket tidak valid.')
+
+  const fields = Object.keys(body)
+  if (fields.length === 0) {
+    throw createHttpError(400, 'Payload pembaruan tiket tidak boleh kosong.')
+  }
+  const unknownField = fields.find((field) => !TICKET_UPDATE_FIELDS.has(field))
+  if (unknownField) {
+    throw createHttpError(400, `Field pembaruan tiket tidak diizinkan: ${unknownField}.`)
+  }
+
+  const normalized = {}
+  const hasField = (field) => Object.prototype.hasOwnProperty.call(body, field)
+
+  if (hasField('judul')) {
+    if (typeof body.judul !== 'string') {
+      throw createHttpError(400, 'Judul tiket harus berupa teks.')
+    }
+    normalized.judul = body.judul.trim()
+    if (!normalized.judul) throw createHttpError(400, 'Judul tiket wajib diisi.')
+    if (normalized.judul.length > MAX_TICKET_TITLE_LENGTH) {
+      throw createHttpError(400, `Judul tiket maksimal ${MAX_TICKET_TITLE_LENGTH} karakter.`)
+    }
+  }
+
+  if (hasField('deskripsi')) {
+    if (typeof body.deskripsi !== 'string') {
+      throw createHttpError(400, 'Deskripsi tiket harus berupa teks.')
+    }
+    normalized.deskripsi = body.deskripsi.trim()
+    if (normalized.deskripsi.length > MAX_TICKET_DESCRIPTION_LENGTH) {
+      throw createHttpError(
+        400,
+        `Deskripsi tiket maksimal ${MAX_TICKET_DESCRIPTION_LENGTH} karakter.`,
+      )
+    }
+  }
+
+  if (hasField('prioritas')) {
+    if (typeof body.prioritas !== 'string' || !TICKET_PRIORITIES.has(body.prioritas)) {
+      throw createHttpError(400, 'Prioritas tiket tidak valid.')
+    }
+    normalized.prioritas = body.prioritas
+  }
+
+  if (hasField('status_tiket')) {
+    if (typeof body.status_tiket !== 'string' || !TICKET_STATUSES.has(body.status_tiket)) {
+      throw createHttpError(400, 'Status tiket tidak valid.')
+    }
+    normalized.status_tiket = body.status_tiket
+  }
+
+  if (hasField('queue_id')) {
+    if (
+      typeof body.queue_id !== 'number' ||
+      !Number.isSafeInteger(body.queue_id) ||
+      body.queue_id <= 0
+    ) {
+      throw createHttpError(400, 'Unit tujuan tidak valid.')
+    }
+    normalized.queue_id = body.queue_id
+  }
+
+  if (hasField('attachment')) {
+    normalized.attachment = normalizeTicketAttachment(body.attachment)
+  }
+
+  return normalized
+}
+
+function assertTicketFound(ticket) {
+  if (!ticket) throw createHttpError(404, 'Tiket tidak ditemukan.')
+}
+
+function assertTicketRead(identity, ticket) {
+  assertTicketFound(ticket)
+  if (!canReadTicket(identity, ticket)) {
+    throw createHttpError(403, 'Anda tidak memiliki akses ke tiket ini.')
+  }
+}
+
+function assertTicketCaspRead(identity, ticket) {
+  assertTicketFound(ticket)
+  if (!canReadTicketCasp(identity, ticket)) {
+    throw createHttpError(403, 'Anda tidak memiliki akses ke penilaian CASP tiket ini.')
+  }
+}
+
+function isResolvedTicket(ticket) {
+  const status =
+    typeof ticket?.status_tiket === 'string' ? ticket.status_tiket.trim().toLowerCase() : ''
+  return status === 'resolved' || status === 'closed'
 }
 
 // ── Ensure base tickets tables exist ──────────────────────────
-let isTableChecked = false
-
-export async function ensureTicketsTableExists() {
-  if (isTableChecked) return
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS tickets (
-      id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-      nomor_tiket     VARCHAR(50) UNIQUE,
-      judul           VARCHAR(255) NOT NULL,
-      deskripsi       TEXT,
-      kategori        VARCHAR(100) DEFAULT 'IT',
-      prioritas       VARCHAR(30)  DEFAULT 'Medium (3d)',
-      status_tiket    VARCHAR(30)  DEFAULT 'Open',
-      assigned_to     VARCHAR(150),
-      pelapor         VARCHAR(150),
-      attachment      TEXT,
-      dibuat_pada     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      diperbarui_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS log_riwayat_tiket (
-      id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-      id_tiket      BIGINT NOT NULL,
-      nomor_tiket   VARCHAR(50),
-      aksi          VARCHAR(50) NOT NULL,
-      perubahan     TEXT NOT NULL,
-      oleh_pengguna VARCHAR(150) NOT NULL,
-      dibuat_pada   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS komentar_tiket (
-      id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-      id_tiket      BIGINT NOT NULL,
-      nama_pengguna VARCHAR(150) NOT NULL,
-      role_pengguna VARCHAR(50),
-      pesan         TEXT NOT NULL,
-      attachment    TEXT,
-      dibuat_pada   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS ticket_casp_ratings (
-      id                     BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-      ticket_id              BIGINT NOT NULL UNIQUE,
-      reporter_user_id       BIGINT NULL,
-      assignee_user_id       BIGINT NULL,
-      reporter_name_snapshot VARCHAR(150) NOT NULL,
-      assignee_name_snapshot VARCHAR(150) NOT NULL,
-      rating                 SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
-      feedback               TEXT,
-      submitted_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-  `)
-
-  await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachment TEXT;`)
-  await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP NULL;`)
-  await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolved_by_user_id BIGINT NULL;`)
-
-  // Seed data awal jika kosong
-  const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM tickets')
-  if (countResult.rows[0].count === 0) {
-    await pool.query(`
-      INSERT INTO tickets (nomor_tiket, judul, deskripsi, kategori, prioritas, status_tiket, assigned_to, pelapor)
-      VALUES
-        ('TCK-2026-001', 'Layar Laptop Lenovo Blinking', 'Layar berkedip saat membuka aplikasi grafis tinggi.', 'IT', 'High (1day)', 'Open', NULL, 'Helmy Karyawan'),
-        ('TCK-2026-002', 'Koneksi Server Database Terputus', 'Server DB tidak bisa di-ping dari segmen kantor.', 'IT', 'Urgent (4h)', 'Pending', 'Admin IT', 'Budi Santoso'),
-        ('TCK-2026-003', 'Pengajuan Kartu Access Ruangan', 'Permintaan fisik kartu akses pintu utama kantor.', 'GA', 'Low (7d)', 'Closed', 'Staff GA', 'Siti Rahma'),
-        ('TCK-2026-004', 'Pengajuan Cuti & Update Data', 'Pembaruan data BPJS Kesehatan di portal HR.', 'HR', 'Medium (3d)', 'Open', NULL, 'Ahmad Rizki'),
-        ('TCK-2026-005', 'Ganti Battery Laptop Dell', 'Baterai laptop Dell Inspiron sudah melendung.', 'IT', 'High (1day)', 'Closed', 'Admin IT', 'Dewi Lestari');
-    `)
-    await pool.query(`
-      INSERT INTO log_riwayat_tiket (id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna)
-      VALUES
-        (1, 'TCK-2026-001', 'PEMBUATAN', 'Tiket baru dibuat.', 'Helmy Karyawan'),
-        (2, 'TCK-2026-002', 'PEMBUATAN', 'Tiket baru dibuat.', 'Budi Santoso');
-    `)
-    await pool.query(`
-      INSERT INTO komentar_tiket (id_tiket, nama_pengguna, role_pengguna, pesan)
-      VALUES
-        (1, 'Helmy Karyawan', 'user', 'Mohon dibantu ya. Kedipnya parah saat buka CAD.'),
-        (1, 'Admin IT', 'super admin', 'Siap, sedang disiapkan unit pengganti sementara.');
-    `)
+async function withTransaction(operation) {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const result = await operation(client)
+    await client.query('COMMIT')
+    return result
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK')
+    } catch (rollbackError) {
+      error.rollbackError = rollbackError
+    }
+    throw error
+  } finally {
+    client.release()
   }
-
-  isTableChecked = true
-
-  // Jalankan queue migration (idempotent)
-  await ensureQueueTablesExist()
 }
 
-async function addTicketLog(id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna) {
-  try {
-    await pool.query(
-      `INSERT INTO log_riwayat_tiket (id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna) VALUES ($1, $2, $3, $4, $5)`,
-      [id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna || 'Sistem']
-    )
-  } catch (err) {
-    console.error('Gagal mencatat log riwayat tiket:', err)
-  }
+async function addTicketLog(queryable, id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna) {
+  await queryable.query(
+    `INSERT INTO log_riwayat_tiket (id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna) VALUES ($1, $2, $3, $4, $5)`,
+    [id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna || 'Sistem'],
+  )
 }
 
 // ── LIST TICKETS (queue-aware) ────────────────────────────────
 export async function listTickets(req, res) {
-  await ensureTicketsTableExists()
+  const identity = assertCanonicalTicketIdentity(req)
   const { search, status, prioritas, queue_id, tab } = req.query
-  const userId = req.user.id
-  const userNama = req.user.nama
-  const superAdmin = isSuperAdmin(req.user.role)
-  const userRole = (req.user.role || '').trim().toLowerCase()
-  const isRegularUser = userRole !== 'admin' && userRole !== 'superadmin' && userRole !== 'super admin'
+  const ticketScope = buildTicketScopeQuery(identity, { tab })
+  const params = [...ticketScope.params]
+  const conditions = [...ticketScope.conditions]
 
-  const params = []
-  let conditions = []
-
-  // Access control:
-  // Role 'user' (pelapor/karyawan): HANYA melihat tiket yang dilaporkan oleh diri sendiri
-  if (isRegularUser) {
-    params.push(userId)
-    params.push(userNama)
-    conditions.push(`(t.pelapor_user_id = $1 OR (t.pelapor_user_id IS NULL AND LOWER(TRIM(t.pelapor)) = LOWER(TRIM($2))))`)
-    if (tab === 'open') {
-      conditions.push(`t.status_tiket IN ('Open', 'In Progress')`)
-    } else if (tab === 'pending') {
-      conditions.push(`t.status_tiket = 'Pending'`)
-    } else if (tab === 'closed' || tab === 'resolved') {
-      conditions.push(`t.status_tiket IN ('Closed', 'Resolved')`)
-    }
-  } else if (!superAdmin) {
-    // Admin (non-superadmin):
-    if (tab === 'assigned') {
-      // Ditangani Saya: tiket yang di-assign ke saya
-      params.push(userId)
-      conditions.push(`t.assigned_to_user_id = $${params.length}`)
-    } else if (tab === 'reported' || tab === 'created') {
-      // Dibuat Saya: tiket yang dilaporkan/dibuat oleh admin ini sendiri
-      params.push(userId)
-      params.push(userNama)
-      conditions.push(`(t.pelapor_user_id = $${params.length - 1} OR (t.pelapor_user_id IS NULL AND t.pelapor = $${params.length}))`)
-    } else if (tab === 'mine') {
-      // Backward compatibility 'mine' untuk admin = ditangani saya
-      params.push(userId)
-      conditions.push(`t.assigned_to_user_id = $${params.length}`)
-    } else if (tab === 'unassigned') {
-      // Unassigned: tiket di queue saya yang belum ada assignee
-      params.push(userId)
-      conditions.push(`t.assigned_to_user_id IS NULL`)
-      conditions.push(`EXISTS (SELECT 1 FROM user_ticket_queues utq WHERE utq.user_id = $${params.length} AND utq.queue_id = t.queue_id)`)
-    } else {
-      // Default: semua tiket di queue yang di-mapping ke user ini
-      params.push(userId)
-      conditions.push(`EXISTS (SELECT 1 FROM user_ticket_queues utq WHERE utq.user_id = $${params.length} AND utq.queue_id = t.queue_id)`)
-    }
-  } else {
-    // Superadmin:
-    if (tab === 'assigned') {
-      params.push(userId)
-      conditions.push(`t.assigned_to_user_id = $${params.length}`)
-    } else if (tab === 'reported' || tab === 'created') {
-      params.push(userId)
-      params.push(userNama)
-      conditions.push(`(t.pelapor_user_id = $${params.length - 1} OR (t.pelapor_user_id IS NULL AND t.pelapor = $${params.length}))`)
-    } else if (tab === 'mine') {
-      params.push(userId)
-      conditions.push(`t.assigned_to_user_id = $${params.length}`)
-    } else if (tab === 'unassigned') {
-      conditions.push(`t.assigned_to_user_id IS NULL`)
-    }
+  if (tab === 'open') {
+    conditions.push(`t.status_tiket IN ('Open', 'In Progress')`)
+  } else if (tab === 'pending') {
+    conditions.push(`t.status_tiket = 'Pending'`)
+  } else if (tab === 'closed' || tab === 'resolved') {
+    conditions.push(`t.status_tiket IN ('Closed', 'Resolved')`)
   }
 
   if (search) {
     params.push(`%${search}%`)
     const n = params.length
-    conditions.push(`(t.judul ILIKE $${n} OR t.nomor_tiket ILIKE $${n} OR t.pelapor ILIKE $${n} OR reporter.nama ILIKE $${n})`)
+    conditions.push(
+      `(t.judul ILIKE $${n} OR t.nomor_tiket ILIKE $${n} OR t.pelapor ILIKE $${n} OR reporter.nama ILIKE $${n})`,
+    )
   }
   if (status) {
     params.push(status)
@@ -198,7 +350,7 @@ export async function listTickets(req, res) {
     conditions.push(`t.prioritas = $${params.length}`)
   }
   if (queue_id) {
-    params.push(parseInt(queue_id, 10))
+    params.push(parsePositiveId(queue_id, 'Queue ID tidak valid.'))
     conditions.push(`t.queue_id = $${params.length}`)
   }
 
@@ -206,7 +358,23 @@ export async function listTickets(req, res) {
 
   const sql = `
     SELECT
-      t.*,
+      t.id,
+      t.nomor_tiket,
+      t.judul,
+      t.deskripsi,
+      t.kategori,
+      t.prioritas,
+      t.status_tiket,
+      t.assigned_to,
+      t.pelapor,
+      t.queue_id,
+      t.pelapor_user_id,
+      t.assigned_to_user_id,
+      t.resolved_at,
+      t.resolved_by_user_id,
+      t.dibuat_pada,
+      t.diperbarui_pada,
+      (t.attachment IS NOT NULL) AS has_attachment,
       q.kode   AS queue_kode,
       q.nama   AS queue_nama,
       assignee.nama  AS assigned_to_nama,
@@ -242,26 +410,14 @@ export async function listTickets(req, res) {
 
 // ── TICKET STATS ──────────────────────────────────────────────
 export async function getTicketStats(req, res) {
-  await ensureTicketsTableExists()
-  const userId = req.user.id
-  const userNama = req.user.nama
-  const superAdmin = isSuperAdmin(req.user.role)
-  const userRole = (req.user.role || '').trim().toLowerCase()
-  const isRegularUser = userRole !== 'admin' && userRole !== 'superadmin' && userRole !== 'super admin'
+  const identity = assertCanonicalTicketIdentity(req)
+  const ticketScope = buildTicketScopeQuery(identity, { mode: 'aggregate' })
+  const params = ticketScope.params
+  const whereClause =
+    ticketScope.conditions.length > 0 ? `WHERE ${ticketScope.conditions.join(' AND ')}` : ''
 
-  let whereClause = ''
-  const params = []
-
-  if (isRegularUser) {
-    params.push(userId)
-    params.push(userNama)
-    whereClause = `WHERE (t.pelapor_user_id = $1 OR (t.pelapor_user_id IS NULL AND LOWER(TRIM(t.pelapor)) = LOWER(TRIM($2))))`
-  } else if (!superAdmin) {
-    params.push(userId)
-    whereClause = `WHERE EXISTS (SELECT 1 FROM user_ticket_queues utq WHERE utq.user_id = $1 AND utq.queue_id = t.queue_id)`
-  }
-
-  const countsResult = await pool.query(`
+  const countsResult = await pool.query(
+    `
     SELECT
       COUNT(*)::int AS "totalTickets",
       COUNT(CASE WHEN t.status_tiket = 'Open'    THEN 1 END)::int AS "openTickets",
@@ -270,41 +426,64 @@ export async function getTicketStats(req, res) {
       COUNT(CASE WHEN t.assigned_to_user_id IS NULL AND t.status_tiket NOT IN ('Closed','Resolved','Cancelled') THEN 1 END)::int AS "unassignedTickets"
     FROM tickets t
     ${whereClause}
-  `, params)
+  `,
+    params,
+  )
 
-  const recentResult = await pool.query(`
-    SELECT t.*, q.kode AS queue_kode, assignee.nama AS assigned_to_nama
+  const recentResult = await pool.query(
+    `
+    SELECT
+      t.id,
+      t.nomor_tiket,
+      t.judul,
+      t.kategori,
+      t.prioritas,
+      t.status_tiket,
+      t.assigned_to,
+      t.pelapor,
+      t.queue_id,
+      t.pelapor_user_id,
+      t.assigned_to_user_id,
+      t.resolved_at,
+      t.resolved_by_user_id,
+      t.dibuat_pada,
+      t.diperbarui_pada,
+      (t.attachment IS NOT NULL) AS has_attachment,
+      q.kode AS queue_kode,
+      assignee.nama AS assigned_to_nama
     FROM tickets t
     LEFT JOIN ticket_queues q ON q.id = t.queue_id
     LEFT JOIN users assignee ON assignee.id = t.assigned_to_user_id
     ${whereClause}
     ORDER BY t.id DESC LIMIT 5
-  `, params)
+  `,
+    params,
+  )
 
-  const stats = countsResult.rows[0] || { totalTickets: 0, openTickets: 0, pendingTickets: 0, closedTickets: 0, unassignedTickets: 0 }
+  const stats = countsResult.rows[0] || {
+    totalTickets: 0,
+    openTickets: 0,
+    pendingTickets: 0,
+    closedTickets: 0,
+    unassignedTickets: 0,
+  }
   stats.recentTickets = recentResult.rows
   res.json(stats)
 }
 
 // ── CASP/CSAT STATS (dashboard) ───────────────────────────────
 export async function getTicketCaspStats(req, res) {
-  await ensureTicketsTableExists()
-  const userId = req.user.id
-  const superAdmin = isSuperAdmin(req.user.role)
-  const userRole = (req.user.role || '').trim().toLowerCase()
-  const isRegularUser = userRole !== 'admin' && userRole !== 'superadmin' && userRole !== 'super admin'
+  const identity = assertCanonicalTicketIdentity(req)
+  const ticketScope = buildTicketScopeQuery(identity, {
+    mode: 'aggregate',
+    alias: 't',
+  })
+  const params = ticketScope.params
+  const whereClause =
+    ticketScope.conditions.length > 0 ? `WHERE ${ticketScope.conditions.join(' AND ')}` : ''
 
-  // Akses sesuai role (konsisten dengan getTicketStats):
-  //  - Admin / superadmin: agregasi SEMUA rating CSAT.
-  //  - User biasa: agregasi rating CSAT untuk tiket miliknya (sebagai pelapor).
-  let whereClause = ''
-  const params = []
-  if (isRegularUser) {
-    params.push(userId)
-    whereClause = 'WHERE cr.reporter_user_id = $1'
-  }
-
-  const result = await pool.query(`
+  const result = await pool.query(
+    `
     SELECT
       COUNT(*)::int                                          AS "totalRatings",
       COALESCE(AVG(cr.rating), 0)::float                     AS "averageRating",
@@ -314,14 +493,16 @@ export async function getTicketCaspStats(req, res) {
       COUNT(CASE WHEN cr.rating = 4 THEN 1 END)::int         AS "r4",
       COUNT(CASE WHEN cr.rating = 5 THEN 1 END)::int         AS "r5"
     FROM ticket_casp_ratings cr
+    JOIN tickets t ON t.id = cr.ticket_id
     ${whereClause}
-  `, params)
+  `,
+    params,
+  )
 
   const row = result.rows[0] || {}
   const totalRatings = Number(row.totalRatings) || 0
-  const averageRating = totalRatings > 0
-    ? Math.round((Number(row.averageRating) || 0) * 100) / 100
-    : 0
+  const averageRating =
+    totalRatings > 0 ? Math.round((Number(row.averageRating) || 0) * 100) / 100 : 0
 
   // Distribusi selalu 5 baris (rating 1–5), meskipun count = 0.
   const distribution = [
@@ -337,31 +518,31 @@ export async function getTicketCaspStats(req, res) {
 
 // ── CASP/CSAT TREND (line chart per bulan) ───────────────────
 export async function getCaspTrend(req, res) {
-  await ensureTicketsTableExists()
-  const userId = req.user.id
-  const superAdmin = isSuperAdmin(req.user.role)
-  const userRole = (req.user.role || '').trim().toLowerCase()
-  const isRegularUser = userRole !== 'admin' && userRole !== 'superadmin' && userRole !== 'super admin'
+  const identity = assertCanonicalTicketIdentity(req)
+  const ticketScope = buildTicketScopeQuery(identity, {
+    mode: 'aggregate',
+    alias: 't',
+  })
+  const params = ticketScope.params
+  const whereClause =
+    ticketScope.conditions.length > 0 ? `WHERE ${ticketScope.conditions.join(' AND ')}` : ''
 
-  let whereClause = ''
-  const params = []
-  if (isRegularUser) {
-    params.push(userId)
-    whereClause = 'WHERE cr.reporter_user_id = $1'
-  }
-
-  const result = await pool.query(`
+  const result = await pool.query(
+    `
     SELECT
       TO_CHAR(cr.submitted_at, 'Mon YYYY') AS "period",
       TO_CHAR(cr.submitted_at, 'YYYY-MM')  AS "ym",
       ROUND(AVG(cr.rating)::numeric, 2)    AS "averageRating",
       COUNT(*)::int                         AS "totalRatings"
     FROM ticket_casp_ratings cr
+    JOIN tickets t ON t.id = cr.ticket_id
     ${whereClause}
     GROUP BY TO_CHAR(cr.submitted_at, 'Mon YYYY'), TO_CHAR(cr.submitted_at, 'YYYY-MM')
     ORDER BY TO_CHAR(cr.submitted_at, 'YYYY-MM') DESC
     LIMIT 12
-  `, params)
+  `,
+    params,
+  )
 
   const dbMap = new Map()
   for (const row of result.rows) {
@@ -372,7 +553,20 @@ export async function getCaspTrend(req, res) {
     })
   }
 
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+  const monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Agu',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
+  ]
   const now = new Date()
   const timeline = []
 
@@ -393,321 +587,604 @@ export async function getCaspTrend(req, res) {
 
 // ── GET TICKET HISTORY ────────────────────────────────────────
 export async function getTicketHistory(req, res) {
-  await ensureTicketsTableExists()
-  const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
+  const id = parsePositiveId(req.params.id)
+  const identity = assertCanonicalTicketIdentity(req)
+  const ticket = await loadTicketAccessContext(pool, identity, id)
+  assertTicketRead(identity, ticket)
 
-  const userRole = (req.user?.role || '').trim().toLowerCase()
-  if (userRole === 'user') {
-    const check = await pool.query(
-      'SELECT id FROM tickets WHERE id = $1 AND (pelapor_user_id = $2 OR (pelapor_user_id IS NULL AND pelapor = $3))',
-      [id, req.user.id, req.user.nama]
-    )
-    if (check.rowCount === 0) throw createHttpError(403, 'Anda tidak memiliki akses ke tiket ini.')
-  }
-
-  const result = await pool.query('SELECT * FROM log_riwayat_tiket WHERE id_tiket = $1 ORDER BY id DESC', [id])
+  const result = await pool.query(
+    'SELECT * FROM log_riwayat_tiket WHERE id_tiket = $1 ORDER BY id DESC',
+    [id],
+  )
   res.json(result.rows)
 }
 
 // ── GET TICKET COMMENTS ───────────────────────────────────────
 export async function getTicketComments(req, res) {
-  await ensureTicketsTableExists()
-  const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
+  const id = parsePositiveId(req.params.id)
+  const identity = assertCanonicalTicketIdentity(req)
+  const ticket = await loadTicketAccessContext(pool, identity, id)
+  assertTicketRead(identity, ticket)
 
-  const userRole = (req.user?.role || '').trim().toLowerCase()
-  if (userRole === 'user') {
-    const check = await pool.query(
-      'SELECT id FROM tickets WHERE id = $1 AND (pelapor_user_id = $2 OR (pelapor_user_id IS NULL AND pelapor = $3))',
-      [id, req.user.id, req.user.nama]
-    )
-    if (check.rowCount === 0) throw createHttpError(403, 'Anda tidak memiliki akses ke tiket ini.')
+  const result = await pool.query(
+    `SELECT
+       id,
+       id_tiket,
+       nama_pengguna,
+       role_pengguna,
+       pesan,
+       dibuat_pada,
+       (attachment IS NOT NULL) AS has_attachment
+     FROM komentar_tiket
+     WHERE id_tiket = $1
+     ORDER BY id ASC`,
+    [id],
+  )
+  res.json(result.rows)
+}
+
+// Attachment payloads are fetched only for one authorized ticket at a time.
+export async function getTicketAttachment(req, res) {
+  const id = parsePositiveId(req.params.id)
+  const identity = assertCanonicalTicketIdentity(req)
+  const ticket = await loadTicketAccessContext(pool, identity, id)
+  assertTicketRead(identity, ticket)
+
+  const result = await pool.query('SELECT attachment FROM tickets WHERE id = $1', [id])
+  const attachment = result.rows[0]?.attachment
+  if (typeof attachment !== 'string' || !attachment.trim()) {
+    throw createHttpError(404, 'Lampiran tiket tidak ditemukan.')
   }
 
-  const result = await pool.query('SELECT * FROM komentar_tiket WHERE id_tiket = $1 ORDER BY id ASC', [id])
-  res.json(result.rows)
+  res.json({ attachment })
+}
+
+// A comment attachment is scoped through its parent ticket before the blob is queried.
+export async function getTicketCommentAttachment(req, res) {
+  const ticketId = parsePositiveId(req.params.id)
+  const commentId = parsePositiveId(req.params.commentId, 'ID komentar tidak valid.')
+  const identity = assertCanonicalTicketIdentity(req)
+  const ticket = await loadTicketAccessContext(pool, identity, ticketId)
+  assertTicketRead(identity, ticket)
+
+  const result = await pool.query(
+    `SELECT attachment
+     FROM komentar_tiket
+     WHERE id_tiket = $1
+       AND id = $2`,
+    [ticketId, commentId],
+  )
+  const attachment = result.rows[0]?.attachment
+  if (typeof attachment !== 'string' || !attachment.trim()) {
+    throw createHttpError(404, 'Lampiran komentar tidak ditemukan.')
+  }
+
+  res.json({ attachment })
 }
 
 // ── CREATE TICKET COMMENT ─────────────────────────────────────
 export async function createTicketComment(req, res) {
-  await ensureTicketsTableExists()
-  const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
-  const { pesan, attachment, nama_pengguna, role_pengguna } = req.body
-  if (!pesan || !String(pesan).trim()) throw createHttpError(400, 'Pesan komentar wajib diisi.')
-
-  const ticketCheck = await pool.query('SELECT status_tiket FROM tickets WHERE id = $1', [id])
-  if (ticketCheck.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
-  const statusTiket = ticketCheck.rows[0].status_tiket
-  if (statusTiket === 'Resolved' || statusTiket === 'Closed') {
-    throw createHttpError(403, 'Diskusi untuk tiket ini telah ditutup karena status tiket sudah Resolved/Closed.')
+  const id = parsePositiveId(req.params.id)
+  const identity = assertCanonicalTicketIdentity(req)
+  if (!identity.name) {
+    throw createHttpError(403, 'Identitas actor komentar tidak lengkap.')
+  }
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    throw createHttpError(400, 'Payload komentar tidak valid.')
+  }
+  if (Object.keys(req.body).some((field) => !COMMENT_BODY_FIELDS.has(field))) {
+    throw createHttpError(400, 'Payload komentar hanya boleh berisi pesan dan attachment.')
   }
 
-  const userNama = nama_pengguna || req.user?.nama || 'User'
-  const userRole = role_pengguna || req.user?.role || 'user'
-  const result = await pool.query(
-    `INSERT INTO komentar_tiket (id_tiket, nama_pengguna, role_pengguna, pesan, attachment) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [id, userNama, userRole, String(pesan).trim(), attachment || null]
+  const { pesan, attachment } = req.body
+  const normalizedMessage = typeof pesan === 'string' ? pesan.trim() : ''
+  if (!normalizedMessage) throw createHttpError(400, 'Pesan komentar wajib diisi.')
+  if (normalizedMessage.length > MAX_COMMENT_LENGTH) {
+    throw createHttpError(400, `Pesan komentar maksimal ${MAX_COMMENT_LENGTH} karakter.`)
+  }
+  const normalizedAttachment = normalizeRasterAttachment(
+    attachment,
+    'komentar',
+    MAX_COMMENT_ATTACHMENT_LENGTH,
   )
-  const newComment = result.rows[0]
 
-  broadcastEvent('COMMENT_CREATED', { ticketId: id, comment: newComment })
+  const client = await pool.connect()
+  let newComment
+  let ticket
+  try {
+    await client.query('BEGIN')
+    ticket = await loadTicketAccessContext(client, identity, id, {
+      forUpdate: true,
+    })
+    assertTicketRead(identity, ticket)
+    if (!canCommentTicket(identity, ticket)) {
+      throw createHttpError(403, 'Diskusi untuk tiket ini telah ditutup.')
+    }
 
-  res.status(201).json(newComment)
+    const actorRole = identity.role === TICKET_ROLES.REPORTER ? 'user' : identity.role
+    const result = await client.query(
+      `INSERT INTO komentar_tiket (id_tiket, nama_pengguna, role_pengguna, pesan, attachment)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [id, identity.name, actorRole, normalizedMessage, normalizedAttachment],
+    )
+    newComment = result.rows[0]
+
+    await client.query(
+      `INSERT INTO log_riwayat_tiket
+         (id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, ticket.nomor_tiket, 'KOMENTAR', 'Komentar ditambahkan.', identity.name],
+    )
+    await client.query('COMMIT')
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
+
+  await broadcastTicketEvent('COMMENT_CREATED', ticket)
+  res.status(201).json(withoutInlineAttachment(newComment))
 }
 
 // ── STREAM REALTIME TICKET EVENTS (SSE) ───────────────────────
-export function streamTicketEvents(req, res) {
+export async function streamTicketEvents(req, res) {
+  const identity = assertCanonicalTicketIdentity(req)
+  const tokenExpiresAt = Number(req.user?.exp) * 1000
+  if (!Number.isFinite(tokenExpiresAt) || tokenExpiresAt <= Date.now()) {
+    throw createHttpError(401, 'Sesi realtime tidak valid atau telah berakhir.')
+  }
+
   res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Cache-Control', 'no-store')
   res.setHeader('Connection', 'keep-alive')
   if (res.flushHeaders) res.flushHeaders()
 
-  addSseClient(res, req.user)
+  addSseClient(res, identity, [], {
+    expiresAt: tokenExpiresAt,
+  })
   res.write(`data: ${JSON.stringify({ type: 'CONNECTED', timestamp: Date.now() })}\n\n`)
 }
 
 // ── CREATE TICKET ─────────────────────────────────────────────
 export async function createTicket(req, res) {
-  await ensureTicketsTableExists()
-  const { judul, deskripsi, queue_id, prioritas, attachment } = req.body
+  const identity = assertCanonicalTicketIdentity(req)
+  if (!identity.name) throw createHttpError(403, 'Identitas pelapor tidak lengkap.')
+  const { judul, deskripsi, queue_id, prioritas, attachment } = validateTicketCreateBody(req.body)
+  const pelaporNama = identity.name
+  const pelaporId = identity.id
 
-  if (!judul) throw createHttpError(400, 'Judul tiket wajib diisi.')
-  if (!queue_id) throw createHttpError(400, 'Unit tujuan (queue) wajib dipilih.')
+  const newTicket = await withTransaction(async (client) => {
+    const queueCheck = await client.query(
+      'SELECT id, kode, nama FROM ticket_queues WHERE id = $1 AND is_active = true',
+      [queue_id],
+    )
+    if (queueCheck.rowCount === 0) {
+      throw createHttpError(400, 'Unit tujuan tidak valid atau tidak aktif.')
+    }
+    const queue = queueCheck.rows[0]
 
-  // Validasi queue aktif
-  const queueCheck = await pool.query('SELECT id, kode, nama FROM ticket_queues WHERE id = $1 AND is_active = true', [queue_id])
-  if (queueCheck.rowCount === 0) throw createHttpError(400, 'Unit tujuan tidak valid atau tidak aktif.')
-  const queue = queueCheck.rows[0]
+    const temporaryTicketNumber = `PENDING-${randomUUID()}`
 
-  // Generate nomor tiket
-  const countRes = await pool.query('SELECT COUNT(*)::int AS count FROM tickets')
-  const seq = String(countRes.rows[0].count + 1).padStart(3, '0')
-  const nomor_tiket = `TCK-${new Date().getFullYear()}-${seq}`
+    const result = await client.query(
+      `INSERT INTO tickets
+         (nomor_tiket, judul, deskripsi, kategori, prioritas, status_tiket,
+          assigned_to, pelapor, attachment, queue_id, pelapor_user_id, assigned_to_user_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       RETURNING *`,
+      [
+        temporaryTicketNumber,
+        judul,
+        deskripsi,
+        queue.kode,
+        prioritas,
+        'Open',
+        null,
+        pelaporNama,
+        attachment,
+        queue.id,
+        pelaporId,
+        null,
+      ],
+    )
 
-  const pelaporNama = req.user?.nama || 'User'
-  const pelaporId   = req.user?.id   || null
+    const insertedTicket = result.rows[0]
+    const nomor_tiket = `TKT-${new Date().getFullYear()}-${String(insertedTicket.id).padStart(6, '0')}`
+    const numberResult = await client.query(
+      `UPDATE tickets
+       SET nomor_tiket = $1
+       WHERE id = $2
+         AND nomor_tiket = $3
+       RETURNING *`,
+      [nomor_tiket, insertedTicket.id, temporaryTicketNumber],
+    )
+    if (numberResult.rowCount !== 1) {
+      throw new Error('Gagal menetapkan nomor tiket final.')
+    }
 
-  const result = await pool.query(
-    `INSERT INTO tickets
-       (nomor_tiket, judul, deskripsi, kategori, prioritas, status_tiket,
-        assigned_to, pelapor, attachment, queue_id, pelapor_user_id, assigned_to_user_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-     RETURNING *`,
-    [
-      nomor_tiket,
-      String(judul).trim(),
-      deskripsi || '',
-      queue.kode,                   // dual write: isi kategori lama juga
-      prioritas || 'Medium (3d)',
-      'Open',
-      null,                         // assigned_to (teks) null
-      pelaporNama,                  // dual write: isi pelapor lama juga
-      attachment || null,
-      queue.id,
-      pelaporId,
-      null                          // belum di-assign
-    ]
-  )
+    const createdTicket = numberResult.rows[0]
+    await addTicketLog(
+      client,
+      createdTicket.id,
+      createdTicket.nomor_tiket,
+      'PEMBUATAN',
+      `Tiket '${createdTicket.judul}' dibuat untuk unit ${queue.nama}. Prioritas: ${createdTicket.prioritas}.`,
+      pelaporNama,
+    )
+    return createdTicket
+  })
 
-  const newTicket = result.rows[0]
-  await addTicketLog(newTicket.id, newTicket.nomor_tiket, 'PEMBUATAN',
-    `Tiket '${newTicket.judul}' dibuat untuk unit ${queue.nama}. Prioritas: ${newTicket.prioritas}.`,
-    pelaporNama)
+  await broadcastTicketEvent('TICKET_CREATED', newTicket)
 
-  broadcastEvent('TICKET_CREATED', newTicket)
-
-  res.status(201).json(newTicket)
+  res.status(201).json(withoutInlineAttachment(newTicket))
 }
 
 // ── UPDATE TICKET ─────────────────────────────────────────────
 export async function updateTicket(req, res) {
-  await ensureTicketsTableExists()
-  const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
+  const id = parsePositiveId(req.params.id)
+  const identity = assertCanonicalTicketIdentity(req)
+  if (!hasTicketWritePermission(identity)) {
+    throw createHttpError(403, 'Anda tidak memiliki akses tulis untuk tiket.')
+  }
+  if (!identity.name) throw createHttpError(403, 'Identitas actor tidak lengkap.')
+  const update = validateTicketUpdateBody(req.body)
 
-  const check = await pool.query('SELECT * FROM tickets WHERE id = $1', [id])
-  if (check.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
-  const oldTicket = check.rows[0]
-
-  const { judul, deskripsi, prioritas, status_tiket, queue_id, attachment } = req.body
-
-  // Jika queue berubah, validasi queue baru
-  let newQueueId = queue_id !== undefined ? queue_id : oldTicket.queue_id
-  let queueKode = oldTicket.kategori
-  if (queue_id && queue_id !== oldTicket.queue_id) {
-    const queueCheck = await pool.query('SELECT id, kode FROM ticket_queues WHERE id = $1 AND is_active = true', [queue_id])
-    if (queueCheck.rowCount === 0) throw createHttpError(400, 'Unit tujuan tidak valid.')
-    queueKode = queueCheck.rows[0].kode
-    newQueueId = queueCheck.rows[0].id
+  const accessTicket = await loadTicketAccessContext(pool, identity, id)
+  assertTicketFound(accessTicket)
+  if (!canManageTicket(identity, accessTicket)) {
+    throw createHttpError(403, 'Anda tidak memiliki akses untuk mengubah tiket ini.')
   }
 
-  const newAttachment = attachment !== undefined ? attachment : oldTicket.attachment
+  const updatedTicket = await withTransaction(async (client) => {
+    const lockedAccessTicket = await loadTicketAccessContext(client, identity, id, {
+      forUpdate: true,
+    })
+    assertTicketFound(lockedAccessTicket)
+    if (!canManageTicket(identity, lockedAccessTicket)) {
+      throw createHttpError(409, 'Scope tiket berubah; muat ulang sebelum memperbarui.')
+    }
 
-  const result = await pool.query(
-    `UPDATE tickets
+    const check = await client.query(
+      `SELECT
+       id,
+       nomor_tiket,
+       judul,
+       kategori,
+       prioritas,
+       status_tiket,
+       attachment,
+       queue_id
+     FROM tickets
+     WHERE id = $1
+     FOR UPDATE`,
+      [id],
+    )
+    if (check.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
+    const oldTicket = check.rows[0]
+
+    const { judul, deskripsi, prioritas, status_tiket, queue_id, attachment } = update
+
+    // Jika queue berubah, validasi queue baru
+    let newQueueId = oldTicket.queue_id
+    let queueKode = oldTicket.kategori
+    if (queue_id !== undefined) {
+      const targetQueueId = parsePositiveId(queue_id, 'Unit tujuan tidak valid.')
+      newQueueId = targetQueueId
+      if (targetQueueId === Number(oldTicket.queue_id)) {
+        newQueueId = oldTicket.queue_id
+      } else {
+        const queueCheck = await client.query(
+          `SELECT
+           q.id,
+           q.kode,
+           EXISTS (
+             SELECT 1
+             FROM user_ticket_queues utq
+             WHERE utq.user_id = $2
+               AND utq.queue_id = q.id
+           ) AS is_queue_member
+         FROM ticket_queues q
+         WHERE q.id = $1
+           AND q.is_active = true`,
+          [targetQueueId, identity.id],
+        )
+        if (queueCheck.rowCount === 0) throw createHttpError(400, 'Unit tujuan tidak valid.')
+        const targetQueueTicket = {
+          ...lockedAccessTicket,
+          queue_id: queueCheck.rows[0].id,
+          assigned_to_user_id: null,
+          is_queue_member: queueCheck.rows[0].is_queue_member === true,
+        }
+        if (!canManageTicket(identity, targetQueueTicket)) {
+          throw createHttpError(403, 'Anda tidak memiliki akses ke unit tujuan.')
+        }
+        queueKode = queueCheck.rows[0].kode
+        newQueueId = queueCheck.rows[0].id
+      }
+    }
+
+    const newAttachment = attachment !== undefined ? attachment : oldTicket.attachment
+    const isResolving = status_tiket === 'Resolved' && oldTicket.status_tiket !== 'Resolved'
+
+    const result = await client.query(
+      `UPDATE tickets t
         SET judul       = COALESCE($1, judul),
             deskripsi   = COALESCE($2, deskripsi),
-            kategori    = $3,
+            kategori    = CASE WHEN $11 = TRUE THEN $3 ELSE kategori END,
             prioritas   = COALESCE($4, prioritas),
             status_tiket = COALESCE($5, status_tiket),
-            attachment  = $6,
-            queue_id    = $7,
+            attachment  = CASE WHEN $12 = TRUE THEN $6 ELSE attachment END,
+            queue_id    = CASE WHEN $11 = TRUE THEN $7 ELSE queue_id END,
+            resolved_at = CASE WHEN $13 = TRUE THEN CURRENT_TIMESTAMP ELSE resolved_at END,
+            resolved_by_user_id = CASE WHEN $13 = TRUE THEN $10 ELSE resolved_by_user_id END,
             diperbarui_pada = CURRENT_TIMESTAMP
-      WHERE id = $8
-      RETURNING *`,
-    [judul, deskripsi, queueKode, prioritas, status_tiket, newAttachment, newQueueId, id]
-  )
-
-  const updatedTicket = result.rows[0]
-  const changes = []
-  if (judul && judul !== oldTicket.judul) changes.push(`Judul diubah menjadi '${judul}'`)
-  if (status_tiket && status_tiket !== oldTicket.status_tiket) changes.push(`Status: '${oldTicket.status_tiket}' → '${status_tiket}'`)
-  if (prioritas && prioritas !== oldTicket.prioritas) changes.push(`Prioritas: '${oldTicket.prioritas}' → '${prioritas}'`)
-  if (newQueueId !== oldTicket.queue_id) changes.push(`Unit tujuan diubah`)
-  if (newAttachment !== oldTicket.attachment) changes.push('Lampiran diperbarui')
-
-  const isResolving = status_tiket === 'Resolved' && oldTicket.status_tiket !== 'Resolved'
-  if (isResolving) {
-    await pool.query(
-      `UPDATE tickets SET resolved_at = CURRENT_TIMESTAMP, resolved_by_user_id = $1 WHERE id = $2`,
-      [req.user?.id || null, id]
+      WHERE t.id = $8
+        AND (
+          $9 = TRUE
+          OR t.assigned_to_user_id = $10
+          OR EXISTS (
+            SELECT 1
+            FROM user_ticket_queues current_scope
+            WHERE current_scope.user_id = $10
+              AND current_scope.queue_id = t.queue_id
+          )
+        )
+        AND (
+          $9 = TRUE
+          OR $11 = FALSE
+          OR $7 = t.queue_id
+          OR EXISTS (
+            SELECT 1
+            FROM user_ticket_queues target_scope
+            WHERE target_scope.user_id = $10
+              AND target_scope.queue_id = $7
+          )
+        )
+      RETURNING t.*`,
+      [
+        judul,
+        deskripsi,
+        queueKode,
+        prioritas,
+        status_tiket,
+        newAttachment,
+        newQueueId,
+        id,
+        identity.role === TICKET_ROLES.SUPERADMIN,
+        identity.id,
+        queue_id !== undefined,
+        attachment !== undefined,
+        isResolving,
+      ],
     )
-  }
+    if (result.rowCount === 0) {
+      throw createHttpError(409, 'Scope tiket berubah; muat ulang sebelum memperbarui.')
+    }
 
-  const aksi = status_tiket && status_tiket !== oldTicket.status_tiket
-    ? (isResolving ? 'RESOLVE' : 'PERUBAHAN_STATUS')
-    : 'UPDATE_DETAIL'
+    const transactionTicket = result.rows[0]
+    const changes = []
+    if (judul && judul !== oldTicket.judul) changes.push(`Judul diubah menjadi '${judul}'`)
+    if (status_tiket && status_tiket !== oldTicket.status_tiket)
+      changes.push(`Status: '${oldTicket.status_tiket}' → '${status_tiket}'`)
+    if (prioritas && prioritas !== oldTicket.prioritas)
+      changes.push(`Prioritas: '${oldTicket.prioritas}' → '${prioritas}'`)
+    if (newQueueId !== oldTicket.queue_id) changes.push(`Unit tujuan diubah`)
+    if (newAttachment !== oldTicket.attachment) changes.push('Lampiran diperbarui')
 
-  const logDetail = isResolving
-    ? `Tiket diselesaikan oleh ${req.user?.nama || 'Admin'}; menunggu penilaian CASP dari pelapor.`
-    : (changes.join('. ') || 'Detail tiket diperbarui')
+    const aksi =
+      status_tiket && status_tiket !== oldTicket.status_tiket
+        ? isResolving
+          ? 'RESOLVE'
+          : 'PERUBAHAN_STATUS'
+        : 'UPDATE_DETAIL'
 
-  await addTicketLog(id, oldTicket.nomor_tiket, aksi, logDetail, req.user?.nama || 'Admin')
+    const logDetail = isResolving
+      ? `Tiket diselesaikan oleh ${identity.name}; menunggu penilaian CASP dari pelapor.`
+      : changes.join('. ') || 'Detail tiket diperbarui'
 
-  broadcastEvent('TICKET_UPDATED', updatedTicket)
+    await addTicketLog(client, id, oldTicket.nomor_tiket, aksi, logDetail, identity.name)
+    return transactionTicket
+  })
 
-  res.json(updatedTicket)
+  await broadcastTicketEvent('TICKET_UPDATED', updatedTicket)
+
+  res.json(withoutInlineAttachment(updatedTicket))
 }
 
 // ── CLAIM TICKET (atomic) ─────────────────────────────────────
 export async function claimTicket(req, res) {
-  await ensureTicketsTableExists()
-  const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
+  const id = parsePositiveId(req.params.id)
+  const identity = assertCanonicalTicketIdentity(req)
+  if (!identity.name) throw createHttpError(403, 'Identitas actor tidak lengkap.')
 
-  const userId    = req.user.id
-  const userName  = req.user.nama || 'Admin'
-  const superAdmin = isSuperAdmin(req.user.role)
-
-  // Atomic update: hanya berhasil jika assigned_to_user_id masih NULL
-  // dan user terdaftar di queue tiket tersebut (kecuali superadmin)
-  let result
-  if (superAdmin) {
-    result = await pool.query(
-      `UPDATE tickets
-          SET assigned_to_user_id = $1,
-              assigned_to = $2,
-              status_tiket = 'In Progress',
-              diperbarui_pada = CURRENT_TIMESTAMP
-        WHERE id = $3
-          AND assigned_to_user_id IS NULL
-          AND status_tiket NOT IN ('Closed', 'Resolved', 'Cancelled')
-        RETURNING *`,
-      [userId, userName, id]
-    )
-  } else {
-    result = await pool.query(
-      `UPDATE tickets t
-          SET assigned_to_user_id = $1,
-              assigned_to = $2,
-              status_tiket = 'In Progress',
-              diperbarui_pada = CURRENT_TIMESTAMP
-        WHERE t.id = $3
-          AND t.assigned_to_user_id IS NULL
-          AND t.status_tiket NOT IN ('Closed', 'Resolved', 'Cancelled')
-          AND EXISTS (
-            SELECT 1 FROM user_ticket_queues utq
-            WHERE utq.user_id = $1 AND utq.queue_id = t.queue_id
-          )
-        RETURNING *`,
-      [userId, userName, id]
-    )
-  }
-
-  if (result.rowCount === 0) {
-    // Cek apakah tiket sudah diambil orang lain atau user tidak punya akses
-    const check = await pool.query('SELECT assigned_to_user_id, status_tiket FROM tickets WHERE id = $1', [id])
-    if (check.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
-    const t = check.rows[0]
-    if (t.assigned_to_user_id) throw createHttpError(409, 'Tiket sudah diambil oleh admin lain.')
+  const accessTicket = await loadTicketAccessContext(pool, identity, id)
+  assertTicketFound(accessTicket)
+  if (!canClaimTicket(identity, accessTicket)) {
+    if (accessTicket.assigned_to_user_id != null) {
+      throw createHttpError(409, 'Tiket sudah diambil oleh admin lain.')
+    }
+    if (['Closed', 'Resolved', 'Cancelled'].includes(accessTicket.status_tiket)) {
+      throw createHttpError(409, 'Tiket yang sudah selesai tidak dapat diambil.')
+    }
     throw createHttpError(403, 'Anda tidak memiliki akses ke queue tiket ini.')
   }
 
-  const ticket = result.rows[0]
-  await addTicketLog(id, ticket.nomor_tiket, 'CLAIM', `Tiket diambil oleh ${userName}.`, userName)
+  const ticket = await withTransaction(async (client) => {
+    const result = await client.query(
+      `UPDATE tickets t
+        SET assigned_to_user_id = $1,
+            assigned_to = $2,
+            status_tiket = 'In Progress',
+            diperbarui_pada = CURRENT_TIMESTAMP
+      WHERE t.id = $3
+        AND t.assigned_to_user_id IS NULL
+        AND t.status_tiket NOT IN ('Closed', 'Resolved', 'Cancelled')
+        AND (
+          $4 = TRUE
+          OR EXISTS (
+            SELECT 1
+            FROM user_ticket_queues utq
+            WHERE utq.user_id = $1
+              AND utq.queue_id = t.queue_id
+          )
+        )
+      RETURNING *`,
+      [identity.id, identity.name, id, identity.role === TICKET_ROLES.SUPERADMIN],
+    )
 
-  broadcastEvent('TICKET_UPDATED', ticket)
+    if (result.rowCount === 0) {
+      throw createHttpError(409, 'Tiket berubah atau sudah diambil oleh admin lain.')
+    }
 
-  res.json(ticket)
+    const claimedTicket = result.rows[0]
+    await addTicketLog(
+      client,
+      id,
+      claimedTicket.nomor_tiket,
+      'CLAIM',
+      `Tiket diambil oleh ${identity.name}.`,
+      identity.name,
+    )
+    return claimedTicket
+  })
+
+  await broadcastTicketEvent('TICKET_UPDATED', ticket)
+
+  res.json(withoutInlineAttachment(ticket))
 }
 
 // ── REASSIGN TICKET ───────────────────────────────────────────
 export async function reassignTicket(req, res) {
-  await ensureTicketsTableExists()
-  const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
+  const id = parsePositiveId(req.params.id)
+  const identity = assertCanonicalTicketIdentity(req)
+  if (!identity.name) throw createHttpError(403, 'Identitas actor tidak lengkap.')
 
   const { target_user_id } = req.body
   if (!target_user_id) throw createHttpError(400, 'target_user_id wajib diisi.')
+  const targetUserId = parsePositiveId(target_user_id, 'target_user_id tidak valid.')
 
-  const ticketCheck = await pool.query('SELECT * FROM tickets WHERE id = $1', [id])
-  if (ticketCheck.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
-  const ticket = ticketCheck.rows[0]
-
-  const userId = req.user.id
-  const superAdmin = isSuperAdmin(req.user.role)
-  const isCurrentAssignee = ticket.assigned_to_user_id === userId
-
-  if (!superAdmin && !isCurrentAssignee) {
-    throw createHttpError(403, 'Hanya assignee saat ini atau superadmin yang dapat melakukan reassign.')
-  }
-
-  // Validasi target admin terdaftar di queue yang sama
-  if (!superAdmin) {
-    const adminCheck = await pool.query(
-      `SELECT 1 FROM user_ticket_queues utq JOIN users u ON u.id = utq.user_id
-       WHERE u.id = $1 AND u.is_active = true AND utq.queue_id = $2`,
-      [target_user_id, ticket.queue_id]
+  const ticket = await loadTicketAccessContext(pool, identity, id)
+  assertTicketFound(ticket)
+  if (!canReassignTicket(identity, ticket)) {
+    throw createHttpError(
+      403,
+      'Hanya assignee saat ini atau superadmin yang dapat melakukan reassign.',
     )
-    if (adminCheck.rowCount === 0) throw createHttpError(403, 'Admin tujuan tidak terdaftar di queue tiket ini.')
   }
 
-  const targetUser = await pool.query('SELECT nama FROM users WHERE id = $1', [target_user_id])
-  if (targetUser.rowCount === 0) throw createHttpError(404, 'User tujuan tidak ditemukan.')
-  const targetName = targetUser.rows[0].nama
-
-  const result = await pool.query(
-    `UPDATE tickets SET assigned_to_user_id = $1, assigned_to = $2, diperbarui_pada = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *`,
-    [target_user_id, targetName, id]
+  const targetUser = await pool.query(
+    `SELECT
+       u.id,
+       u.nama,
+       u.role,
+       u.permissions,
+       EXISTS (
+         SELECT 1
+         FROM user_ticket_queues utq
+         WHERE utq.user_id = u.id
+           AND utq.queue_id = $2
+       ) AS is_queue_member
+     FROM users u
+     WHERE u.id = $1
+       AND u.is_active = true`,
+    [targetUserId, ticket.queue_id],
   )
+  if (targetUser.rowCount === 0) {
+    throw createHttpError(404, 'User tujuan tidak ditemukan atau tidak aktif.')
+  }
 
-  await addTicketLog(id, ticket.nomor_tiket, 'REASSIGN',
-    `Tiket di-reassign ke ${targetName} oleh ${req.user.nama || 'Admin'}.`,
-    req.user.nama || 'Admin')
+  const target = targetUser.rows[0]
+  const targetRole = normalizeTicketRole(target.role)
+  const targetIsWritableQueueAdmin =
+    targetRole === TICKET_ROLES.ADMIN &&
+    target.is_queue_member === true &&
+    hasTicketWritePermission(target)
+  const targetIsSuperadminForSuperActor =
+    identity.role === TICKET_ROLES.SUPERADMIN && targetRole === TICKET_ROLES.SUPERADMIN
+  const targetAllowed = targetIsWritableQueueAdmin || targetIsSuperadminForSuperActor
+  if (!targetAllowed) {
+    throw createHttpError(
+      403,
+      'User tujuan harus admin aktif dengan akses tulis pada queue tiket ini.',
+    )
+  }
 
-  const reassignedTicket = result.rows[0]
-  broadcastEvent('TICKET_UPDATED', reassignedTicket)
+  const reassignedTicket = await withTransaction(async (client) => {
+    const result = await client.query(
+      `UPDATE tickets AS t
+        SET assigned_to_user_id = $1,
+            assigned_to = $2,
+            diperbarui_pada = CURRENT_TIMESTAMP
+      WHERE t.id = $3
+        AND t.assigned_to_user_id IS NOT DISTINCT FROM $4
+        AND t.queue_id IS NOT DISTINCT FROM $5
+        AND LOWER(TRIM(t.status_tiket)) NOT IN ('closed', 'resolved', 'cancelled')
+        AND EXISTS (
+          SELECT 1
+          FROM users target_user
+          WHERE target_user.id = $1
+            AND target_user.is_active = true
+            AND (
+              (
+                $6 = TRUE
+                AND LOWER(TRIM(target_user.role)) IN ('superadmin', 'super admin')
+              )
+              OR (
+                LOWER(TRIM(target_user.role)) = 'admin'
+                AND (
+                  LOWER(TRIM(target_user.permissions ->> 'tickets')) = 'full'
+                  OR target_user.permissions -> 'tickets' = 'true'::jsonb
+                )
+                AND EXISTS (
+                  SELECT 1
+                  FROM user_ticket_queues target_scope
+                  WHERE target_scope.user_id = target_user.id
+                    AND target_scope.queue_id = t.queue_id
+                )
+              )
+            )
+        )
+      RETURNING t.*`,
+      [
+        targetUserId,
+        target.nama,
+        id,
+        ticket.assigned_to_user_id,
+        ticket.queue_id,
+        identity.role === TICKET_ROLES.SUPERADMIN,
+      ],
+    )
+    if (result.rowCount === 0) {
+      throw createHttpError(
+        409,
+        'Assignment, queue, atau status tiket berubah; muat ulang sebelum reassign.',
+      )
+    }
 
-  res.json(reassignedTicket)
+    await addTicketLog(
+      client,
+      id,
+      ticket.nomor_tiket,
+      'REASSIGN',
+      `Tiket di-reassign ke ${target.nama} oleh ${identity.name}.`,
+      identity.name,
+    )
+    return result.rows[0]
+  })
+  await broadcastTicketEvent('TICKET_UPDATED', reassignedTicket)
+
+  res.json(withoutInlineAttachment(reassignedTicket))
 }
 
 // ── DELETE TICKET ─────────────────────────────────────────────
 export async function deleteTicket(req, res) {
-  await ensureTicketsTableExists()
-  const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
+  const id = parsePositiveId(req.params.id)
+  const identity = assertCanonicalTicketIdentity(req)
+  if (!canDeleteTicket(identity)) {
+    throw createHttpError(403, 'Hanya superadmin yang dapat menghapus tiket.')
+  }
+
   const result = await pool.query('DELETE FROM tickets WHERE id = $1 RETURNING id', [id])
   if (result.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
   res.json({ message: 'Tiket berhasil dihapus.' })
@@ -715,21 +1192,27 @@ export async function deleteTicket(req, res) {
 
 // ── GET CASP RATING ───────────────────────────────────────────
 export async function getTicketCasp(req, res) {
-  await ensureTicketsTableExists()
-  const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
+  const id = parsePositiveId(req.params.id)
+  const identity = assertCanonicalTicketIdentity(req)
+  const ticket = await loadTicketAccessContext(pool, identity, id)
+  assertTicketCaspRead(identity, ticket)
 
-  const ticketRes = await pool.query('SELECT * FROM tickets WHERE id = $1', [id])
-  if (ticketRes.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
-  const ticket = ticketRes.rows[0]
-
-  const caspRes = await pool.query('SELECT * FROM ticket_casp_ratings WHERE ticket_id = $1', [id])
+  const caspRes = await pool.query(
+    `SELECT
+       rating,
+       feedback,
+       submitted_at,
+       reporter_name_snapshot,
+       assignee_name_snapshot
+     FROM ticket_casp_ratings
+     WHERE ticket_id = $1`,
+    [id],
+  )
   const existingRating = caspRes.rows[0] || null
 
-  const userId = req.user?.id
-  const isReporter = userId ? ticket.pelapor_user_id === userId : ticket.pelapor === req.user?.nama
-  const isAssignee = userId && ticket.assigned_to_user_id === userId
-  const isResolved = ticket.status_tiket === 'Resolved' || ticket.status_tiket === 'Closed'
+  const isReporter = isTicketReporter(identity, ticket)
+  const isAssignee = isTicketAssignee(identity, ticket)
+  const isResolved = isResolvedTicket(ticket)
 
   let eligible = false
   let reason = null
@@ -740,7 +1223,7 @@ export async function getTicketCasp(req, res) {
     reason = 'Tiket belum berstatus Resolved atau Closed.'
   } else if (isAssignee) {
     reason = 'Petugas penanggung jawab tidak dapat memberikan penilaian CASP.'
-  } else if (!isReporter) {
+  } else if (!isReporter || !canRateTicket(identity, ticket)) {
     reason = 'Hanya pelapor tiket yang dapat memberikan penilaian CASP.'
   } else {
     eligible = true
@@ -751,81 +1234,104 @@ export async function getTicketCasp(req, res) {
     2: 'Tidak Puas',
     3: 'Cukup',
     4: 'Puas',
-    5: 'Sangat Puas'
+    5: 'Sangat Puas',
   }
 
   res.json({
     eligible,
     reason,
-    rating: existingRating ? {
-      value: existingRating.rating,
-      label: ratingLabels[existingRating.rating] || '',
-      feedback: existingRating.feedback,
-      submittedAt: existingRating.submitted_at,
-      reporterName: existingRating.reporter_name_snapshot,
-      assigneeName: existingRating.assignee_name_snapshot
-    } : null,
-    labels: ratingLabels
+    rating: existingRating
+      ? {
+          value: existingRating.rating,
+          label: ratingLabels[existingRating.rating] || '',
+          feedback: existingRating.feedback,
+          submittedAt: existingRating.submitted_at,
+          reporterName: existingRating.reporter_name_snapshot,
+          assigneeName: existingRating.assignee_name_snapshot,
+        }
+      : null,
+    labels: ratingLabels,
   })
 }
 
 // ── SUBMIT CASP RATING ────────────────────────────────────────
 export async function submitTicketCasp(req, res) {
-  await ensureTicketsTableExists()
-  const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) throw createHttpError(400, 'ID tiket tidak valid.')
+  const id = parsePositiveId(req.params.id)
+  const identity = assertCanonicalTicketIdentity(req)
+  if (!identity.name) throw createHttpError(403, 'Identitas pelapor tidak lengkap.')
 
   const { rating, feedback } = req.body
-  const numericRating = parseInt(rating, 10)
-  if (isNaN(numericRating) || numericRating < 1 || numericRating > 5) {
+  const numericRating = rating
+  if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
     throw createHttpError(400, 'Rating CASP wajib diisi dengan nilai angka 1 - 5.')
+  }
+  const normalizedFeedback =
+    typeof feedback === 'string' && feedback.trim() ? feedback.trim() : null
+  if (normalizedFeedback && normalizedFeedback.length > MAX_COMMENT_LENGTH) {
+    throw createHttpError(400, `Feedback CASP maksimal ${MAX_COMMENT_LENGTH} karakter.`)
   }
 
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
 
-    const ticketRes = await client.query('SELECT * FROM tickets WHERE id = $1 FOR UPDATE', [id])
-    if (ticketRes.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
-    const ticket = ticketRes.rows[0]
-
-    if (ticket.status_tiket !== 'Resolved' && ticket.status_tiket !== 'Closed') {
-      throw createHttpError(409, 'Tiket belum berstatus Resolved atau Closed.')
-    }
-
-    const userId = req.user?.id
-    const isReporter = userId ? ticket.pelapor_user_id === userId : ticket.pelapor === req.user?.nama
-    const isAssignee = userId && ticket.assigned_to_user_id === userId
-
-    if (isAssignee) {
-      throw createHttpError(403, 'Petugas penanggung jawab tidak dapat memberikan penilaian CASP.')
-    }
-    if (!isReporter) {
+    const ticket = await loadTicketAccessContext(client, identity, id, {
+      forUpdate: true,
+    })
+    assertTicketCaspRead(identity, ticket)
+    if (!canRateTicket(identity, ticket)) {
       throw createHttpError(403, 'Hanya pelapor tiket yang dapat memberikan penilaian CASP.')
     }
 
-    const checkCasp = await client.query('SELECT id FROM ticket_casp_ratings WHERE ticket_id = $1', [id])
+    if (!isResolvedTicket(ticket)) {
+      throw createHttpError(409, 'Tiket belum berstatus Resolved atau Closed.')
+    }
+
+    const checkCasp = await client.query(
+      'SELECT id FROM ticket_casp_ratings WHERE ticket_id = $1',
+      [id],
+    )
     if (checkCasp.rowCount > 0) {
       throw createHttpError(409, 'Penilaian CASP untuk tiket ini sudah pernah dikirim.')
     }
 
-    const reporterName = req.user?.nama || ticket.pelapor || 'Pelapor'
-    const assigneeName = ticket.assigned_to || 'Admin'
+    const reporterName = identity.name
+    const assigneeName = ticket.assigned_to || 'Belum Ditugaskan'
 
     const insertRes = await client.query(
       `INSERT INTO ticket_casp_ratings
          (ticket_id, reporter_user_id, assignee_user_id, reporter_name_snapshot, assignee_name_snapshot, rating, feedback)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [id, userId || null, ticket.assigned_to_user_id || null, reporterName, assigneeName, numericRating, feedback ? String(feedback).trim() : null]
+       RETURNING rating, feedback, submitted_at`,
+      [
+        id,
+        identity.id,
+        ticket.assigned_to_user_id || null,
+        reporterName,
+        assigneeName,
+        numericRating,
+        normalizedFeedback,
+      ],
     )
 
-    const labelMap = { 1: 'Sangat Tidak Puas', 2: 'Tidak Puas', 3: 'Cukup', 4: 'Puas', 5: 'Sangat Puas' }
+    const labelMap = {
+      1: 'Sangat Tidak Puas',
+      2: 'Tidak Puas',
+      3: 'Cukup',
+      4: 'Puas',
+      5: 'Sangat Puas',
+    }
     const ratingLabel = labelMap[numericRating] || ''
 
     await client.query(
       `INSERT INTO log_riwayat_tiket (id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna) VALUES ($1, $2, $3, $4, $5)`,
-      [id, ticket.nomor_tiket, 'CASP_SUBMITTED', `Pelapor memberikan penilaian CASP ${numericRating}/5 (${ratingLabel}).`, reporterName]
+      [
+        id,
+        ticket.nomor_tiket,
+        'CASP_SUBMITTED',
+        `Pelapor memberikan penilaian CASP ${numericRating}/5 (${ratingLabel}).`,
+        reporterName,
+      ],
     )
 
     await client.query('COMMIT')

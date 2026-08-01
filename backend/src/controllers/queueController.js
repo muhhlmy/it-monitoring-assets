@@ -1,4 +1,10 @@
 import { pool } from '../config/database.js'
+import {
+  TICKET_ROLES,
+  canListQueueAdmins,
+  createTicketIdentity,
+  isSuperAdmin,
+} from '../services/ticketAccessService.js'
 
 function createHttpError(statusCode, message) {
   const error = new Error(message)
@@ -6,107 +12,18 @@ function createHttpError(statusCode, message) {
   return error
 }
 
-const isSuperAdmin = (role) => {
-  const r = (role || '').trim().toLowerCase()
-  return r === 'superadmin' || r === 'super admin'
-}
-
-let isMigrated = false
-
-export async function ensureQueueTablesExist() {
-  if (isMigrated) return
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ticket_queues (
-        id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-        kode            VARCHAR(20)  NOT NULL UNIQUE,
-        nama            VARCHAR(100) NOT NULL,
-        deskripsi       TEXT,
-        is_active       BOOLEAN NOT NULL DEFAULT true,
-        dibuat_pada     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        diperbarui_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `)
-
-    await pool.query(`
-      INSERT INTO ticket_queues (kode, nama, deskripsi) VALUES
-        ('HR',  'Human Resources',        'Tiket terkait sumber daya manusia'),
-        ('IT',  'Information Technology', 'Tiket terkait teknologi informasi'),
-        ('GA',  'General Affairs',        'Tiket terkait fasilitas dan kebutuhan umum'),
-        ('OPS', 'Operations',             'Tiket terkait aktivitas operasional')
-      ON CONFLICT (kode) DO NOTHING;
-    `)
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS user_ticket_queues (
-        user_id     BIGINT NOT NULL,
-        queue_id    BIGINT NOT NULL,
-        is_primary  BOOLEAN NOT NULL DEFAULT false,
-        dibuat_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (user_id, queue_id),
-        CONSTRAINT fk_utq_user  FOREIGN KEY (user_id)  REFERENCES users(id)         ON DELETE CASCADE,
-        CONSTRAINT fk_utq_queue FOREIGN KEY (queue_id) REFERENCES ticket_queues(id) ON DELETE CASCADE
-      );
-    `)
-
-    await pool.query(`
-      ALTER TABLE tickets
-        ADD COLUMN IF NOT EXISTS queue_id            BIGINT,
-        ADD COLUMN IF NOT EXISTS pelapor_user_id     BIGINT,
-        ADD COLUMN IF NOT EXISTS assigned_to_user_id BIGINT;
-    `)
-
-    await pool.query(`
-      DO $$
-      BEGIN
-        IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_ticket_queue') THEN
-          ALTER TABLE tickets ADD CONSTRAINT fk_ticket_queue FOREIGN KEY (queue_id) REFERENCES ticket_queues(id) ON DELETE RESTRICT;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_ticket_pelapor_user') THEN
-          ALTER TABLE tickets ADD CONSTRAINT fk_ticket_pelapor_user FOREIGN KEY (pelapor_user_id) REFERENCES users(id) ON DELETE SET NULL;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_ticket_assigned_user') THEN
-          ALTER TABLE tickets ADD CONSTRAINT fk_ticket_assigned_user FOREIGN KEY (assigned_to_user_id) REFERENCES users(id) ON DELETE SET NULL;
-        END IF;
-      END$$;
-    `)
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_tickets_queue_status    ON tickets (queue_id, status_tiket, dibuat_pada);
-      CREATE INDEX IF NOT EXISTS idx_tickets_assigned_status ON tickets (assigned_to_user_id, status_tiket);
-      CREATE INDEX IF NOT EXISTS idx_tickets_reporter        ON tickets (pelapor_user_id, dibuat_pada);
-      CREATE INDEX IF NOT EXISTS idx_utq_user_queue          ON user_ticket_queues (user_id, queue_id);
-      CREATE INDEX IF NOT EXISTS idx_utq_queue_user          ON user_ticket_queues (queue_id, user_id);
-    `)
-
-    // Backfill queue_id dari kolom kategori lama
-    await pool.query(`UPDATE tickets t SET queue_id = q.id FROM ticket_queues q WHERE q.kode = 'IT'  AND t.queue_id IS NULL AND (UPPER(TRIM(t.kategori)) = 'IT'  OR t.kategori IS NULL);`)
-    await pool.query(`UPDATE tickets t SET queue_id = q.id FROM ticket_queues q WHERE q.kode = 'HR'  AND t.queue_id IS NULL AND UPPER(TRIM(t.kategori)) = 'HR';`)
-    await pool.query(`UPDATE tickets t SET queue_id = q.id FROM ticket_queues q WHERE q.kode = 'GA'  AND t.queue_id IS NULL AND UPPER(TRIM(t.kategori)) = 'GA';`)
-    await pool.query(`UPDATE tickets t SET queue_id = q.id FROM ticket_queues q WHERE q.kode = 'OPS' AND t.queue_id IS NULL AND UPPER(TRIM(t.kategori)) = 'OPS';`)
-    await pool.query(`UPDATE tickets t SET queue_id = q.id FROM ticket_queues q WHERE q.kode = 'IT'  AND t.queue_id IS NULL;`)
-
-    // Backfill pelapor_user_id dan assigned_to_user_id dari nama teks
-    await pool.query(`UPDATE tickets t SET pelapor_user_id = u.id FROM users u WHERE LOWER(TRIM(t.pelapor)) = LOWER(TRIM(u.nama)) AND t.pelapor_user_id IS NULL;`)
-    await pool.query(`UPDATE tickets t SET assigned_to_user_id = u.id FROM users u WHERE LOWER(TRIM(t.assigned_to)) = LOWER(TRIM(u.nama)) AND t.assigned_to_user_id IS NULL;`)
-
-    isMigrated = true
-    console.log('[Queue] Migration & backfill selesai.')
-  } catch (err) {
-    console.error('[Queue] Migration error:', err.message)
-  }
+function getTicketIdentity(req) {
+  return req.ticketIdentity || createTicketIdentity(req.user)
 }
 
 // GET /api/ticket-queues
 export async function listQueues(req, res) {
-  await ensureQueueTablesExist()
   const result = await pool.query(`SELECT id, kode, nama, deskripsi, is_active FROM ticket_queues WHERE is_active = true ORDER BY kode`)
   res.json(result.rows)
 }
 
 // GET /api/ticket-queues/my
 export async function listMyQueues(req, res) {
-  await ensureQueueTablesExist()
   if (isSuperAdmin(req.user.role)) {
     const result = await pool.query(`SELECT id, kode, nama, deskripsi FROM ticket_queues WHERE is_active = true ORDER BY kode`)
     return res.json(result.rows)
@@ -120,24 +37,63 @@ export async function listMyQueues(req, res) {
 
 // GET /api/ticket-queues/:queueId/admins
 export async function listQueueAdmins(req, res) {
-  await ensureQueueTablesExist()
-  const queueId = parseInt(req.params.queueId, 10)
-  if (isNaN(queueId)) throw createHttpError(400, 'Queue ID tidak valid.')
+  const identity = getTicketIdentity(req)
+  if (!identity.valid || identity.role === TICKET_ROLES.REPORTER) {
+    throw createHttpError(403, 'Anda tidak memiliki akses ke direktori admin queue.')
+  }
+
+  const queueId = Number(req.params.queueId)
+  if (!Number.isSafeInteger(queueId) || queueId <= 0) {
+    throw createHttpError(400, 'Queue ID tidak valid.')
+  }
+
+  const queueAccess = await pool.query(
+    `SELECT
+       q.id,
+       EXISTS (
+         SELECT 1
+         FROM user_ticket_queues utq
+         WHERE utq.user_id = $2
+           AND utq.queue_id = q.id
+       ) AS is_queue_member
+     FROM ticket_queues q
+     WHERE q.id = $1
+       AND q.is_active = true`,
+    [queueId, identity.id],
+  )
+  if (queueAccess.rowCount === 0) throw createHttpError(404, 'Queue tidak ditemukan.')
+  if (!canListQueueAdmins(identity, queueAccess.rows[0])) {
+    throw createHttpError(403, 'Anda tidak memiliki akses ke direktori admin queue ini.')
+  }
+
   const result = await pool.query(
-    `SELECT DISTINCT u.id, u.nama, u.email, u.role, COALESCE(utq.is_primary, false) AS is_primary
+    `SELECT DISTINCT u.id, u.nama
      FROM users u
      LEFT JOIN user_ticket_queues utq ON utq.user_id = u.id AND utq.queue_id = $1
      WHERE u.is_active = true
-       AND (utq.queue_id = $1 OR LOWER(u.role) IN ('superadmin', 'super admin'))
+       AND LOWER(TRIM(u.role)) IN ('admin', 'superadmin', 'super admin')
+       AND (
+         (
+           LOWER(TRIM(u.role)) = 'admin'
+           AND utq.queue_id = $1
+           AND (
+             LOWER(TRIM(u.permissions ->> 'tickets')) = 'full'
+             OR u.permissions -> 'tickets' = 'true'::jsonb
+           )
+         )
+          OR (
+            $2 = TRUE
+            AND LOWER(TRIM(u.role)) IN ('superadmin', 'super admin')
+          )
+        )
      ORDER BY u.nama ASC`,
-    [queueId]
+    [queueId, identity.role === TICKET_ROLES.SUPERADMIN]
   )
-  res.json(result.rows)
+  res.json(result.rows.map((row) => ({ id: row.id, nama: row.nama })))
 }
 
 // POST /api/ticket-queues/:queueId/admins
 export async function addAdminToQueue(req, res) {
-  await ensureQueueTablesExist()
   if (!isSuperAdmin(req.user.role)) throw createHttpError(403, 'Hanya superadmin yang dapat mengatur mapping admin.')
   const queueId = parseInt(req.params.queueId, 10)
   const { user_id, is_primary } = req.body
@@ -153,7 +109,6 @@ export async function addAdminToQueue(req, res) {
 
 // DELETE /api/ticket-queues/:queueId/admins/:userId
 export async function removeAdminFromQueue(req, res) {
-  await ensureQueueTablesExist()
   if (!isSuperAdmin(req.user.role)) throw createHttpError(403, 'Hanya superadmin yang dapat mengatur mapping admin.')
   const queueId = parseInt(req.params.queueId, 10)
   const userId  = parseInt(req.params.userId, 10)

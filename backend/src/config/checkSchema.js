@@ -1,4 +1,5 @@
 import { pool, query } from './database.js'
+import { verifyRuntimeSchema } from './runtimeSchema.js'
 
 const expectedColumns = [
   'id_aset',
@@ -19,6 +20,8 @@ const expectedColumns = [
 ]
 
 try {
+  await verifyRuntimeSchema(pool)
+
   const columnsResult = await query(`
     SELECT column_name
     FROM information_schema.columns

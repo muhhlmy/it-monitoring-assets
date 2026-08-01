@@ -13,7 +13,7 @@ defineEmits(['toggle-mobile', 'toggle-collapse'])
 
 const route  = useRoute()
 const router = useRouter()
-const { user, logout, isAdmin, isUser } = useAuth()
+const { user, logout, isAdmin, isUser, hasPermission } = useAuth()
 const { get } = useApi()
 const { connect: connectSSE, disconnect: disconnectSSE, on: onSSE } = useTicketEvents()
 
@@ -143,6 +143,7 @@ watch(
 
 let pollTimer
 onMounted(() => {
+  if (!hasPermission('tickets')) return
   fetchTickets()
   // Polling 30 detik dipertahankan sebagai safety net bila SSE putus / gagal reconnect.
   pollTimer = setInterval(fetchTickets, 30000)

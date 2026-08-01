@@ -1,29 +1,102 @@
 import { env } from '../config/env.js';
+import { pool } from '../config/database.js';
 import jwt from 'jsonwebtoken';
 
-export function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  // Token berbentuk: "Bearer <token>"
-  let token = authHeader && authHeader.split(' ')[1];
+const BEARER_TOKEN_PATTERN =
+  /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i;
+const MAX_BEARER_TOKEN_LENGTH = 4096;
 
-  // Fallback: baca token dari query param.
-  // Diperlukan untuk SSE/EventSource yang tidak bisa mengirim custom header
-  // (lihat frontend/src/composables/useTicketEvents.js -> ?token=...).
-  if (!token && req.query && req.query.token) {
-    token = req.query.token;
-  }
-
-  if (!token) {
-    return res.status(401).json({ message: 'Akses ditolak. Token tidak ditemukan.' });
-  }
-
-  jwt.verify(token, env.jwt.secret, (err, user) => {
-    if (err) {
-      return res.status(403).json({ message: 'Token tidak valid atau sudah kedaluwarsa.' });
-    }
-    req.user = user; // Menyimpan data user (id, nama, email, role) ke request
-    next();
+function rejectAuthentication(res) {
+  return res.status(401).json({
+    message: 'Sesi tidak valid atau sudah berakhir. Silakan login kembali.',
   });
+}
+
+function readBearerToken(req) {
+  const authorization = req.headers.authorization;
+  if (typeof authorization !== 'string') return null;
+
+  const match = BEARER_TOKEN_PATTERN.exec(authorization);
+  if (!match || match[1].length > MAX_BEARER_TOKEN_LENGTH) return null;
+  return match[1];
+}
+
+function normalizeAuthenticatedRole(value) {
+  if (typeof value !== 'string') return null;
+  const role = value.trim().toLowerCase();
+  if (role === 'user' || role === 'admin') return role;
+  if (role === 'superadmin' || role === 'super admin') return 'superadmin';
+  return null;
+}
+
+export async function authenticateToken(req, res, next) {
+  const token = readBearerToken(req);
+  if (!token) return rejectAuthentication(res);
+
+  let claims;
+  try {
+    claims = jwt.verify(token, env.jwt.secret, { algorithms: ['HS256'] });
+  } catch {
+    return rejectAuthentication(res);
+  }
+
+  const userId = Number(claims?.id);
+  if (
+    !claims ||
+    typeof claims !== 'object' ||
+    !Number.isSafeInteger(userId) ||
+    userId <= 0 ||
+    !Number.isFinite(claims.exp)
+  ) {
+    return rejectAuthentication(res);
+  }
+
+  try {
+    const result = await pool.query(
+      `/* canonical-auth-user */
+       SELECT
+         u.id,
+         u.nama,
+         u.email,
+         u.role,
+         u.permissions,
+         u.is_active,
+         COALESCE(k.nik, '') AS nik,
+         COALESCE(k.jabatan, u.role) AS jabatan
+       FROM users u
+       LEFT JOIN karyawan k
+         ON LOWER(TRIM(u.email)) = LOWER(TRIM(k.email_kantor))
+       WHERE u.id = $1
+         AND u.is_active = true`,
+      [userId],
+    );
+
+    if (result.rowCount !== 1) return rejectAuthentication(res);
+
+    const user = result.rows[0];
+    const role = normalizeAuthenticatedRole(user.role);
+    if (!role) return rejectAuthentication(res);
+
+    req.user = {
+      id: userId,
+      nama: typeof user.nama === 'string' ? user.nama : '',
+      email: typeof user.email === 'string' ? user.email : '',
+      role,
+      permissions:
+        user.permissions &&
+        typeof user.permissions === 'object' &&
+        !Array.isArray(user.permissions)
+          ? user.permissions
+          : {},
+      nik: typeof user.nik === 'string' ? user.nik : '',
+      jabatan: typeof user.jabatan === 'string' ? user.jabatan : '',
+      iat: claims.iat,
+      exp: claims.exp,
+    };
+    next();
+  } catch (error) {
+    next(error);
+  }
 }
 
 export function authorizeRoles(...allowedRoles) {
@@ -45,26 +118,64 @@ export function authorizeRoles(...allowedRoles) {
   };
 }
 
-export function authorizePermission(featureKey) {
+export function hasReadFeaturePermission(value) {
+  if (value === true) return true;
+  if (typeof value !== 'string') return false;
+  const level = value.trim().toLowerCase();
+  return level === 'read_only' || level === 'full';
+}
+
+export function hasWriteFeaturePermission(value) {
+  if (value === true) return true;
+  return typeof value === 'string' && value.trim().toLowerCase() === 'full';
+}
+
+export function authorizeAnyPermission(featureKeys, access = 'read') {
+  const keys = Array.isArray(featureKeys) ? featureKeys : [];
+  const hasValidKeys =
+    keys.length > 0 &&
+    keys.every((key) => typeof key === 'string' && key.trim().length > 0);
+  const permissionCheck =
+    access === 'read'
+      ? hasReadFeaturePermission
+      : access === 'write'
+        ? hasWriteFeaturePermission
+        : null;
+
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Akses ditolak.' });
     }
 
-    const userRole = (req.user.role || '').trim().toLowerCase();
-    if (userRole === 'super admin' || userRole === 'superadmin') {
+    if (!hasValidKeys || !permissionCheck) {
+      return res.status(403).json({ message: 'Konfigurasi permission tidak valid.' });
+    }
+
+    const userRole = normalizeAuthenticatedRole(req.user.role);
+    if (userRole === 'superadmin') {
       return next();
     }
 
-    const perms = req.user.permissions;
-    if (perms && typeof perms === 'object') {
-      const level = perms[featureKey];
-      // Support new string levels ('full', 'read_only') AND legacy boolean
-      if (level === 'full' || level === 'read_only' || level === true) {
-        return next();
-      }
+    if (userRole !== 'admin' && userRole !== 'user') {
+      return res.status(403).json({ message: 'Akses ditolak.' });
     }
 
-    return res.status(403).json({ message: `Anda tidak memiliki hak akses ke fitur '${featureKey}'.` });
+    const perms = req.user.permissions;
+    if (
+      perms &&
+      typeof perms === 'object' &&
+      !Array.isArray(perms) &&
+      keys.some((key) => permissionCheck(perms[key]))
+    ) {
+      return next();
+    }
+
+    return res.status(403).json({
+      message: `Anda tidak memiliki permission ${access} yang diperlukan.`,
+    });
   };
+}
+
+export function authorizePermission(featureKey, access = 'read') {
+  return authorizeAnyPermission([featureKey], access);
 }

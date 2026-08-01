@@ -1,21 +1,43 @@
 import { Router } from 'express'
 import * as assetController from '../controllers/assetController.js'
-import { authorizeRoles } from '../middleware/authMiddleware.js'
+import {
+  authorizeAnyPermission,
+  authorizePermission,
+  authorizeRoles,
+} from '../middleware/authMiddleware.js'
 
 export const assetRouter = Router()
 
 const requireAdmin = authorizeRoles('admin', 'super admin')
+const requireAssetsRead = authorizePermission('assets', 'read')
+const requireAssetsWrite = authorizePermission('assets', 'write')
 
 // /my bisa diakses semua role yang sudah login
-assetRouter.get('/my', assetController.listMyAssets)
+assetRouter.get(
+  '/my',
+  authorizePermission('my_assets', 'read'),
+  assetController.listMyAssets,
+)
 
 // Selain /my, hanya admin yang boleh akses
 assetRouter.use(requireAdmin)
 
-assetRouter.get('/stats', assetController.showAssetStats)
-assetRouter.get('/cycle/:nik', assetController.getDeviceCycleByNik)
-assetRouter.get('/', assetController.listAssets)
-assetRouter.get('/:id', assetController.showAsset)
-assetRouter.post('/', assetController.storeAsset)
-assetRouter.put('/:id', assetController.replaceAsset)
-assetRouter.delete('/:id', assetController.destroyAsset)
+assetRouter.get(
+  '/stats',
+  authorizeAnyPermission(['dashboard', 'assets'], 'read'),
+  assetController.showAssetStats,
+)
+assetRouter.get(
+  '/cycle/:nik',
+  authorizeAnyPermission(['my_assets', 'assets'], 'read'),
+  assetController.getDeviceCycleByNik,
+)
+assetRouter.get(
+  '/',
+  authorizeAnyPermission(['assets', 'submissions'], 'read'),
+  assetController.listAssets,
+)
+assetRouter.get('/:id', requireAssetsRead, assetController.showAsset)
+assetRouter.post('/', requireAssetsWrite, assetController.storeAsset)
+assetRouter.put('/:id', requireAssetsWrite, assetController.replaceAsset)
+assetRouter.delete('/:id', requireAssetsWrite, assetController.destroyAsset)

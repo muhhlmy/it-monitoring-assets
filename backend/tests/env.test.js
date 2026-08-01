@@ -80,6 +80,17 @@ test('meneruskan secret valid tanpa fallback atau perubahan nilai', () => {
   })
 })
 
+test('menolak wildcard CORS agar deployment memakai exact allowlist', () => {
+  const result = importEnvironment({
+    DB_PASSWORD: validDatabasePassword,
+    JWT_SECRET: validJwtSecret,
+    CORS_ORIGINS: '*',
+  })
+
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /CORS_ORIGINS wajib berupa exact allowlist/)
+})
+
 test('controller dan middleware memakai satu sumber JWT dari konfigurasi', () => {
   const controllerSource = readFileSync(
     new URL('../src/controllers/authController.js', import.meta.url),

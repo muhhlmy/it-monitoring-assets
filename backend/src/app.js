@@ -1,11 +1,15 @@
 import cors from "cors";
 import express from "express";
 import { env } from "./config/env.js";
+import { requireJsonRequest } from "./middleware/jsonRequestMiddleware.js";
+import { setSecurityHeaders } from "./middleware/securityHeaders.js";
 import { router } from "./routes/index.js";
+import { isCorsOriginAllowed } from "./security/corsPolicy.js";
 
 export const app = express();
 
 app.disable("x-powered-by");
+app.use(setSecurityHeaders);
 
 function checkCorsOrigin(origin, callback) {
   // Request tanpa origin biasanya berasal dari Postman atau aplikasi backend.
@@ -14,16 +18,7 @@ function checkCorsOrigin(origin, callback) {
     return;
   }
 
-  const allowsAllOrigins = env.corsOrigins.indexOf("*") !== -1;
-  const originIsAllowed = env.corsOrigins.indexOf(origin) !== -1;
-
-  // Izinkan localhost, 127.0.0.1, serta semua IP Private Network (192.168.x.x, 10.x.x.x, 172.x.x.x)
-  const isLocalNetwork =
-    /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(
-      origin,
-    );
-
-  if (allowsAllOrigins || originIsAllowed || isLocalNetwork) {
+  if (isCorsOriginAllowed(origin, env.corsOrigins)) {
     callback(null, true);
     return;
   }
@@ -34,8 +29,8 @@ function checkCorsOrigin(origin, callback) {
 }
 
 app.use(cors({ origin: checkCorsOrigin }));
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ limit: "10mb", extended: true }));
+app.use(requireJsonRequest);
+app.use(express.json({ limit: "8mb" }));
 app.use(router);
 
 function handleNotFound(req, res) {
@@ -43,6 +38,11 @@ function handleNotFound(req, res) {
 }
 
 function handleError(err, req, res, next) {
+  if (err.status === 413 || err.statusCode === 413) {
+    res.status(413).json({ message: "Payload melebihi batas yang diizinkan." });
+    return;
+  }
+
   // Error ini terjadi jika body request bukan JSON yang valid.
   if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
     res.status(400).json({ message: "Format JSON tidak valid." });

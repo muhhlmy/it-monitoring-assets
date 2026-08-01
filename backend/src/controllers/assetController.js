@@ -13,6 +13,16 @@ function createHttpError(statusCode, message) {
   return error;
 }
 
+function requireAssetAuditActor(req) {
+  const actorId = Number(req.user?.id);
+  const actorName = typeof req.user?.nama === "string" ? req.user.nama.trim() : "";
+  if (!Number.isSafeInteger(actorId) || actorId <= 0 || !actorName) {
+    throw createHttpError(403, "Identitas actor aset tidak valid.");
+  }
+  const stablePrefix = `user:${actorId} `;
+  return stablePrefix + actorName.slice(0, 150 - stablePrefix.length);
+}
+
 // Mengubah input menjadi text yang sudah dibersihkan dari spasi.
 // Nilai kosong diubah menjadi null agar cocok dengan PostgreSQL.
 function cleanText(value) {
@@ -133,23 +143,20 @@ async function findEmployeeId(nik, databaseClient) {
 // Sinkronisasi tabel riwayat_pemakaian_aset setiap kali pemegang aset berubah.
 // dipanggil di dalam transaksi (client wajib diteruskan).
 async function syncDeviceCycle(databaseClient, idAset, oldNik, newNik, assetInfo) {
-  const oldHasEmployee = Boolean(oldNik);
   const newHasEmployee = Boolean(newNik);
   const employeeChanged = oldNik !== newNik;
 
   if (!employeeChanged) return; // Tidak ada perubahan pemegang, tidak perlu sync
 
-  // 1. Tutup record aktif milik pemegang lama (jika ada)
-  if (oldHasEmployee) {
-    await databaseClient.query(
-      `UPDATE riwayat_pemakaian_aset
-         SET tanggal_selesai = CURRENT_TIMESTAMP
-       WHERE id_aset = $1
-         AND nik = $2
-         AND tanggal_selesai IS NULL`,
-      [idAset, oldNik]
-    );
-  }
+  // 1. Tutup seluruh record aktif untuk aset. NIK pada row riwayat adalah
+  // snapshot dan tidak aman dijadikan satu-satunya kunci penutupan.
+  await databaseClient.query(
+    `UPDATE riwayat_pemakaian_aset
+       SET tanggal_selesai = CURRENT_TIMESTAMP
+     WHERE id_aset = $1
+       AND tanggal_selesai IS NULL`,
+    [idAset]
+  );
 
   // 2. Buat record baru untuk pemegang baru (jika ada)
   if (newHasEmployee) {
@@ -375,7 +382,7 @@ export async function showAssetStats(req, res) {
 }
 
 // Helper untuk menyimpan log perubahan aset otomatis
-async function logAssetChange(databaseClient, idAset, labelAset, aksi, oldAsset, newAsset, olehPengguna = 'Admin IT') {
+async function logAssetChange(databaseClient, idAset, labelAset, aksi, oldAsset, newAsset, olehPengguna) {
   let perubahan = '';
 
   if (aksi === 'TAMBAH') {
@@ -420,6 +427,7 @@ async function logAssetChange(databaseClient, idAset, labelAset, aksi, oldAsset,
 
 // POST /api/assets
 export async function storeAsset(req, res) {
+  const auditActor = requireAssetAuditActor(req);
   const asset = validateAssetPayload(req.body);
 
   async function insertInsideTransaction(databaseClient) {
@@ -451,7 +459,15 @@ export async function storeAsset(req, res) {
     const newAssetId = insertResult.rows[0].id_aset;
 
     const created = await findAssetById(newAssetId, databaseClient);
-    await logAssetChange(databaseClient, created.id_aset, created.label_aset, 'TAMBAH', null, created);
+    await logAssetChange(
+      databaseClient,
+      created.id_aset,
+      created.label_aset,
+      'TAMBAH',
+      null,
+      created,
+      auditActor,
+    );
     // Catat ke riwayat pemakaian jika langsung di-assign ke karyawan
     await syncDeviceCycle(databaseClient, created.id_aset, null, asset.nik, created);
     return created;
@@ -464,14 +480,23 @@ export async function storeAsset(req, res) {
 // PUT /api/assets/:id
 export async function replaceAsset(req, res) {
   const id = validateAssetId(req.params.id);
+  const auditActor = requireAssetAuditActor(req);
   const asset = validateAssetPayload(req.body);
 
-  const oldAsset = await findAssetById(id);
-  if (!oldAsset) {
-    throw createHttpError(404, "Aset tidak ditemukan.");
-  }
-
   async function updateInsideTransaction(databaseClient) {
+    const lockResult = await databaseClient.query(
+      "SELECT id_aset FROM aset_ti WHERE id_aset = $1 FOR UPDATE",
+      [id],
+    );
+    if (lockResult.rowCount === 0) {
+      throw createHttpError(404, "Aset tidak ditemukan.");
+    }
+
+    const oldAsset = await findAssetById(id, databaseClient);
+    if (!oldAsset) {
+      throw createHttpError(409, "Snapshot aset tidak tersedia; muat ulang dan coba lagi.");
+    }
+
     const employeeId = await findEmployeeId(asset.nik, databaseClient);
 
     const sql = `
@@ -513,7 +538,15 @@ export async function replaceAsset(req, res) {
     }
 
     const updated = await findAssetById(id, databaseClient);
-    await logAssetChange(databaseClient, id, updated.label_aset, 'UBAH', oldAsset, updated);
+    await logAssetChange(
+      databaseClient,
+      id,
+      updated.label_aset,
+      'UBAH',
+      oldAsset,
+      updated,
+      auditActor,
+    );
     // Sync riwayat pemakaian jika pemegang berubah
     await syncDeviceCycle(databaseClient, id, oldAsset.nik || null, asset.nik, updated);
     return updated;
@@ -526,13 +559,26 @@ export async function replaceAsset(req, res) {
 // DELETE /api/assets/:id
 export async function destroyAsset(req, res) {
   const id = validateAssetId(req.params.id);
-
-  const oldAsset = await findAssetById(id);
-  if (!oldAsset) {
-    throw createHttpError(404, "Aset tidak ditemukan.");
-  }
+  const auditActor = requireAssetAuditActor(req);
 
   async function deleteInsideTransaction(databaseClient) {
+    const lockResult = await databaseClient.query(
+      "SELECT id_aset FROM aset_ti WHERE id_aset = $1 FOR UPDATE",
+      [id],
+    );
+    if (lockResult.rowCount === 0) {
+      throw createHttpError(404, "Aset tidak ditemukan.");
+    }
+
+    const oldAsset = await findAssetById(id, databaseClient);
+    if (!oldAsset) {
+      throw createHttpError(409, "Snapshot aset tidak tersedia; muat ulang dan coba lagi.");
+    }
+
+    // Tutup record aktif selagi FK masih menunjuk ke aset. DELETE akan
+    // mengubah id_aset riwayat menjadi NULL melalui ON DELETE SET NULL.
+    await closeAllDeviceCycleRecords(databaseClient, id);
+
     const result = await databaseClient.query("DELETE FROM aset_ti WHERE id_aset = $1", [
       id,
     ]);
@@ -541,9 +587,15 @@ export async function destroyAsset(req, res) {
       throw createHttpError(404, "Aset tidak ditemukan.");
     }
 
-    await logAssetChange(databaseClient, id, oldAsset.label_aset, 'HAPUS', oldAsset, null);
-    // Tutup semua record riwayat aktif sebelum aset dihapus
-    await closeAllDeviceCycleRecords(databaseClient, id);
+    await logAssetChange(
+      databaseClient,
+      id,
+      oldAsset.label_aset,
+      'HAPUS',
+      oldAsset,
+      null,
+      auditActor,
+    );
     return true;
   }
 

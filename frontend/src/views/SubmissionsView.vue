@@ -521,7 +521,7 @@ function generatePdf() {
             window.close();
           };
         };
-      <\/script>
+      </scr${'ipt'}>
     </body>
     </html>
   `

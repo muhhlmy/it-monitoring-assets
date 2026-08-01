@@ -1,671 +1,806 @@
 # Hardening Continuation Plan
 
-## Review branch `hardening/phase0-p0-slice-1`
+## Re-audit branch `hardening/phase0-p0-slice-1`
 
-> Repository: `muhhlmy/it-monitoring-assets`
-> Base: `main@aca4f33`
-> Branch head yang diperiksa: `603b6f22507a984b46150bf3b7a362858c83b236`
-> Tanggal pemeriksaan: 30 Juli 2026
-> Stack yang dipertahankan: Vue 3, Express 5, PostgreSQL, JavaScript, ES Modules
+> Repository: `muhhlmy/it-monitoring-assets`  
+> Base: `main@aca4f33f6b1da9c9da18a0ab9cc2a0f4177a3c2e`  
+> Branch head: `1662005e1c2b46b419979fdbace493ace108d520`  
+> Selisih terhadap `main`: 3 commit di depan, 0 commit di belakang, 29 file berubah  
+> Tanggal pemeriksaan: 30 Juli 2026  
+> Stack: Vue 3, Express 5, PostgreSQL, JavaScript, ES Modules
 
-## 1. Kesimpulan
+## 1. Verdict
 
-**Verdict branch: REQUEST CHANGES sebelum merge.**
+### Kesiapan merge
 
-Implementasi inti slice pertama bergerak ke arah yang benar:
+**CONDITIONAL PASS untuk perubahan security Slice 1 dan Slice 2.**
 
-- fallback `DB_PASSWORD` dan `JWT_SECRET` sudah dihapus;
-- backend sekarang fail-fast ketika secret wajib tidak tersedia;
-- signing dan verification JWT memakai satu sumber konfigurasi;
-- endpoint serta UI full-database export sudah dihapus;
-- script lint dibedakan menjadi mode check dan fix;
-- regression test untuk secret dan endpoint full database telah ditambahkan;
-- baseline hardening sudah didokumentasikan.
+Implementasi secret, full-database export containment, export kustom, dan audit
+integrity sudah bergerak benar dan layak dipertahankan. Sebelum merge, rapikan
+status dokumentasi dan hadirkan bukti check otomatis atau hasil verifikasi yang
+dapat direproduksi.
 
-Namun branch belum layak disebut menyelesaikan P0. Alasan utama:
+### Kesiapan production
 
-1. `Plan.md` dan `Prompt.md` yang ditambahkan ke branch rusak encoding
-   (mojibake) dan masih menunjuk snapshot `main`,
-   sehingga dokumen eksekusi tidak akurat.
-2. Password seluruh akun yang diperiksa masih non-bcrypt dan alur login,
-   create user, update user, serta seed masih memakai plaintext.
-3. Export kustom tetap tersedia untuk **setiap user terautentikasi**, termasuk
-   dataset pengguna, karyawan, dan audit login.
-4. Audit login dan komentar tiket masih menerima identitas aktor dari client.
-5. Akses detail tiket, komentar, history, dan CASP belum memakai satu policy
-   resource-scope yang konsisten.
-6. DDL dan backfill masih berjalan dari request path.
-7. JWT masih disimpan di `localStorage`, sedangkan SSE masih menerima token
-   melalui query string.
-8. Backup/restore rehearsal belum dilakukan.
-9. Commit head tidak memiliki GitHub status check atau workflow run.
+**BLOCKED.**
 
-Dengan kata lain, slice ini adalah **containment yang berguna**, bukan tanda
-bahwa aplikasi sudah production-ready.
+Branch belum boleh dianggap production-ready karena masih memiliki P0 berikut:
 
-## 2. Ruang Lingkup Pemeriksaan
+1. ticket resource authorization belum konsisten;
+2. actor komentar masih dapat dipalsukan client;
+3. password masih plaintext;
+4. DDL, seed, dan backfill masih berjalan dari request path;
+5. fresh schema masih rusak;
+6. backup/restore rehearsal belum tersedia;
+7. commit head tidak memiliki status check atau PR workflow run yang terdeteksi.
 
-Pemeriksaan dilakukan secara read-only terhadap:
+Pekerjaan berikutnya tidak boleh mengulang Slice 2. Fokus paling aman adalah
+**P0 Slice 3 — Ticket Authorization & Actor Integrity** tanpa migration
+database.
 
-- perbandingan `main` dengan branch;
-- 17 file yang berubah;
-- konfigurasi environment dan JWT;
-- routing serta controller export;
-- autentikasi, otorisasi, ticketing, audit, dan attachment;
-- manifest npm, lockfile, script lint/build/test;
-- test baru;
-- baseline hardening;
-- file source terbesar dan pola risiko pada 69 file, sekitar 15.320 baris;
-- status check dan workflow GitHub pada commit head.
+## 2. Apa yang Berubah Sejak Audit Sebelumnya
+
+Audit sebelumnya memeriksa head:
+
+`603b6f22507a984b46150bf3b7a362858c83b236`
+
+Branch sekarang memiliki dua commit tambahan dan head:
+
+`1662005e1c2b46b419979fdbace493ace108d520`
+
+Perubahan baru mencakup:
+
+- export kustom dibatasi ke superadmin;
+- limit export diwajibkan sebagai integer `1..1000`;
+- identifier export memakai allowlist;
+- response export diproyeksikan ulang untuk mencegah field tak terduga bocor;
+- metadata ticket export diselaraskan dengan kolom PostgreSQL aktif;
+- formula spreadsheet dinetralkan dan HTML export di-escape;
+- fake audit request dari `App.vue` dihapus;
+- `POST /api/logs/audit` dihapus;
+- pembacaan audit login dibatasi ke superadmin;
+- login audit memakai actor canonical dari database atau penanda server;
+- test backend dan frontend untuk export/audit ditambahkan;
+- `Prompt.md` justru sudah tidak ada pada head;
+- `Plan.md` belum diperbarui setelah Slice 2 selesai;
+- baseline masih menyebut Slice 2 sebagai working tree yang belum di-commit,
+  padahal perubahan tersebut sekarang sudah menjadi commit.
+
+## 3. Metode dan Batas Pemeriksaan
+
+Pemeriksaan read-only meliputi:
+
+- verifikasi branch dan perbandingan terhadap `main`;
+- perbandingan terhadap head audit sebelumnya;
+- inspeksi 29 file yang berubah;
+- inspeksi auth, export, audit, ticket, queue, SSE, permission, session,
+  attachment, schema, seed, dan test;
+- targeted scan 34 file utama, sekitar 9.678 baris;
+- inspeksi status check dan workflow pada head;
+- peninjauan ulang `Plan.md` dan `docs/hardening-baseline.md`.
 
 Tidak dilakukan:
 
-- perubahan pada branch GitHub;
+- perubahan branch GitHub;
+- clone dan eksekusi source secara lokal;
+- koneksi ke database;
 - migration, seed, backfill, atau query tulis;
-- pengujian terhadap database production;
 - rotasi secret;
 - deployment;
-- klaim bahwa hasil test lokal dalam dokumen branch telah direproduksi oleh CI.
+- reproduksi hasil test yang ditulis dalam baseline.
 
-## 3. Penilaian Perubahan Slice 1
+Karena tidak ada status check atau workflow run yang terdeteksi, angka test
+berikut diperlakukan sebagai **hasil yang dicatat oleh branch**, bukan bukti CI:
 
-| Area | Status | Penilaian | Tindakan |
-| --- | --- | --- | --- |
-| Secret database | Selesai untuk source | Fallback password dihapus dan boot fail-fast | Pastikan secret deployment tersedia dan rotasi credential lama |
-| JWT secret | Selesai untuk source | Signing dan verification memakai `env.jwt.secret` | Rotasi secret deployment dan dokumentasikan invalidasi token lama |
-| Full database export | Selesai sebagai containment | Route, controller, dan UI lama dihapus; test memastikan `404` tanpa query | Jangan aktifkan kembali sebagai endpoint aplikasi |
-| Export kustom | Belum aman | Hanya dilindungi `authenticateToken`; semua user login dapat meminta dataset sensitif | Batasi sementara ke superadmin, lalu bangun policy export eksplisit |
-| Test secret | Baik, sebagian brittle | Perilaku fail-fast diuji; sebagian assertion memeriksa teks source | Pertahankan behavior test, kurangi source-pattern test bertahap |
-| Test full DB export | Baik untuk regression | Membuktikan route lama `404`; database dimock | Tambahkan test role matrix dan integration test database terisolasi |
-| Script lint | Membaik | Mode check tidak lagi melakukan mutation | Bayar baseline 5 oxlint, 31 ESLint, dan 33 file format secara terkontrol |
-| Runtime pin | Parsial | `.nvmrc` berisi Node `24.16.0` | Selaraskan `engines`, CI, README, dan runtime deployment |
-| Dependency model | Diputuskan | Backend dan frontend dianggap package independen | Hapus root `package-lock.json` kosong agar tidak menyesatkan |
-| Baseline doc | Berguna, perlu koreksi | Data baseline cukup jelas | Jelaskan bahwa Plan/Prompt awalnya untracked lalu ditambahkan; perbarui status |
-| Plan/Prompt branch | Gagal kualitas | Encoding rusak dan snapshot sudah stale | Ganti dengan dokumen UTF-8 yang mengacu ke head branch |
-| CI | Belum ada bukti | Commit tidak memiliki status check/workflow run | Tambahkan workflow read-only untuk backend check/test dan frontend gates |
+- backend `27/27`;
+- frontend `6/6`;
+- frontend build lulus dengan warning chunk besar;
+- lint/format masih gagal pada debt baseline.
 
-## 4. Temuan Terprioritas
+## 4. Status Hardening
 
-### P0 — Harus ditangani sebelum production
+| Area | Status terbaru | Penilaian |
+| --- | --- | --- |
+| Fallback `DB_PASSWORD` | Selesai | Dihapus dan fail-fast |
+| Fallback `JWT_SECRET` | Selesai | Dihapus; sign/verify memakai satu konfigurasi |
+| Full-database export | Selesai | Route dan UI dihapus; regression test `404` |
+| Export role boundary | Selesai sebagai containment | Superadmin-only di backend |
+| Export row limit | Selesai | Integer wajib `1..1000` |
+| Export allowlist/redaction | Selesai untuk kontrak saat ini | Field tak terduga diproyeksikan keluar |
+| Ticket export metadata | Selesai | Nama kolom aktif sudah dipakai |
+| Central export injection defense | Selesai untuk utility tersebut | CSV/Excel formula dan HTML/PDF dynamic content diuji |
+| Client-writable login audit | Selesai | Endpoint POST dan side effect frontend dihapus |
+| Audit read boundary | Selesai sebagai containment | Superadmin-only |
+| Login audit actor | Selesai untuk alur login | Actor database/server, bukan body |
+| Dokumentasi snapshot | Belum selesai | `Plan.md` dan baseline stale |
+| `Prompt.md` | Hilang | Tidak ada pada head |
+| Ticket authorization | P0 terbuka | IDOR dan cross-queue masih mungkin |
+| Comment actor | P0 terbuka | Body masih mengalahkan `req.user` |
+| Password hashing | P0 terbuka | Login/create/update/seed plaintext |
+| Migration system | P0 terbuka | Runtime DDL/backfill masih aktif |
+| Recovery proof | P0 terbuka | Belum ada restore rehearsal |
+| CI | Belum terbukti | Tidak ada check/workflow run pada head |
+| Session transport | P1 terbuka | `localStorage` dan query-token SSE |
+| Attachment pipeline | P1 terbuka | Base64 dan kolom `TEXT` |
 
-#### P0-01 — Password plaintext
+## 5. Review Implementasi Slice 2
 
-**Bukti**
+### 5.1 Export containment
 
-- `backend/src/controllers/authController.js` membandingkan
-  `password === user.password`.
-- `backend/src/controllers/userController.js` menyimpan nilai password dari
-  request secara langsung saat create dan update.
-- `backend/Seed.sql` masih berisi akun dengan password non-hash.
-- Baseline branch mencatat 4 dari 4 akun masih non-bcrypt.
+Yang sudah benar:
 
-**Risiko**
+- `exportRoutes.js` memakai `authorizeRoles('superadmin')`;
+- alias `super admin` tetap diterima oleh middleware;
+- unauthenticated, user, dan admin ditolak sebelum query database pada test;
+- `tableName` dan column identifier berasal dari allowlist;
+- duplicate, unknown, dan empty column selection ditolak;
+- limit harus number integer dan tidak boleh melewati 1.000;
+- date dan text filter memiliki validasi;
+- query value tetap parameterized;
+- metadata ticket tidak lagi memakai nama field lama;
+- response row diproyeksikan hanya ke selected columns;
+- `password`, `permissions`, token, dan field mock tak terduga tidak bocor;
+- unexpected server error tidak mengirim detail database ke client.
 
-Kebocoran database langsung menjadi kebocoran seluruh credential. Tidak ada
-proteksi yang cukup terhadap credential reuse.
+Follow-up, bukan blocker Slice 2:
 
-**Tindakan**
+- metadata count menjalankan query secara serial untuk seluruh tabel;
+- error count setiap tabel diubah menjadi `0`, sehingga masalah schema dan
+  masalah koneksi terlihat sama;
+- pencarian `%term%` lintas banyak kolom dapat memindai tabel besar;
+- belum ada statement timeout, export job, atau audit event export;
+- test masih memakai mock pool, belum database integration terisolasi.
 
-1. Lakukan backup dan restore rehearsal pada database terisolasi.
-2. Gunakan `bcryptjs` yang sudah menjadi dependency.
-3. Hash password baru dengan cost yang dikonfigurasi dan memiliki batas aman.
-4. Migrasikan akun existing secara repeatable.
-5. Hapus dukungan plaintext setelah rollout; jangan mempertahankan fallback
-   plaintext tanpa expiry.
-6. Hapus credential nyata dari seed; seed hanya boleh memakai nilai development
-   yang eksplisit dan tidak bisa berjalan di production.
-7. Uji login benar/salah, create, update, inactive user, dan hash tidak pernah
-   muncul di response atau log.
+### 5.2 Audit integrity
 
-**Blocker:** backup/restore rehearsal dan strategi rollout.
+Yang sudah benar:
 
-#### P0-02 — Export kustom tidak memiliki authorization boundary
+- `App.vue` tidak lagi mengirim audit palsu saat mount;
+- `POST /api/logs/audit` sekarang `404`;
+- audit login hanya dapat dibaca superadmin;
+- actor login sukses/gagal untuk akun dikenal berasal dari row database;
+- akun tidak dikenal memakai penanda server;
+- IP dan user-agent tidak diambil dari body;
+- password dan token tidak dimasukkan ke audit response.
 
-**Bukti**
+Follow-up:
 
-- `router.use('/api/export', authenticateToken, exportRouter)`.
-- `/api/export/tables` dan `/api/export/data` tidak memakai `authorizeRoles`
-  atau `authorizePermission`.
-- Whitelist mencakup `users`, `karyawan`, `log_audit_login`, dan data operasional
-  lain.
-- Test sukses hanya menggunakan token superadmin dan tidak menguji penolakan
-  role lain.
+- keputusan retensi dan redaction audit belum ada;
+- konfigurasi trusted proxy belum terdokumentasi, sehingga makna `req.ip`
+  berbeda antar deployment;
+- inactive-user failure belum memiliki kebijakan audit eksplisit;
+- logout saat ini hanya menghapus local state dan tidak menghasilkan
+  server-side session invalidation karena sistem masih memakai bearer JWT.
 
-**Risiko**
+### 5.3 Frontend export security
 
-User biasa yang memiliki token valid dapat mengekspor PII, daftar akun, dan
-audit login. Frontend permission bukan security boundary.
+Yang sudah benar:
 
-**Tindakan containment berikutnya**
+- route dan menu export superadmin-only untuk UX;
+- UI selalu mengirim numeric limit;
+- central export engine meng-escape dynamic HTML;
+- formula prefix CSV/Excel dinetralkan;
+- output dibatasi maksimal 1.000 row dari server.
 
-- batasi kedua endpoint ke `superadmin` sebagai default aman;
-- tambahkan matrix test: tanpa token `401`, user `403`, admin `403`,
-  superadmin `200`;
-- pastikan field `password` tidak pernah tersedia;
-- audit siapa mengekspor apa, tetapi actor harus berasal dari `req.user`;
-- setelah kebutuhan bisnis dikunci, ganti role-only check dengan policy
-  dataset/column/scope yang eksplisit.
+Follow-up:
 
-#### P0-03 — Audit dapat dipalsukan oleh client
+- `document.write` masih digunakan, walaupun dynamic data pada utility ini sudah
+  di-escape;
+- utility print/export lain belum seluruhnya melalui helper aman yang sama;
+- route view utama masih eager-loaded;
+- `ExportView.vue` masih sekitar 902 baris.
 
-**Bukti**
+## 6. Temuan P0 Terbuka
 
-- `frontend/src/App.vue` mengirim login audit setiap mount dengan nilai tetap
-  `Admin IT`, `admin@esb.co.id`, dan `127.0.0.1`.
-- `POST /api/logs/audit` menerima `nama_pengguna`, `email`, `aktifitas`,
-  `ip_address`, dan `browser` dari body.
-- Login sukses/gagal sebenarnya sudah dicatat di backend auth controller.
+### P0-01 — Ticket IDOR dan cross-queue authorization
 
-**Risiko**
+#### Bukti
 
-Log audit tidak dapat dipercaya, menduplikasi login, dan memungkinkan user
-terautentikasi menulis identitas atau IP palsu.
+- `getTicketHistory` dan `getTicketComments` hanya memberi ownership check jika
+  role persis bernilai `user`.
+- Admin non-super tidak diperiksa terhadap `user_ticket_queues` pada history
+  dan comments.
+- Role lain seperti `teknisi` tidak masuk check `role === 'user'`, sehingga
+  dapat lolos ke data ticket mana pun berdasarkan ID.
+- `createTicketComment` hanya mengecek ID dan status ticket; tidak mengecek
+  ownership, queue, atau assignment.
+- `updateTicket` dan `deleteTicket` memakai `requireAdmin`, tetapi tidak
+  memastikan admin mempunyai akses ke queue/assignment ticket.
+- `getTicketCasp` mengambil ticket dan rating sebelum memastikan caller boleh
+  membaca resource; response masih dapat mengandung feedback dan snapshot
+  actor walaupun `eligible` bernilai false.
+- CASP stats/trend untuk admin non-super tidak difilter ke queue admin.
+- `listQueueAdmins` dapat dipanggil setiap user terautentikasi dan mengembalikan
+  nama serta email admin.
 
-**Tindakan**
+#### Dampak
 
-- hapus side effect audit dari `App.vue`;
-- hapus endpoint client-writable jika tidak diperlukan;
-- jika logout audit diperlukan, sediakan endpoint aksi logout yang mengambil
-  actor dari `req.user`, IP dari request, dan user-agent dari header;
-- definisikan allowlist event audit di backend;
-- tolak atau abaikan field actor yang dikirim client;
-- uji spoofing actor.
+Caller terautentikasi dapat membaca, mengomentari, mengubah, menghapus, atau
+menerima metadata ticket di luar scope bisnisnya.
 
-#### P0-04 — Resource authorization ticket belum konsisten
+#### Target
 
-**Bukti**
+Buat satu policy service untuk:
 
-- route history, comments, CASP, dan sebagian listing hanya mengandalkan
-  autentikasi global;
-- `createTicketComment` hanya mengecek keberadaan dan status tiket;
-- `nama_pengguna` dan `role_pengguna` dari request body mengalahkan `req.user`;
-- rule queue sudah ada pada claim/reassign, tetapi belum dipakai sebagai policy
-  bersama untuk read/comment/history.
+- `canReadTicket`;
+- `canCommentTicket`;
+- `canManageTicket`;
+- `canDeleteTicket`;
+- `canRateTicket`;
+- `scopeTicketQuery`;
+- `scopeTicketEvent`.
 
-**Risiko**
+Policy minimum:
 
-User dapat membaca atau mengomentari tiket yang bukan miliknya atau di luar
-queue-nya, serta memalsukan identitas komentar.
+| Actor | Read/history/comments | Comment | Update/resolve | Delete | CASP submit |
+| --- | --- | --- | --- | --- | --- |
+| Reporter | Ticket milik sendiri | Ticket sendiri dan terbuka | Tidak | Tidak | Ticket sendiri setelah resolved |
+| Admin queue | Queue sendiri/assigned | Queue sendiri/assigned dan terbuka | Queue sendiri/assigned | Tidak secara default | Tidak |
+| Superadmin | Semua | Ticket terbuka | Semua | Ya | Hanya jika juga reporter |
+| Role tak dikenal | Tolak | Tolak | Tolak | Tolak | Tolak |
 
-**Tindakan**
+Authorization tidak boleh hanya membandingkan display name. Untuk ticket legacy
+dengan `pelapor_user_id IS NULL`, default aman adalah deny kepada user sampai
+ada backfill yang diverifikasi. Jangan menjalankan backfill sebelum recovery
+gate.
 
-- buat policy service tunggal untuk `canReadTicket`, `canCommentTicket`,
-  `canManageTicket`, `canRateTicket`;
-- reporter hanya mengakses tiket miliknya;
-- admin hanya mengakses queue yang ditugaskan;
-- assignee mengakses tiket yang ditangani;
-- superadmin boleh mengakses semua;
-- actor komentar hanya dari `req.user`;
-- terapkan policy pada list, history, comments, CASP, update, delete, claim, dan
-  reassign;
-- tambahkan negative tests untuk IDOR dan cross-queue.
+### P0-02 — Actor komentar dapat dipalsukan
 
-#### P0-05 — DDL/backfill masih berjalan saat request
+#### Bukti
 
-**Bukti**
+Backend:
 
-- auth dan user controller masih menjalankan `ALTER TABLE ... IF NOT EXISTS`.
-- ticket dan queue controller masih memiliki beberapa `CREATE TABLE`,
-  `ALTER TABLE`, atau backfill helper.
-- `Schema.sql` belum menjadi sumber fresh install yang dapat dipercaya.
+```js
+const { pesan, attachment, nama_pengguna, role_pengguna } = req.body
+const userNama = nama_pengguna || req.user?.nama || 'User'
+const userRole = role_pengguna || req.user?.role || 'user'
+```
 
-**Risiko**
+Frontend juga masih mengirim `nama_pengguna` dan `role_pengguna`.
 
-Race condition, lock saat traffic, privilege database berlebihan, deployment
-yang tidak repeatable, serta perbedaan schema antar-environment.
+#### Target
 
-**Tindakan**
+- body comment hanya menerima content dan attachment yang tervalidasi;
+- nama, role, dan user ID berasal dari authenticated server context;
+- unknown/missing actor ditolak, bukan diganti silent menjadi `User`;
+- spoof field ditolak atau diabaikan secara eksplisit;
+- actor audit/log ticket ditulis dalam transaction yang sama.
 
-- pilih migration runner ringan atau mekanisme SQL versioned;
-- buat baseline migration yang tervalidasi;
-- pindahkan seluruh DDL, seed, dan backfill keluar request path;
-- jalankan migration sebelum aplikasi menerima traffic;
-- uji fresh database, upgrade database existing, rerun idempotent, dan rollback
-  atau forward-fix.
+### P0-03 — SSE membocorkan event lintas queue
 
-#### P0-06 — Belum ada recovery proof
+#### Bukti
 
-**Bukti**
+`realtimeService.js` mengirim seluruh event ke semua admin dan superadmin:
 
-`docs/hardening-baseline.md` menyatakan backup/restore rehearsal belum
-dilakukan.
+```js
+if (!regularUser) return true
+```
 
-**Risiko**
+Akibatnya admin queue A dapat menerima payload ticket atau comment queue B.
+Payload event dapat memuat row ticket lengkap dan attachment.
 
-Migration password dan schema dapat merusak data tanpa jalur pemulihan yang
-teruji.
+Selain itu, fallback tanpa `clientUser` mengembalikan `true`; prinsip aman
+seharusnya fail closed.
 
-**Tindakan**
+#### Target
 
-- buat backup operasional di luar endpoint aplikasi;
-- enkripsi dan batasi akses artefak backup;
+- event delivery memakai policy yang sama dengan HTTP;
+- reporter hanya menerima ticket miliknya;
+- admin hanya menerima queue/assignment yang diizinkan;
+- superadmin menerima semua;
+- missing/unknown identity ditolak;
+- payload event memakai DTO minimum, bukan row database lengkap;
+- test membuktikan event queue A tidak diterima admin queue B.
+
+### P0-04 — Password plaintext
+
+#### Bukti
+
+- login membandingkan `password === user.password`;
+- create/update user menyimpan `String(password)` langsung;
+- `Seed.sql` berisi password literal;
+- baseline mencatat seluruh 4 akun existing masih non-bcrypt;
+- dependency `bcryptjs` sebenarnya sudah tersedia.
+
+#### Target
+
+1. backup/restore rehearsal;
+2. hash untuk create dan update;
+3. migration akun existing yang repeatable;
+4. rollout login tanpa fallback plaintext permanen;
+5. hapus credential literal dari seed;
+6. response, export, audit, dan log tidak pernah mengandung hash;
+7. rate limiting serta password policy yang disetujui.
+
+**Blocker:** recovery proof dan strategi rollout.
+
+### P0-05 — Runtime DDL, seed, dan backfill
+
+#### Bukti
+
+- auth/user controller menjalankan `ALTER TABLE`;
+- ticket controller menjalankan beberapa `CREATE TABLE`, `ALTER TABLE`, dan
+  seed contoh;
+- queue controller membuat tabel, constraint, index, dan menjalankan backfill
+  pada request path;
+- error migration queue hanya dicatat lalu request dapat lanjut pada keadaan
+  schema yang tidak pasti.
+
+#### Target
+
+- SQL migration versioned;
+- migration dijalankan sebelum traffic;
+- runtime role tidak memiliki privilege DDL;
+- seluruh `ensure*Table*` dihapus dari controller;
+- seed development terpisah dan tidak dapat berjalan di production;
+- fresh/existing/rerun migration test.
+
+### P0-06 — Fresh schema rusak
+
+`Schema.sql` memiliki blok `WHERE NOT EXISTS (` yang tidak ditutup sebelum
+statement berikutnya dan mereferensikan `tickets` sebelum schema tersebut
+dibangun secara lengkap.
+
+Target:
+
+- baseline migration canonical;
+- fresh database dapat dibangun dari nol;
+- existing database dapat di-upgrade;
+- constraint dan foreign key diverifikasi;
+- schema dump bukan kumpulan patch manual yang urutannya ambigu.
+
+### P0-07 — Recovery dan CI proof belum ada
+
+- backup/restore rehearsal belum dilakukan;
+- head tidak memiliki status check;
+- tidak ada PR workflow run yang terdeteksi;
+- hasil `27/27` dan `6/6` berasal dari dokumen branch;
+- lint dan format masih gagal pada debt baseline.
+
+Target:
+
+- backup terenkripsi di luar endpoint aplikasi;
 - restore ke database terisolasi;
-- bandingkan row count serta constraint;
-- catat durasi, owner, lokasi artefak, dan hasil;
-- jadikan bukti restore sebagai gate untuk migration berisiko.
+- row count, constraint, dan critical smoke flow diverifikasi;
+- CI melakukan install reproducible, backend check/test, frontend test/build,
+  dan incremental lint/format gate;
+- required check dikunci sebelum release.
 
-### P1 — Security, correctness, dan operasional
+## 7. Temuan P1
 
-#### P1-01 — Token di `localStorage` dan query string
+### P1-01 — JWT di `localStorage` dan URL SSE
 
-- JWT dibaca dari `localStorage` di auth, API composable, router, dan SSE.
-- middleware menerima `?token=...`.
-- Query token dapat muncul di browser history, proxy log, access log, dan
-  telemetry.
+Bearer token masih:
 
-Target: session cookie `HttpOnly`, `Secure`, `SameSite` dengan CSRF strategy,
-atau mekanisme SSE aman yang tidak menaruh bearer token di URL. Perubahan ini
-harus disiapkan sebagai migrasi kompatibel dan diuji lintas browser.
+- disimpan di `localStorage`;
+- dibaca router dan composable;
+- dikirim sebagai `?token=...`;
+- diterima middleware dari query.
 
-#### P1-02 — CORS mengizinkan seluruh private LAN
+Target akhir: cookie `HttpOnly`, `Secure`, dan `SameSite` disertai CSRF strategy,
+logout/invalidation, expiry, dan transport SSE yang tidak menaruh bearer token
+di URL.
 
-`backend/src/app.js` mengizinkan origin localhost dan semua alamat private
-network tanpa harus tercantum pada `CORS_ORIGINS`.
+### P1-02 — Token menyimpan authorization snapshot selama 12 jam
 
-Target: allowlist exact origin per environment; tanpa wildcard atau implicit
-private-network bypass di production.
+Role dan permissions dibaca dari JWT. Perubahan permission atau deaktivasi user
+tidak otomatis membatalkan token lama.
 
-#### P1-03 — Export tidak dibatasi dan schema ticket stale
+Target:
 
-- default `limit = 'all'`;
-- tidak ada hard cap atau pagination/streaming;
-- metadata ticket memakai nama kolom Inggris seperti `created_at`,
-  `ticket_number`, dan `subject`, sedangkan schema aktif memakai nama Indonesia
-  seperti `dibuat_pada`, `nomor_tiket`, dan `judul`.
+- identity/session version atau server-side session;
+- active-user check pada boundary sensitif;
+- token lifetime dan rotation policy;
+- test disabled user dan permission revocation.
 
-Target: kontrak metadata berasal dari schema/migration yang sama, request
-memiliki hard cap, dan export besar menjadi job/stream terkontrol.
+### P1-03 — CORS implicit private LAN
 
-#### P1-04 — Permission frontend salah menilai string `none`
+`app.js` mengizinkan seluruh origin private network walaupun tidak tercantum
+dalam `CORS_ORIGINS`.
 
-`return !!userPerms[key]` membuat string `none` bernilai `true`. Ini bukan
-security boundary, tetapi menghasilkan UI yang salah dan memperbesar risiko
-akses tak sengaja.
+Target: exact allowlist per environment dan tidak ada private-LAN bypass pada
+production.
 
-Target: normalisasi permission menjadi enum `none | read_only | full` di satu
-tempat, lalu uji route guard dan action visibility.
+### P1-04 — Permission string `none` masih truthy
 
-#### P1-05 — Attachment base64 di request dan database
+Router memakai:
 
-Body limit mencapai 10 MB dan ticket menyimpan `attachment` langsung. Base64
-menambah ukuran, membebani memory, database, backup, dan response.
+```js
+return !!userPerms[key]
+```
 
-Target: object storage/private filesystem dengan metadata di PostgreSQL,
-validasi MIME/signature/size, nama acak, authorization download, dan malware
-scan bila tersedia.
+String `none` menjadi `true`. Export terlindungi guard khusus, tetapi route lain
+masih salah secara UX. Backend tetap harus menjadi security boundary.
 
-#### P1-06 — Correctness transaksi dan nomor tiket
+Target: normalisasi `none | read_only | full` di helper bersama dan pisahkan
+read/write permission.
 
-- nomor tiket memakai `COUNT(*) + 1`, rawan collision dan reuse setelah delete;
-- beberapa operasi data + log + mapping queue belum berada dalam satu
-  transaction;
-- delete dan riwayat aset perlu diuji terhadap urutan operasi.
+### P1-05 — Attachment base64
 
-Target: database sequence/identity, unique constraint, dan transaction boundary
-untuk seluruh invariant penting.
+- ticket dan comment memakai `FileReader.readAsDataURL`;
+- body JSON diizinkan hingga 10 MB;
+- attachment disimpan di kolom `TEXT`;
+- event dan response dapat membawa payload binary besar.
 
-#### P1-07 — Output export/print perlu proteksi injection
+Target: private object/file storage, metadata di PostgreSQL, MIME/magic-byte
+validation, size limit, random key, authorized streaming download, retention,
+dan orphan cleanup.
 
-Utility export menggunakan `document.write`; CSV/spreadsheet output perlu
-menetralisir formula prefix seperti `=`, `+`, `-`, dan `@`.
+### P1-06 — Nomor ticket dan transaction boundaries
 
-Target: renderer aman, escaping HTML, formula neutralization, serta regression
-test dengan payload berbahaya.
+- nomor ticket memakai `COUNT(*) + 1`;
+- create ticket dan log bukan satu transaction;
+- update utama, resolved timestamp, dan log bukan satu transaction;
+- user update dan queue mapping bukan satu transaction;
+- `addTicketLog` menelan error.
 
-### P2 — Maintainability dan performance
+Target: sequence/identity, unique invariant, explicit transaction, dan
+concurrency test.
 
-#### P2-01 — File terlalu besar
+### P1-07 — List endpoints dan query budget
 
-Temuan ukuran terbesar:
+- beberapa list/log endpoint tanpa pagination;
+- search ticket tidak memiliki length cap;
+- export metadata melakukan serial count;
+- broad `%search%` dapat menjadi expensive scan.
+
+Target: pagination, maximum page size, validation, statement timeout untuk
+operasi berat, serta index berdasarkan query plan.
+
+### P1-08 — Queue admin directory terlalu lebar
+
+`GET /api/ticket-queues/:queueId/admins` tersedia untuk seluruh user login dan
+mengembalikan email.
+
+Target:
+
+- batasi ke actor yang membutuhkan reassign;
+- scope ke queue yang dapat diakses;
+- kembalikan field minimum;
+- jangan expose email jika hanya ID/nama yang dibutuhkan.
+
+## 8. Temuan P2
+
+### P2-01 — Dokumentasi stale
+
+`Plan.md` masih:
+
+- menunjuk head `603b6f2`;
+- menyebut hanya 17 file berubah;
+- menyebut export dan audit sebagai belum aman;
+- menjadwalkan Slice 2 sebagai pekerjaan masa depan.
+
+`docs/hardening-baseline.md` menyebut Slice 2 sebagai working tree yang belum
+menjadi commit, padahal sudah ada pada head. `Prompt.md` tidak ada.
+
+### P2-02 — Source files besar
+
+Targeted scan:
 
 | File | Baris |
 | --- | ---: |
 | `frontend/src/views/TicketsView.vue` | 1.444 |
-| `frontend/src/views/ExportView.vue` | 900 |
+| `frontend/src/views/ExportView.vue` | 902 |
 | `backend/src/controllers/ticketController.js` | 840 |
 | `frontend/src/views/UsersView.vue` | 811 |
-| `frontend/src/views/AssetsView.vue` | 797 |
 | `frontend/src/views/SubmissionsView.vue` | 789 |
-| `frontend/src/views/MyAssetsView.vue` | 764 |
+| `frontend/src/views/LogsView.vue` | 438 |
+| `backend/src/controllers/exportController.js` | 419 |
 
-Target: pecah berdasarkan domain dan alasan perubahan, bukan sekadar mengejar
-jumlah baris. Controller harus tipis; aturan bisnis dan policy dapat diuji tanpa
-HTTP server.
+Pecah berdasarkan domain dan alasan perubahan setelah security boundary
+memiliki test.
 
-#### P2-02 — Frontend bundle dan quality debt
+### P2-03 — Duplicate CSS dan formatting scope
 
-- build memiliki chunk utama di atas 500 kB;
-- baseline mencatat 5 error oxlint, 31 error ESLint, dan 33 file tidak sesuai
-  format;
-- route view utama masih eager-loaded.
+`AppSidebar.vue` memiliki dua blok `<style scoped>` yang identik. Commit head
+juga hanya mengubah gaya quote/semicolon di `app.js` dan `server.js`, sementara
+format gate keseluruhan masih gagal.
 
-Target: lazy-loaded route, chunk inspection, perbaikan lint bertahap tanpa
-mass-format pada perubahan security, dan CI read-only.
+Hapus duplikasi dalam cleanup kecil. Jangan campurkan mass-format dengan
+security refactor.
 
-#### P2-03 — Dokumentasi dan dependency hygiene
+### P2-04 — Dependency/runtime hygiene
 
-- root `package-lock.json` kosong meskipun model repo adalah dua package
-  independen;
-- Node version belum konsisten di seluruh manifest, CI, docs, dan deployment;
-- Plan/Prompt di branch rusak encoding dan stale.
+- `.nvmrc` memakai Node `24.16.0`;
+- frontend engine membutuhkan `^22.18.0 || >=24.12.0`;
+- backend engine masih `>=18`;
+- root `package-lock.json` kosong walaupun model repo adalah dua package
+  independen.
 
-Target: satu keputusan package/runtime yang eksplisit, UTF-8 tervalidasi, dan
-dokumentasi yang selalu menyebut commit snapshot serta status aktual.
+Target: satu runtime policy untuk local, CI, dan deployment; hapus lockfile root
+kosong setelah verifikasi.
 
-## 5. Target Arsitektur
+## 9. Arsitektur Target
 
 ```mermaid
 flowchart TD
     UI["Vue UI"] --> API["Express routes"]
-    API --> AUTH["Auth + policy"]
-    AUTH --> SVC["Domain services"]
-    SVC --> REPO["Repository/query layer"]
+    API --> ID["Current identity"]
+    ID --> POLICY["Ticket policy"]
+    POLICY --> SERVICE["Domain service"]
+    SERVICE --> REPO["Repository / SQL"]
     REPO --> DB["PostgreSQL"]
-    SVC --> AUDIT["Server-side audit"]
-    SVC --> FILES["Private file storage"]
+    SERVICE --> AUDIT["Server audit"]
+    POLICY --> EVENTS["Scoped SSE"]
 ```
 
-Aturan boundary:
+Aturan:
 
-- UI hanya membantu UX; backend selalu menegakkan security.
-- Route melakukan parsing dan menghubungkan middleware.
-- Policy memutuskan role, permission, ownership, queue, dan assignment.
-- Service memegang transaksi serta invariant bisnis.
-- Repository menyimpan SQL dan mapping data.
-- Migration adalah satu-satunya pemilik DDL/backfill.
-- Audit mengambil actor dari konteks server.
-- File binary tidak disimpan sebagai base64 di row utama.
+- route melakukan parsing dan middleware;
+- current identity memiliki ID, role canonical, status aktif, dan scope;
+- policy memutuskan akses tanpa side effect;
+- service memegang invariant serta transaction;
+- repository memegang SQL;
+- SSE memakai policy/audience yang sama dengan HTTP;
+- migration menjadi satu-satunya pemilik DDL/backfill.
 
-## 6. Model Otorisasi Target
+## 10. Urutan Eksekusi Baru
 
-| Aksi | User/reporter | Admin queue | Superadmin |
-| --- | --- | --- | --- |
-| Melihat tiket | Milik sendiri | Queue sendiri/assigned | Semua |
-| Membuat tiket | Ya | Ya | Ya |
-| Mengomentari tiket | Milik sendiri dan masih terbuka | Queue/assigned dan masih terbuka | Tiket terbuka |
-| Claim | Tidak | Queue sendiri | Ya |
-| Reassign | Tidak | Assignee saat ini dan target satu queue | Ya |
-| Resolve/update | Tidak, kecuali aksi user yang eksplisit | Queue/assigned | Ya |
-| Memberi CASP | Reporter setelah resolved | Tidak untuk tiket yang ditangani | Hanya bila reporter |
-| Export sensitif | Tidak | Tidak secara default | Ya |
-| Kelola user | Tidak | Terbatas sesuai policy final | Ya |
-| Baca audit | Tidak | Jika disetujui | Ya |
+### Slice 2A — Tutup administrasi branch
 
-Keputusan role admin untuk export dan audit harus dikunci bersama product owner.
-Sampai ada keputusan, gunakan **superadmin-only**.
+Tujuan: membuat Slice 1–2 akurat dan reproducible.
 
-## 7. Urutan Eksekusi
+- perbarui Plan ke head terbaru;
+- ubah baseline Slice 2 dari “working tree” menjadi snapshot commit;
+- sediakan Prompt lanjutan;
+- hapus duplicate style block;
+- hapus root lockfile kosong setelah verifikasi;
+- selaraskan runtime docs/engines;
+- tambahkan atau jalankan CI/check yang dapat diverifikasi.
 
-### Slice 1A — Rapikan branch yang sedang diperiksa
+Gate:
 
-Tujuan: membuat hasil slice pertama layak direview dan reproducible.
+- tidak ada status stale;
+- Markdown UTF-8 valid;
+- branch scope dan test evidence akurat;
+- tidak ada perubahan schema/data.
 
-- ganti `Plan.md` dan `Prompt.md` dengan UTF-8 yang valid;
-- ubah snapshot dokumen ke branch/head terbaru;
-- tandai fallback secret dan full-db export sebagai selesai;
-- koreksi narasi baseline tentang Plan/Prompt;
-- hapus root lockfile kosong setelah memastikan dua-package model;
-- selaraskan Node version di `.nvmrc`, `engines`, README, dan CI;
-- tambahkan CI minimal jika scope review mengizinkan:
-  - backend install reproducible, syntax check, test;
-  - frontend install reproducible, build, lint check, format check;
-  - lint/format lama boleh menjadi gate bertahap yang transparan, bukan
-    disembunyikan.
+### Slice 3 — Ticket Authorization & Actor Integrity
 
-**Gate**
+Tujuan: menutup IDOR, cross-queue, spoofed actor, dan event leakage tanpa
+migration.
 
-- tidak ada mojibake;
-- docs menyebut commit aktual;
-- install memakai lockfile package masing-masing;
-- commit memperoleh status checks.
+- buat policy service teruji;
+- definisikan role canonical dan deny unknown;
+- hilangkan name-only authorization;
+- scope list, stats, CASP stats/trend, history, comments, CASP read/submit,
+  update, delete, queue-admin directory, dan SSE;
+- actor comment hanya dari `req.user` atau current identity;
+- frontend tidak lagi mengirim actor;
+- minimal event DTO;
+- negative tests untuk reporter lain, admin queue lain, unknown role, dan
+  spoofed actor.
 
-### Slice 2 — Export containment dan audit integrity
+Gate:
 
-Tujuan: menutup dua jalur kebocoran/pemalsuan tanpa migration database.
+- HTTP dan SSE memakai matrix akses sama;
+- denial terjadi sebelum mutation;
+- tidak ada actor body yang dipercaya;
+- tidak ada migration atau backfill;
+- seluruh test Slice 1–3 tetap lulus.
 
-- jadikan seluruh route export superadmin-only sementara;
-- tambahkan hard cap dan validasi limit;
-- perbaiki metadata ticket agar sesuai schema aktif;
-- pertahankan full-db route sebagai `404`;
-- hapus fake login audit dari `App.vue`;
-- hapus atau sempitkan `POST /api/logs/audit`;
-- actor, IP, dan user-agent berasal dari server;
-- tambahkan test role matrix, redaction, limit, contract, dan actor spoofing.
+### Slice 4 — Recovery rehearsal
 
-**Gate**
+- backup operasional di luar aplikasi;
+- enkripsi dan access control;
+- restore database terisolasi;
+- verifikasi row count, constraint, dan smoke flow;
+- dokumentasikan RPO/RTO, owner, durasi, dan rollback.
 
-- user/admin non-super selalu `403` untuk export sensitif;
-- `password` tidak dapat dipilih atau muncul;
-- payload actor palsu tidak pernah masuk log;
-- tidak ada regression pada login dan build frontend.
+Gate: restore proof tersedia.
 
-### Slice 3 — Ticket policy dan actor integrity
+### Slice 5 — Password hashing
 
-Tujuan: menutup IDOR/cross-queue dan pemalsuan komentar.
+- bcrypt untuk create/update/login;
+- migration existing users;
+- strategi rollout tanpa fallback plaintext permanen;
+- seed aman;
+- rate limit login;
+- secret rotation.
 
-- buat policy service tunggal;
-- terapkan pada list/detail/history/comment/CASP/manage;
-- ambil actor komentar dari `req.user`;
-- tambahkan test reporter, unrelated user, admin same queue, admin other queue,
-  assignee, dan superadmin;
-- jangan melakukan migration pada slice ini kecuali benar-benar diperlukan.
+Gate: 0 plaintext password dan restore proof.
 
-**Gate**
+### Slice 6 — Migration system
 
-- semua negative authorization tests lulus;
-- list dan SSE tidak membocorkan event tiket di luar scope;
-- body tidak dapat mengubah actor.
+- migration versioned;
+- repair fresh schema;
+- pindahkan DDL/seed/backfill;
+- runtime DB role tanpa DDL;
+- fresh/existing/rerun test.
 
-### Slice 4 — Recovery rehearsal dan password migration
+### Slice 7 — Session, CORS, dan security middleware
 
-Tujuan: menghapus plaintext credential dengan jalur recovery yang dibuktikan.
+- HttpOnly cookie dan CSRF;
+- hapus query token;
+- exact CORS;
+- inactive-user/session revocation;
+- security headers dan rate limiting.
 
-- lakukan backup operasional;
-- restore ke database terisolasi;
-- catat verifikasi;
-- implementasikan hash untuk akun baru/perubahan password;
-- migrasikan akun existing;
-- rotasi secret yang pernah menggunakan fallback;
-- hapus fallback kompatibilitas plaintext.
+### Slice 8 — Attachment pipeline
 
-**Gate**
+- private storage;
+- metadata migration;
+- validation dan authorized streaming;
+- retention/orphan cleanup.
 
-- 0 password plaintext;
-- semua login menggunakan hash;
-- tidak ada password/hash di API, log, atau export;
-- restore proof tersedia;
-- rollback/forward-fix terdokumentasi.
+### Slice 9 — Correctness dan performance
 
-### Slice 5 — Migration system dan penghapusan runtime DDL
+- sequence nomor ticket;
+- transaction boundaries;
+- pagination;
+- query budget/index;
+- concurrency tests.
 
-Tujuan: menjadikan perubahan schema deterministic.
+### Slice 10 — Modularity, CI, observability, dan cleanup
 
-- inventaris seluruh DDL/backfill dalam controller;
-- buat migration berurutan;
-- perbaiki fresh schema;
-- pindahkan seed keluar setup production;
-- hapus semua `ensure*Table/ColumnExists` dari request path.
+- pecah controller/view besar;
+- lazy routes;
+- quality debt;
+- required CI;
+- structured logs, correlation ID, readiness, metrics;
+- deploy/rollback/incident runbook;
+- hapus kode/dependency hanya dengan bukti.
 
-**Gate**
+## 11. Test Matrix Slice 3
 
-- fresh migrate lulus;
-- upgrade snapshot existing lulus;
-- rerun aman;
-- aplikasi runtime tidak memiliki privilege DDL;
-- tidak ada DDL pada route/controller/service.
+Gunakan fixture:
 
-### Slice 6 — Session, CORS, dan transport security
+- reporter A dan reporter B;
+- admin queue A;
+- admin queue B;
+- assignee queue A;
+- superadmin;
+- inactive user;
+- role tidak dikenal;
+- ticket queue A milik reporter A;
+- ticket queue B milik reporter B;
+- ticket legacy tanpa `pelapor_user_id`;
+- ticket open dan resolved.
 
-- migrasikan bearer token browser ke session cookie aman;
-- siapkan CSRF protection;
-- hapus token query SSE;
-- gunakan exact CORS allowlist;
-- tambahkan rate limit login dan security headers;
-- uji logout, expiry, inactive user, CSRF, CORS, dan reconnect SSE.
+Test minimum:
 
-### Slice 7 — Attachment pipeline
+### Read
 
-- pilih storage;
-- migration metadata attachment;
-- upload/download authorization;
-- MIME/signature/size validation;
-- streaming;
-- cleanup orphan;
-- test file berbahaya dan akses lintas user.
+- reporter A membaca ticket A: boleh;
+- reporter B membaca ticket A: tolak;
+- admin queue A membaca ticket A: boleh;
+- admin queue B membaca ticket A: tolak;
+- superadmin: boleh;
+- unknown role: tolak;
+- legacy name-only ticket: deny sampai backfill disetujui.
 
-### Slice 8 — Data correctness dan transaction boundaries
+### Comment
 
-- sequence nomor tiket;
-- transaksi create/update/log;
-- transaksi user + queue mapping;
-- concurrency test claim dan numbering;
-- constraint/index berdasarkan query nyata;
-- pagination seluruh list endpoint.
+- actor body palsu tidak dipakai;
+- reporter/authorized admin dapat comment ticket open;
+- unrelated actor ditolak;
+- resolved/closed ditolak;
+- denial tidak menulis comment/log/event;
+- comment row memakai actor server.
 
-### Slice 9 — Frontend modularity dan performance
+### Manage
 
-- pecah `TicketsView`, `ExportView`, `UsersView`, dan controller ticket;
-- konsolidasikan auth/permission;
-- lazy-load routes;
-- hilangkan `document.write`;
-- perbaiki error/loading/empty state dan accessibility;
-- bayar lint/format debt dalam PR terpisah dari security.
+- admin queue/assigned dapat update sesuai policy;
+- admin queue lain ditolak;
+- delete default superadmin-only;
+- claim/reassign lama tetap lulus;
+- audit/log mutation konsisten.
 
-### Slice 10 — CI, observability, deployment, dan cleanup final
+### CASP
 
-- required checks;
-- dependency/security scanning;
-- migration test;
-- smoke E2E;
-- structured logging dan correlation ID;
-- health/readiness;
-- metrics/alerts;
-- runbook deploy, rollback, restore, dan incident;
-- hapus kode/dependency hanya dengan bukti tidak dipakai.
+- unrelated actor tidak dapat membaca rating/feedback;
+- reporter dapat membaca dan submit setelah resolved;
+- assignee tidak dapat submit;
+- admin hanya melihat aggregate/resource sesuai queue;
+- double submit tetap `409`.
 
-## 8. Test Matrix Minimum
+### SSE
 
-### Backend
+- reporter hanya menerima ticket sendiri;
+- admin hanya menerima queue/assignment sendiri;
+- admin queue lain tidak menerima event;
+- superadmin menerima event;
+- unknown/missing actor fail closed;
+- payload tidak mengandung attachment/base64 atau field internal.
 
-- environment missing/blank/short secret;
-- login success/failure/inactive/expired token;
-- role dan permission matrix;
-- ticket resource scope dan cross-queue denial;
-- comment actor spoof;
-- audit actor spoof;
-- export unauthenticated/user/admin/superadmin;
-- export redaction, invalid columns, invalid table, limit, date/search;
-- full-db endpoint tetap `404`;
-- transaction rollback;
-- migration fresh/existing/rerun;
-- password hash create/update/migration;
-- concurrent ticket numbering/claim.
+### Regression
 
-### Frontend
+- export tetap superadmin-only;
+- full-db tetap `404`;
+- audit POST tetap `404`;
+- secret fail-fast tetap bekerja;
+- frontend actor fields dihapus;
+- frontend test/build lulus;
+- lint/format baseline dilaporkan apa adanya.
 
-- route guard untuk `none`, `read_only`, dan `full`;
-- action visibility sesuai permission;
-- login/logout/session expiry;
-- ticket detail/comment scope;
-- export tidak tampil untuk role tanpa akses;
-- upload validation;
-- error/loading/empty state;
-- accessibility dasar.
-
-### E2E
-
-1. user login dan hanya melihat data miliknya;
-2. user membuat tiket dan komentar sebagai dirinya sendiri;
-3. admin queue claim, update, dan resolve;
-4. admin queue lain ditolak;
-5. reporter memberi CASP;
-6. superadmin mengekspor dataset yang diizinkan;
-7. restore database terisolasi dan smoke test.
-
-## 9. Quality Gates
+## 12. Quality Gates
 
 Setiap slice harus:
 
-- memiliki diff kecil dan satu tujuan utama;
-- tidak menyentuh data production tanpa backup/restore proof;
-- menambah test untuk bug atau boundary yang diperbaiki;
-- menjalankan command read-only lebih dulu;
-- tidak memakai `lint --fix` atau mass-format pada file yang tidak terkait;
-- tidak memperlebar CORS, role, permission, body limit, atau export;
-- tidak menaruh secret di source, fixture, log, atau dokumentasi;
-- mendokumentasikan command, hasil, risiko tersisa, dan rollback;
-- berhenti jika ditemukan perubahan user yang tumpang tindih;
+- satu tujuan utama dan diff terbatas;
+- membaca `git status` serta mempertahankan perubahan user;
+- mengambil baseline sebelum edit;
+- menambah negative security tests;
+- tidak menjalankan migration/seed/backfill tanpa target dan recovery proof;
+- tidak melakukan lint fix atau mass-format pada file tidak terkait;
+- tidak menaruh credential, token, password, hash, atau PII fixture nyata;
+- tidak memperlebar role, CORS, body limit, export, atau event audience;
+- mendokumentasikan hasil aktual dan failure baseline;
 - tidak commit, push, merge, atau deploy tanpa izin eksplisit.
 
-Command minimum yang perlu tersedia:
+Command minimum:
 
 ```bash
+git status --short
+git branch --show-current
+git rev-parse HEAD
+
 cd backend
 npm ci
 DB_PASSWORD=test_password JWT_SECRET=01234567890123456789012345678901 npm run check
 
 cd ../frontend
 npm ci
+npm test
 npm run build
 npm run lint:check
 npm run format:check
 ```
 
-Untuk migration/test database, gunakan database terisolasi. Jangan menjalankan
-`seed`, backfill, atau migration terhadap database yang belum dipastikan target
-dan backup-nya.
+Database integration hanya pada database terisolasi.
 
-## 10. Definition of Done
+## 13. Definition of Done
 
-Aplikasi baru boleh disebut production-ready bila:
+Aplikasi baru dapat disebut production-ready jika:
 
 - semua P0 ditutup;
 - password seluruh akun berupa hash kuat;
 - backend menegakkan role, permission, ownership, queue, dan assignment;
-- audit tidak menerima actor dari client;
-- tidak ada bearer token di URL;
-- migration fresh dan existing repeatable;
-- tidak ada DDL/backfill di request path;
-- backup dan restore telah diuji;
-- export memiliki scope, redaction, limit, dan audit yang aman;
-- attachment berada di storage yang sesuai dan download terotorisasi;
-- transaksi menjaga invariant lintas-query;
-- lint, format, test, build, migration test, dan smoke E2E menjadi required CI;
-- tidak ada vulnerability Critical/High tanpa exception ber-owner dan expiry;
+- HTTP, SSE, export, attachment, dan audit memakai scope yang sama;
+- actor tidak pernah dipercaya dari body;
+- bearer token tidak ada di URL;
+- session dapat dicabut ketika user dinonaktifkan;
+- fresh dan existing migration repeatable;
+- runtime tidak menjalankan DDL/backfill;
+- restore rehearsal terbukti;
+- export memiliki scope, redaction, limit, dan audit;
+- attachment berada di private storage;
+- invariant multi-query menggunakan transaction;
+- pagination dan query limit tersedia;
+- CI required checks lulus;
+- tidak ada Critical/High vulnerability tanpa exception ber-owner dan expiry;
 - deploy, rollback, recovery, dan incident response terdokumentasi.
 
-## 11. Keputusan yang Masih Harus Dikunci
+## 14. Keputusan yang Harus Dikunci
 
-Sebelum slice terkait dimulai, minta keputusan untuk:
+1. Apakah admin boleh update seluruh ticket queue atau hanya ticket assigned?
+2. Apakah hard-delete ticket tetap dibutuhkan, atau hanya superadmin?
+3. Bagaimana menangani 4 ticket legacy tanpa `pelapor_user_id`?
+4. Apakah admin boleh melihat CASP aggregate seluruh queue atau hanya queue-nya?
+5. Apakah user perlu melihat daftar admin queue dan emailnya?
+6. Storage attachment yang tersedia?
+7. Model session dan domain deployment?
+8. RPO/RTO serta owner backup?
+9. Strategi rollout password?
+10. Migration runner yang diizinkan?
 
-1. Apakah admin biasa boleh export? Dataset dan kolom apa?
-2. Apakah admin boleh membaca audit login?
-3. Berapa retensi audit dan attachment?
-4. Storage attachment yang tersedia?
-5. Model session cookie dan domain deployment?
-6. Target RPO/RTO serta owner backup?
-7. Strategi rollout hash password: reset terkontrol atau transisi sekali login?
-8. Apakah migration runner boleh menambah dependency?
+Default aman:
 
-Default aman bila belum ada jawaban:
+- admin hanya queue/assigned;
+- delete hanya superadmin;
+- name-only legacy ownership ditolak;
+- CASP admin hanya queue;
+- email admin tidak diekspos;
+- tidak ada migration/backfill sebelum restore proof.
 
-- export dan audit hanya superadmin;
-- tidak ada perubahan schema/data;
-- tidak ada endpoint backup aplikasi;
-- tidak ada token di URL;
-- tidak ada actor dari body;
-- tidak menghapus file/dependency tanpa bukti pemakaian.
+## 15. Prioritas Praktis
 
-## 12. Prioritas Praktis
+1. rapikan status branch dan bukti check;
+2. kerjakan Ticket Authorization & Actor Integrity;
+3. lakukan recovery rehearsal;
+4. migrasikan password;
+5. bangun migration system dan hapus runtime DDL;
+6. lanjutkan session, CORS, attachment, correctness, modularity, dan operasi.
 
-Urutan paling aman dari branch ini:
-
-1. perbaiki dokumen/encoding dan reproducibility branch;
-2. tutup export kustom dan audit spoofing;
-3. tegakkan ticket resource policy;
-4. buktikan restore;
-5. migrasikan password;
-6. bangun migration system dan hapus runtime DDL;
-7. lanjutkan session, attachment, correctness, modularity, CI, dan operasional.
-
-Jangan memulai refactor UI besar sebelum P0 dan recovery gate selesai.
+Jangan memulai refactor UI besar atau mass-format sebelum P0 memiliki test dan
+recovery gate.

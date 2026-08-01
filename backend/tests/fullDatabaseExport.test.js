@@ -2,6 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
 import jwt from 'jsonwebtoken'
+import {
+  canonicalAuthResult,
+  canonicalAuthUser,
+  isCanonicalAuthQuery,
+} from './helpers/canonicalAuth.js'
 
 const testJwtSecret = 'j'.repeat(32)
 
@@ -33,9 +38,16 @@ async function startServer(t) {
   return server.address().port
 }
 
+const roleIds = new Map([
+  ['user', 1],
+  ['admin', 2],
+  ['superadmin', 3],
+  ['super admin', 4],
+])
+
 function createToken(role = 'superadmin') {
   return jwt.sign(
-    { id: 1, nama: 'Test User', role },
+    { id: roleIds.get(role), nama: 'Token User', role },
     testJwtSecret,
     { expiresIn: '5m' }
   )
@@ -45,7 +57,11 @@ test('GET /api/export/full-db returns 404 without querying the database', async 
   const originalQuery = pool.query
   let queryCount = 0
 
-  pool.query = async () => {
+  pool.query = async (sql, parameters = []) => {
+    if (isCanonicalAuthQuery(sql)) {
+      const role = [...roleIds].find(([, id]) => id === parameters[0])?.[0]
+      return canonicalAuthResult(canonicalAuthUser({ id: parameters[0], role }))
+    }
     queryCount += 1
     throw new Error('Database query must not run for the removed endpoint.')
   }
@@ -69,9 +85,14 @@ test('GET /api/export/full-db returns 404 without querying the database', async 
 test('POST /api/export/data remains available for custom exports', async (t) => {
   const originalQuery = pool.query
 
-  pool.query = async () => ({
-    rows: [{ id_aset: 7, label_aset: 'LAPTOP-007' }]
-  })
+  pool.query = async (sql, parameters = []) => {
+    if (isCanonicalAuthQuery(sql)) {
+      return canonicalAuthResult(
+        canonicalAuthUser({ id: parameters[0], role: 'superadmin' }),
+      )
+    }
+    return { rows: [{ id_aset: 7, label_aset: 'LAPTOP-007' }] }
+  }
   t.after(() => {
     pool.query = originalQuery
   })

@@ -1,12 +1,27 @@
 import { Router } from 'express'
 import * as logController from '../controllers/logController.js'
-import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js'
+import { authorizePermission, authorizeRoles } from '../middleware/authMiddleware.js'
 
 export const logRouter = Router()
 
-logRouter.use(authenticateToken)
+const requireLogsRead = authorizePermission('logs', 'read')
 
 // History Asset hanya Admin dan Super Admin yang bisa lihat
-logRouter.get('/assets', authorizeRoles('admin', 'superadmin'), logController.listAssetLogs)
-logRouter.get('/assets/:id', authorizeRoles('admin', 'superadmin'), logController.listAssetLogsByDevice)
-logRouter.get('/audit', authorizeRoles('superadmin'), logController.listLoginLogs)
+logRouter.get(
+  '/assets',
+  authorizeRoles('admin', 'superadmin'),
+  requireLogsRead,
+  logController.listAssetLogs,
+)
+logRouter.get(
+  '/assets/:id',
+  authorizeRoles('admin', 'superadmin'),
+  requireLogsRead,
+  logController.listAssetLogsByDevice,
+)
+logRouter.get(
+  '/audit',
+  authorizeRoles('superadmin'),
+  requireLogsRead,
+  logController.listLoginLogs,
+)

@@ -3,6 +3,25 @@ import { env } from '../config/env.js';
 import jwt from 'jsonwebtoken';
 
 const UNKNOWN_LOGIN_ACTOR = 'Tidak Diketahui'
+const MAX_LOGIN_EMAIL_LENGTH = 150
+const MAX_LOGIN_PASSWORD_LENGTH = 255
+
+export function normalizeLoginCredentials(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null
+  if (typeof body.email !== 'string' || typeof body.password !== 'string') return null
+
+  const email = body.email.trim().toLowerCase()
+  if (
+    !email ||
+    email.length > MAX_LOGIN_EMAIL_LENGTH ||
+    body.password.length === 0 ||
+    body.password.length > MAX_LOGIN_PASSWORD_LENGTH
+  ) {
+    return null
+  }
+
+  return { email, password: body.password }
+}
 
 const SUPERADMIN_PERMISSIONS = {
   dashboard: true,
@@ -28,32 +47,24 @@ const DEFAULT_USER_PERMISSIONS = {
   export: false
 }
 
-let isUserPermissionsChecked = false
-async function ensureUsersPermissionsColumnExists() {
-  if (isUserPermissionsChecked) return
-  try {
-    await pool.query(`
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{"dashboard":false,"assets":false,"my_assets":true,"tickets":true,"submissions":false,"users":false,"logs":false,"karyawan":false}'::jsonb;
-    `)
-    isUserPermissionsChecked = true
-  } catch (err) {
-    console.error('Gagal memastikan kolom permissions pada tabel users:', err)
-  }
-}
-
 export async function login(req, res) {
   try {
-    await ensureUsersPermissionsColumnExists()
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email dan password wajib diisi.' });
+    const credentials = normalizeLoginCredentials(req.body)
+    if (!credentials) {
+      return res.status(400).json({ message: 'Format email atau password tidak valid.' })
     }
+    const { email, password } = credentials
 
     // Cari user berdasarkan email beserta NIK & Jabatan dari tabel karyawan (jika terhubung)
     const result = await pool.query(`
       SELECT 
-        u.*,
+        u.id,
+        u.nama,
+        u.email,
+        u.password,
+        u.role,
+        u.permissions,
+        u.is_active,
         COALESCE(k.nik, '') AS nik,
         COALESCE(k.jabatan, u.role) AS jabatan
       FROM users u
@@ -132,7 +143,6 @@ export async function login(req, res) {
 
 export async function getMe(req, res) {
   try {
-    await ensureUsersPermissionsColumnExists()
     // req.user disisipkan oleh middleware authenticateToken
     const result = await pool.query(`
       SELECT 

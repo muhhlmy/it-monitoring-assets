@@ -6,11 +6,13 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
+import { isSuperAdminRole as isRoleSuperAdmin } from '../utils/permissionAccess.js'
 import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 
 const { get, post, put, del } = useApi()
-const { isSuperAdmin } = useAuth()
+const { isSuperAdmin, hasWritePermission } = useAuth()
+const canWriteUsers = computed(() => hasWritePermission('users'))
 
 // ── State Utama ──────────────────────────────────────────────
 const users        = ref([])
@@ -103,7 +105,7 @@ function selectAllPermissions(val) {
 }
 
 function handleRoleChange() {
-  const isSuper = (form.value.role || '').trim().toLowerCase().includes('admin')
+  const isSuper = isRoleSuperAdmin(form.value.role)
   if (isSuper) {
     form.value.permissions = superadminPermissions()
   } else {
@@ -112,7 +114,7 @@ function handleRoleChange() {
 }
 
 function getPermissionBadge(u) {
-  const isSuper = (u.role || '').trim().toLowerCase().includes('admin')
+  const isSuper = isRoleSuperAdmin(u.role)
   if (isSuper) {
     return { text: '8/8 Akses Penuh', type: 'primary' }
   }
@@ -167,6 +169,7 @@ async function fetchUsers() {
 }
 
 function openAdd() {
+  if (!canWriteUsers.value) return
   modalMode.value     = 'add'
   form.value          = emptyForm()
   modalError.value    = ''
@@ -174,9 +177,10 @@ function openAdd() {
 }
 
 function openEdit(u) {
+  if (!canWriteUsers.value) return
   modalMode.value     = 'edit'
   selectedUser.value  = u
-  const isSuper = (u.role || '').trim().toLowerCase().includes('admin')
+  const isSuper = isRoleSuperAdmin(u.role)
   const initialPerms = isSuper
     ? superadminPermissions()
     : (() => {
@@ -228,6 +232,10 @@ function requestCloseModal() {
 }
 
 async function saveUser() {
+  if (!canWriteUsers.value) {
+    modalError.value = 'Anda hanya memiliki akses baca untuk pengguna.'
+    return
+  }
   isSubmitting.value = true
   modalError.value   = ''
 
@@ -334,9 +342,6 @@ function resetFilters() {
   filterRole.value  = ''
 }
 
-// Fungsi helper untuk mengecek apakah role adalah superadmin
-const isRoleSuperAdmin = (r) => (r || '').trim().toLowerCase() === 'superadmin' || (r || '').trim().toLowerCase() === 'super admin'
-
 onMounted(async () => {
   await fetchQueues()
   await fetchUsers()
@@ -403,6 +408,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
 
       <!-- Tambah Pengguna -->
       <button
+        v-if="canWriteUsers"
         @click="openAdd"
         class="col-span-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-[11px] font-bold text-white shadow-md shadow-blue-200/70 hover:-translate-y-0.5 hover:bg-brand-dark sm:w-auto"
       >
@@ -505,7 +511,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               <td class="px-5 py-3">
                 <div class="flex items-center justify-end gap-1.5">
                   <button
-                    v-if="isSuperAdmin || !isRoleSuperAdmin(user.role)"
+                    v-if="canWriteUsers && (isSuperAdmin || !isRoleSuperAdmin(user.role))"
                     @click="openEdit(user)"
                     :aria-label="`Edit ${user.nama || 'pengguna'}`"
                     class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#E8F7FF] text-[#49BEFF] hover:bg-[#49BEFF] hover:text-white transition-all"
@@ -743,7 +749,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
             class="h-9 px-5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg text-[13px] font-semibold text-[#374151] hover:bg-[#F3F4F6] transition-colors">
             Batal
           </button>
-          <button type="submit" :disabled="isSubmitting"
+          <button type="submit" :disabled="isSubmitting || !canWriteUsers"
             class="h-9 px-5 bg-[#111827] hover:bg-[#1F2937] text-white text-[13px] font-bold rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             <span v-if="isSubmitting" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
             {{ isSubmitting ? 'Menyimpan...' : (modalMode === 'add' ? 'Tambah Pengguna' : 'Simpan Perubahan') }}

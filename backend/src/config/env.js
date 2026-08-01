@@ -54,6 +54,12 @@ function readCorsOrigins() {
     const origin = originParts[index].trim();
 
     if (origin) {
+      if (origin === "*") {
+        throw new Error(
+          "CORS_ORIGINS wajib berupa exact allowlist dan tidak boleh memakai wildcard '*'.",
+        );
+      }
+
       origins.push(origin);
     }
   }

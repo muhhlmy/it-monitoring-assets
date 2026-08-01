@@ -19,27 +19,28 @@ test('isSuperAdmin and isAdmin validation', () => {
 })
 
 test('buildTicketScopeQuery forces user role to reported scope', () => {
-  const user = { id: 10, role: 'user' }
+  const user = { id: 10, role: 'user', permissions: { tickets: 'read_only' } }
   const result = buildTicketScopeQuery(user, { scope: 'all' })
 
-  assert.equal(result.scope, 'reported')
+  assert.equal(result.scope, 'reporter')
   assert.equal(result.params[0], 10)
   assert.equal(result.conditions[0], 't.pelapor_user_id = $1')
 })
 
 test('buildTicketScopeQuery maps mine tab correctly according to role', () => {
-  const regularUser = { id: 10, role: 'user' }
+  const regularUser = { id: 10, role: 'user', permissions: { tickets: 'read_only' } }
   const resUser = buildTicketScopeQuery(regularUser, { tab: 'mine' })
-  assert.equal(resUser.scope, 'reported')
+  assert.equal(resUser.scope, 'reporter')
 
-  const adminUser = { id: 20, role: 'admin' }
+  const adminUser = { id: 20, role: 'admin', permissions: { tickets: 'read_only' } }
   const resAdmin = buildTicketScopeQuery(adminUser, { tab: 'mine' })
-  assert.equal(resAdmin.scope, 'assigned')
+  assert.equal(resAdmin.scope, 'admin')
+  assert.match(resAdmin.conditions.join(' '), /assigned_to_user_id/)
 })
 
 test('checkCaspEligibility rules validation', () => {
-  const user = { id: 5, role: 'user' }
-  const assigneeUser = { id: 99, role: 'admin' }
+  const user = { id: 5, role: 'user', permissions: { tickets: 'read_only' } }
+  const assigneeUser = { id: 99, role: 'admin', permissions: { tickets: 'full' } }
 
   // Case 1: Status not resolved
   const openTicket = { id: 1, status_tiket: 'Open', pelapor_user_id: 5, assigned_to_user_id: 99 }

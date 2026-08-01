@@ -37,6 +37,25 @@ test('export route is marked and guarded as superadmin-only UX', async () => {
   )
 })
 
+test('authenticated views are lazy-loaded instead of joining the initial bundle', async () => {
+  const source = await readFile(routerSourceUrl, 'utf8')
+
+  for (const view of [
+    'DashboardView',
+    'AssetsView',
+    'MyAssetsView',
+    'TicketsView',
+    'UsersView',
+    'SubmissionsView',
+    'LogsView',
+    'ExportView',
+    'AccessDeniedView',
+  ]) {
+    assert.match(source, new RegExp(`component: \\(\\) => import\\('\\.\\./views/${view}\\.vue'\\)`))
+    assert.doesNotMatch(source, new RegExp(`import ${view} from`))
+  }
+})
+
 test('login audit UI and request are conditional on superadmin', async () => {
   const source = await readFile(logsSourceUrl, 'utf8')
 

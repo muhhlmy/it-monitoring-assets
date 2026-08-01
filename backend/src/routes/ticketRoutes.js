@@ -6,6 +6,8 @@ import {
   getCaspTrend,
   getTicketHistory,
   getTicketComments,
+  getTicketAttachment,
+  getTicketCommentAttachment,
   createTicketComment,
   createTicket,
   updateTicket,
@@ -17,18 +19,23 @@ import {
   streamTicketEvents
 } from '../controllers/ticketController.js'
 import { authorizeRoles } from '../middleware/authMiddleware.js'
+import { requireTicketIdentity } from '../middleware/ticketIdentityMiddleware.js'
 
 export const ticketRouter = Router()
 
 const requireAdmin = authorizeRoles('admin', 'super admin', 'superadmin')
+
+ticketRouter.use(requireTicketIdentity)
 
 ticketRouter.get('/events',         streamTicketEvents)
 ticketRouter.get('/stats',          getTicketStats)
 ticketRouter.get('/casp/stats',     getTicketCaspStats)
 ticketRouter.get('/casp/trend',     getCaspTrend)
 ticketRouter.get('/',               listTickets)
+ticketRouter.get('/:id/attachment', getTicketAttachment)
 ticketRouter.get('/:id/history',    getTicketHistory)
 ticketRouter.get('/:id/comments',   getTicketComments)
+ticketRouter.get('/:id/comments/:commentId/attachment', getTicketCommentAttachment)
 ticketRouter.post('/:id/comments',  createTicketComment)
 ticketRouter.get('/:id/casp',       getTicketCasp)
 ticketRouter.post('/:id/casp',      submitTicketCasp)

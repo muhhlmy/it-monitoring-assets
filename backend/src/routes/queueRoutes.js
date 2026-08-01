@@ -1,5 +1,6 @@
 ﻿import { Router } from 'express'
 import { authorizeRoles } from '../middleware/authMiddleware.js'
+import { requireTicketIdentity } from '../middleware/ticketIdentityMiddleware.js'
 import {
   listQueues,
   listMyQueues,
@@ -11,6 +12,8 @@ import {
 export const queueRouter = Router()
 
 const requireSuperAdmin = authorizeRoles('superadmin', 'super admin')
+
+queueRouter.use(requireTicketIdentity)
 
 // Semua user ter-auth bisa lihat daftar queue & queue sendiri
 queueRouter.get('/',              listQueues)

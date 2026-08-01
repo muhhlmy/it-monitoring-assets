@@ -59,12 +59,9 @@ ON CONFLICT (label_aset) DO UPDATE SET
     catatan_aset = EXCLUDED.catatan_aset,
     diperbarui_pada = CURRENT_TIMESTAMP;
 
--- Seed users table
-INSERT INTO users (nama, email, password, role, is_active) VALUES
-    ('Admin IT', 'admin@esb.co.id', 'admin123', 'superadmin', true),
-    ('Siti Rahma', 'siti.rahma@esb.co.id', 'siti123', 'admin', true),
-    ('Andi Specialist', 'andi.pratama@esb.co.id', 'andi123', 'user', true)
-ON CONFLICT (email) DO NOTHING;
+-- User sengaja tidak dibuat dari seed data. Provisioning akun harus memakai
+-- workflow operasional dengan password acak yang di-hash setelah recovery gate
+-- dan rollout bcrypt selesai; credential tidak boleh disimpan di repository.
 
 -- Seed log_riwayat_aset table
 INSERT INTO log_riwayat_aset (id_aset, label_aset, aksi, perubahan, oleh_pengguna) VALUES

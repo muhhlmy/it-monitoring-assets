@@ -2,6 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
 import jwt from 'jsonwebtoken'
+import {
+  canonicalAuthResult,
+  canonicalAuthUser,
+  isCanonicalAuthQuery,
+} from './helpers/canonicalAuth.js'
 
 const testJwtSecret = 'e'.repeat(32)
 
@@ -35,15 +40,33 @@ async function startServer(t) {
 
 function mockPoolQuery(t, implementation) {
   const originalQuery = pool.query
-  pool.query = implementation
+  pool.query = async (sql, parameters = []) => {
+    if (isCanonicalAuthQuery(sql)) {
+      const role = [...roleIds].find(([, id]) => id === parameters[0])?.[0]
+      return canonicalAuthResult(canonicalAuthUser({ id: parameters[0], role }))
+    }
+    return implementation(sql, parameters)
+  }
   t.after(() => {
     pool.query = originalQuery
   })
 }
 
+const roleIds = new Map([
+  ['user', 41],
+  ['admin', 42],
+  ['superadmin', 43],
+  ['super admin', 44],
+])
+
 function createToken(role) {
   return jwt.sign(
-    { id: 42, nama: `Test ${role}`, email: `${role.replaceAll(' ', '')}@example.test`, role },
+    {
+      id: roleIds.get(role),
+      nama: `Token ${role}`,
+      email: `token-${role.replaceAll(' ', '')}@example.test`,
+      role,
+    },
     testJwtSecret,
     { expiresIn: '5m' }
   )

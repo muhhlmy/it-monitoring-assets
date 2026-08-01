@@ -22,8 +22,11 @@ See [Vite Configuration Reference](https://vite.dev/config/).
 ## Project Setup
 
 ```sh
-npm install
+npm ci
 ```
+
+Gunakan versi Node.js pada `.nvmrc` di root repository. Realtime ticket memakai
+authenticated fetch stream; bearer token tidak dikirim melalui query string.
 
 Salin `.env.example` menjadi `.env` bila API tidak berada pada origin yang sama:
 

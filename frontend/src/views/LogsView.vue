@@ -157,7 +157,7 @@ function parsePerubahan(perubahan, aksi) {
     const items = []
     const match = perubahan.match(/nomor seri (.+?),/)
     if (match) items.push({ field: 'Nomor Seri', value: match[1] })
-    const pairs = perubahan.matchAll(/(?:tipe|merek|status|kondisi):\s*([^,\.]+)/gi)
+    const pairs = perubahan.matchAll(/(?:tipe|merek|status|kondisi):\s*([^,.]+)/gi)
     for (const m of pairs) {
       const label = perubahan.substring(m.index, perubahan.indexOf(':', m.index)).trim()
       items.push({ field: label.charAt(0).toUpperCase() + label.slice(1), value: m[1].trim() })

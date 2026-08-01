@@ -1,12 +1,14 @@
 import { app } from "./app.js";
 import { pool, query } from "./config/database.js";
 import { env } from "./config/env.js";
+import { verifyRuntimeSchema } from "./config/runtimeSchema.js";
 
 // Coba koneksi sebelum menjalankan server.
 try {
   await query("SELECT 1");
+  await verifyRuntimeSchema(pool);
 } catch (error) {
-  console.error("Tidak dapat terhubung ke PostgreSQL:", error.message);
+  console.error("Database belum siap digunakan:", error.message);
   process.exit(1);
 }
 

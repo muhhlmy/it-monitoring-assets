@@ -2,6 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
 import jwt from 'jsonwebtoken'
+import {
+  canonicalAuthResult,
+  canonicalAuthUser,
+  isCanonicalAuthQuery,
+} from './helpers/canonicalAuth.js'
 
 const testJwtSecret = 'a'.repeat(32)
 
@@ -33,10 +38,17 @@ async function startServer(t) {
   return server.address().port
 }
 
+const roleIds = new Map([
+  ['user', 1],
+  ['admin', 2],
+  ['superadmin', 3],
+  ['super admin', 4],
+])
+
 function createToken(role = 'superadmin') {
   return jwt.sign(
     {
-      id: 1,
+      id: roleIds.get(role),
       nama: `Test ${role}`,
       email: `${role.replaceAll(' ', '')}@example.test`,
       role
@@ -52,10 +64,14 @@ function normalizeSql(sql) {
 
 test('GET /api/logs/audit is readable only by superadmin aliases', async (t) => {
   const originalQuery = pool.query
-  let queryCount = 0
+  let domainQueryCount = 0
 
-  pool.query = async () => {
-    queryCount += 1
+  pool.query = async (sql, parameters = []) => {
+    if (isCanonicalAuthQuery(sql)) {
+      const role = [...roleIds].find(([, id]) => id === parameters[0])?.[0]
+      return canonicalAuthResult(canonicalAuthUser({ id: parameters[0], role }))
+    }
+    domainQueryCount += 1
     return { rows: [] }
   }
   t.after(() => {
@@ -77,22 +93,27 @@ test('GET /api/logs/audit is readable only by superadmin aliases', async (t) => 
     const denied = await requestAudit(role)
     assert.equal(denied.status, 403)
   }
-  assert.equal(queryCount, 0)
+  assert.equal(domainQueryCount, 0)
 
   for (const role of ['superadmin', 'super admin']) {
     const allowed = await requestAudit(role)
     assert.equal(allowed.status, 200)
     assert.deepEqual(await allowed.json(), [])
   }
-  assert.equal(queryCount, 2)
+  assert.equal(domainQueryCount, 2)
 })
 
-test('POST /api/logs/audit is unavailable and performs no database query', async (t) => {
+test('POST /api/logs/audit is unavailable and performs no domain query', async (t) => {
   const originalQuery = pool.query
-  let queryCount = 0
+  let domainQueryCount = 0
 
-  pool.query = async () => {
-    queryCount += 1
+  pool.query = async (sql, parameters = []) => {
+    if (isCanonicalAuthQuery(sql)) {
+      return canonicalAuthResult(
+        canonicalAuthUser({ id: parameters[0], role: 'superadmin' }),
+      )
+    }
+    domainQueryCount += 1
     throw new Error('Database query must not run for the removed endpoint.')
   }
   t.after(() => {
@@ -118,7 +139,7 @@ test('POST /api/logs/audit is unavailable and performs no database query', async
 
   assert.equal(response.status, 404)
   assert.deepEqual(body, { message: 'Endpoint tidak ditemukan.' })
-  assert.equal(queryCount, 0)
+  assert.equal(domainQueryCount, 0)
 })
 
 test('successful login writes one canonical LOGIN audit from request metadata', async (t) => {
@@ -140,7 +161,7 @@ test('successful login writes one canonical LOGIN audit from request metadata', 
     const normalizedSql = normalizeSql(sql)
 
     if (normalizedSql.startsWith('ALTER TABLE users ADD COLUMN')) {
-      return { rowCount: 0, rows: [] }
+      throw new Error('Login HTTP request must not alter the users schema.')
     }
 
     if (normalizedSql.includes('FROM users u')) {
@@ -219,7 +240,7 @@ test('wrong password writes one generic GAGAL_LOGIN audit with canonical actor',
     const normalizedSql = normalizeSql(sql)
 
     if (normalizedSql.startsWith('ALTER TABLE users ADD COLUMN')) {
-      return { rowCount: 0, rows: [] }
+      throw new Error('Login HTTP request must not alter the users schema.')
     }
 
     if (normalizedSql.includes('FROM users u')) {
@@ -282,7 +303,7 @@ test('unknown-account login failure uses a server-owned unknown actor', async (t
     const normalizedSql = normalizeSql(sql)
 
     if (normalizedSql.startsWith('ALTER TABLE users ADD COLUMN')) {
-      return { rowCount: 0, rows: [] }
+      throw new Error('Login HTTP request must not alter the users schema.')
     }
 
     if (normalizedSql.includes('FROM users u')) {

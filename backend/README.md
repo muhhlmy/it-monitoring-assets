@@ -52,31 +52,37 @@ Arrow function, spread object, optional chaining, nullish coalescing,
 
 ## Menjalankan aplikasi
 
-1. Pastikan PostgreSQL aktif dan isi koneksi pada `.env` (lihat `.env.example`).
+1. Gunakan Node.js yang sesuai `.nvmrc`/`package.json`, pastikan PostgreSQL aktif,
+   lalu isi koneksi pada `.env` (lihat `.env.example`).
    `DB_PASSWORD` wajib diisi dan `JWT_SECRET` wajib berupa secret acak minimal
    32 karakter. Aplikasi sengaja gagal start bila salah satunya kosong.
-2. Jalankan `npm install` jika dependency belum tersedia.
-3. Hanya untuk database development baru yang boleh dibuang, jalankan
-   `npm run db:setup`. Perintah ini membuat database bila belum ada, menerapkan
-   `Schema.sql`, lalu mengisi data dummy dari `Seed.sql`.
-4. Jalankan `npm run dev`.
+   `CORS_ORIGINS` wajib berupa exact allowlist; wildcard tidak diterima.
+2. Jalankan `npm ci` untuk memasang dependency dari lockfile.
+3. Pastikan database existing telah memenuhi runtime schema preflight.
+4. Jalankan `npm run dev`; server gagal sebelum menerima traffic bila schema
+   wajib tidak lengkap.
 5. Jalankan frontend dari folder `frontend` menggunakan `npm run dev`.
 
-`Schema.sql`, `Seed.sql`, dan script setup saat ini adalah bootstrap legacy,
-bukan migration versioned yang telah terbukti repeatable. Jangan menjalankan
-`db:setup`, `migrate`, atau `seed` terhadap database production maupun database
-existing yang datanya perlu dipertahankan. Sampai migration versioned tersedia,
-gunakan script tersebut hanya pada database development baru dan disposable.
+`Schema.sql` dan `Seed.sql` adalah bootstrap legacy yang belum terbukti aman
+untuk fresh/existing/rerun dan diketahui belum menjadi schema ticket canonical.
+Jalur setup legacy sekarang sengaja **fail closed**: `db:setup`, `migrate`, dan
+`seed` selalu berhenti dengan exit code non-zero sebelum membuka koneksi atau
+menjalankan SQL. Nama script dipertahankan agar pemanggilan lama gagal secara
+jelas, bukan diam-diam memodifikasi database.
+
+Guard tersebut baru boleh diganti dengan runner migration setelah tersedia
+target terisolasi yang diotorisasi, bukti backup dan restore yang terverifikasi,
+serta migration versioned yang sudah direview dan diuji untuk fresh, existing,
+dan rerun. User tidak dibuat dari seed repository.
 
 ## Scripts
 
-- `npm run db:setup` - bootstrap legacy: buat database, terapkan schema, dan isi
-  dummy data; hanya untuk development disposable.
-- `npm run migrate` - terapkan schema legacy tanpa seed; belum aman untuk
-  production/existing sampai migration versioned tersedia.
-- `npm run seed` - terapkan schema legacy lalu sinkronkan dummy data; hanya
-  untuk development disposable.
-- `npm run db:check` - validasi urutan kolom view dan hitung data.
+- `npm run db:setup` - guard fail-closed; selalu gagal sebelum koneksi/SQL.
+- `npm run migrate` - guard fail-closed yang sama; belum ada migration versioned
+  yang aman untuk dijalankan.
+- `npm run seed` - guard fail-closed yang sama; tidak menulis data dummy.
+- `npm run db:check` - fail-fast runtime schema preflight, validasi urutan kolom
+  view, dan hitung data; hanya jalankan dengan target yang memang diotorisasi.
 - `npm run dev` - jalankan API dengan nodemon.
 - `npm test` - jalankan automated test.
 - `npm run check` - periksa sintaks entry point dan jalankan test.
