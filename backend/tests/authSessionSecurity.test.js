@@ -194,8 +194,14 @@ test('protected routes require strict Bearer syntax and a live canonical user', 
     assert.equal(body.email, 'canonical.reporter@example.test')
     assert.equal(body.role, 'user')
     assert.deepEqual(body.permissions, {
-      tickets: 'none',
+      dashboard: 'none',
+      assets: 'none',
       my_assets: 'read_only',
+      tickets: 'none',
+      submissions: 'none',
+      users: 'none',
+      logs: 'none',
+      karyawan: 'none',
       export: 'none',
     })
     assert.equal(Object.hasOwn(body, 'password'), false)

@@ -12,6 +12,8 @@
 
 // Kosong secara default agar deployment dapat memakai origin yang sama.
 // Pada development, request /api diteruskan oleh proxy Vite ke backend.
+import { clearAuthSession, getAuthToken } from '../utils/authStorage.js'
+
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 
 function createUrl(endpoint) {
@@ -38,11 +40,12 @@ export function useApi() {
 
   async function request(endpoint, options = {}) {
     let response
+    const { withResponse = false, ...fetchOptions } = options
 
-    const token = localStorage.getItem('token')
+    const token = getAuthToken()
     const customHeaders = {
       Accept: 'application/json',
-      ...options.headers,
+      ...fetchOptions.headers,
     }
 
     if (token) {
@@ -51,7 +54,7 @@ export function useApi() {
 
     try {
       response = await fetch(createUrl(endpoint), {
-        ...options,
+        ...fetchOptions,
         headers: customHeaders,
       })
     } catch (error) {
@@ -64,8 +67,7 @@ export function useApi() {
 
     if (response.status === 401) {
       // Token kedaluwarsa, tidak valid, ATAU kredensial login salah
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      clearAuthSession()
       if (window.location.pathname !== '/login') {
         window.location.href = '/login'
       }
@@ -82,7 +84,7 @@ export function useApi() {
       throw new Error(message)
     }
 
-    return payload
+    return withResponse ? { data: payload, response } : payload
   }
 
   // ----------------------------------------------------------

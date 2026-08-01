@@ -13,6 +13,7 @@ import {
   findFirstAllowedRoute,
   getTicketEligibility,
 } from '../utils/permissionAccess.js'
+import { getAuthSnapshot } from '../utils/authStorage.js'
 
 const allowedRouteMap = [
   { key: 'dashboard', name: 'dashboard' },
@@ -101,8 +102,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token')
-  const user = JSON.parse(localStorage.getItem('user') || 'null')
+  const { token, user } = getAuthSnapshot()
 
   // Jika halaman butuh login (semua kecuali /login) dan belum login
   if (to.name !== 'login' && !token) {

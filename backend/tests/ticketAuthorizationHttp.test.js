@@ -264,11 +264,11 @@ test('ticket HTTP surfaces enforce the canonical resource matrix and actor integ
       return ticketContext(parameters[0], parameters[1])
     }
 
-    if (sql.includes('COALESCE(comm_count.total_komentar')) {
+    if (sql.includes('FROM komentar_tiket comment_row')) {
       const { attachment: _attachment, ...ticket } = tickets.get(101)
       return {
         rowCount: 1,
-        rows: [{ ...ticket, has_attachment: true, total_komentar: 1 }],
+        rows: [{ ...ticket, has_attachment: true, total_komentar: 1, __total_count: 1 }],
       }
     }
     if (sql.includes('COUNT(*)::int AS "totalTickets"')) {
@@ -361,6 +361,29 @@ test('ticket HTTP surfaces enforce the canonical resource matrix and actor integ
       const ticket = tickets.get(Number(parameters[0]))
       return ticket ? { rowCount: 1, rows: [ticket] } : { rowCount: 0, rows: [] }
     }
+    if (sql.startsWith('SELECT q.id, q.kode, EXISTS')) {
+      const queueId = Number(parameters[0])
+      const queue = new Map([
+        [10, { id: 10, kode: 'IT' }],
+        [20, { id: 20, kode: 'HR' }],
+      ]).get(queueId)
+      return queue
+        ? {
+            rowCount: 1,
+            rows: [
+              {
+                ...queue,
+                is_queue_member: memberships.get(Number(parameters[1]))?.has(queueId) === true,
+              },
+            ],
+          }
+        : { rowCount: 0, rows: [] }
+    }
+    if (sql.startsWith('SELECT 1 FROM ticket_casp_ratings')) {
+      return caspStored.has(Number(parameters[0]))
+        ? { rowCount: 1, rows: [{ '?column?': 1 }] }
+        : { rowCount: 0, rows: [] }
+    }
     if (sql.startsWith('UPDATE tickets t SET judul')) {
       mutations.push({ sql, parameters: [...parameters] })
       const ticket = tickets.get(Number(parameters[7]))
@@ -374,10 +397,18 @@ test('ticket HTTP surfaces enforce the canonical resource matrix and actor integ
                 status_tiket: parameters[4] ?? ticket.status_tiket,
                 resolved_at: parameters[12]
                   ? '2026-07-30T12:00:00.000Z'
-                  : (ticket.resolved_at ?? null),
+                  : parameters[13]
+                    ? null
+                    : (ticket.resolved_at ?? null),
                 resolved_by_user_id: parameters[12]
                   ? parameters[9]
-                  : (ticket.resolved_by_user_id ?? null),
+                  : parameters[13]
+                    ? null
+                    : (ticket.resolved_by_user_id ?? null),
+                queue_id: parameters[10] ? parameters[6] : ticket.queue_id,
+                kategori: parameters[10] ? parameters[2] : ticket.kategori,
+                assigned_to_user_id: parameters[14] ? null : ticket.assigned_to_user_id,
+                assigned_to: parameters[14] ? null : ticket.assigned_to,
               },
             ]
           : [],
@@ -455,10 +486,20 @@ test('ticket HTTP surfaces enforce the canonical resource matrix and actor integ
         ],
       }
     }
-    if (sql.startsWith('DELETE FROM tickets WHERE id')) {
+    if (sql.startsWith('UPDATE tickets SET deleted_at')) {
       mutations.push({ sql, parameters: [...parameters] })
       return tickets.has(Number(parameters[0]))
-        ? { rowCount: 1, rows: [{ id: Number(parameters[0]) }] }
+        ? {
+            rowCount: 1,
+            rows: [
+              {
+                ...tickets.get(Number(parameters[0])),
+                deleted_at: '2026-07-30T13:00:00.000Z',
+                deleted_by_user_id: parameters[1],
+                deletion_reason: parameters[2],
+              },
+            ],
+          }
         : { rowCount: 0, rows: [] }
     }
     if (sql.startsWith('INSERT INTO log_riwayat_tiket')) {
@@ -557,15 +598,50 @@ test('ticket HTTP surfaces enforce the canonical resource matrix and actor integ
   const initialListBody = await initialList.json()
   assert.equal(initialListBody[0].has_attachment, true)
   assert.equal(Object.hasOwn(initialListBody[0], 'attachment'), false)
-  const listQuery = queryLog.find(({ sql }) => sql.includes('COALESCE(comm_count.total_komentar'))
+  assert.equal(Object.hasOwn(initialListBody[0], '__total_count'), false)
+  assert.equal(initialList.headers.get('x-total-count'), '1')
+  assert.equal(initialList.headers.get('x-page'), '1')
+  assert.equal(initialList.headers.get('x-page-size'), '50')
+  const listQuery = queryLog.find(({ sql }) => sql.includes('FROM komentar_tiket comment_row'))
   assert.ok(listQuery)
   assert.doesNotMatch(listQuery.sql, /\bt\.\*/)
   assert.doesNotMatch(listQuery.sql, /BTRIM\s*\(/)
   assert.match(listQuery.sql, /AS has_attachment/)
+  assert.match(listQuery.sql, /COUNT\(\*\) OVER\(\)::int AS __total_count/)
+  assert.match(listQuery.sql, /LIMIT \$1\s+OFFSET \$2/)
+  assert.deepEqual(listQuery.parameters, [50, 0])
   assert.equal(
     queryLog.some(({ sql }) => isBootstrapQuery(sql)),
     false,
   )
+
+  for (const invalidQuery of [
+    'page=0',
+    'limit=101',
+    'status=Unknown',
+    'prioritas=Unknown',
+    'tab=everything',
+    `search=${'x'.repeat(151)}`,
+    'unexpected=true',
+  ]) {
+    assert.equal(
+      (await request(`/api/tickets?${invalidQuery}`, { actor: actors.superadmin })).status,
+      400,
+      invalidQuery,
+    )
+  }
+
+  const pagedList = await request(
+    '/api/tickets?page=2&limit=25&search=printer&status=Open',
+    { actor: actors.superadmin },
+  )
+  assert.equal(pagedList.status, 200)
+  assert.equal(pagedList.headers.get('x-page'), '2')
+  assert.equal(pagedList.headers.get('x-page-size'), '25')
+  const pagedListQuery = queryLog.filter(({ sql }) =>
+    sql.includes('FROM komentar_tiket comment_row'),
+  ).at(-1)
+  assert.deepEqual(pagedListQuery.parameters, ['%printer%', 'Open', 25, 25])
 
   const protectedRequests = [
     ['/api/tickets/101/history', 'GET'],
@@ -790,6 +866,30 @@ test('ticket HTTP surfaces enforce the canonical resource matrix and actor integ
   }
   assert.equal(mutations.length, mutationsBeforeDeniedUpdate)
 
+  assert.equal(
+    (
+      await request('/api/tickets/101', {
+        actor: actors.adminA,
+        method: 'PUT',
+        body: { status_tiket: 'Closed' },
+      })
+    ).status,
+    409,
+  )
+  assert.equal(mutations.length, mutationsBeforeDeniedUpdate)
+
+  assert.equal(
+    (
+      await request('/api/tickets/101', {
+        actor: actors.adminA,
+        method: 'PUT',
+        body: { queue_id: 20 },
+      })
+    ).status,
+    403,
+  )
+  assert.equal(mutations.length, mutationsBeforeDeniedUpdate)
+
   const detailUpdate = await request('/api/tickets/101', {
     actor: actors.adminA,
     method: 'PUT',
@@ -838,8 +938,34 @@ test('ticket HTTP surfaces enforce the canonical resource matrix and actor integ
     200,
   )
 
+  const queueMove = await request('/api/tickets/101', {
+    actor: actors.superadmin,
+    method: 'PUT',
+    body: { queue_id: 20 },
+  })
+  assert.equal(queueMove.status, 200)
+  const queueMoveBody = await queueMove.json()
+  assert.equal(queueMoveBody.queue_id, 20)
+  assert.equal(queueMoveBody.kategori, 'HR')
+  assert.equal(queueMoveBody.assigned_to_user_id, null)
+  assert.equal(queueMoveBody.assigned_to, null)
+  const queueMoveMutation = mutations.filter((entry) =>
+    entry.sql.startsWith('UPDATE tickets t SET judul'),
+  ).at(-1)
+  assert.equal(queueMoveMutation.parameters[14], true)
+
+  const reopenBeforeRating = await request('/api/tickets/104', {
+    actor: actors.adminA,
+    method: 'PUT',
+    body: { status_tiket: 'In Progress' },
+  })
+  assert.equal(reopenBeforeRating.status, 200)
+  const reopenBeforeRatingBody = await reopenBeforeRating.json()
+  assert.equal(reopenBeforeRatingBody.resolved_at, null)
+  assert.equal(reopenBeforeRatingBody.resolved_by_user_id, null)
+
   const deletesBeforeDenied = mutations.filter((entry) =>
-    entry.sql.startsWith('DELETE FROM tickets'),
+    entry.sql.startsWith('UPDATE tickets SET deleted_at'),
   ).length
   assert.equal(
     (
@@ -860,7 +986,7 @@ test('ticket HTTP surfaces enforce the canonical resource matrix and actor integ
     403,
   )
   assert.equal(
-    mutations.filter((entry) => entry.sql.startsWith('DELETE FROM tickets')).length,
+    mutations.filter((entry) => entry.sql.startsWith('UPDATE tickets SET deleted_at')).length,
     deletesBeforeDenied,
   )
   assert.equal(
@@ -872,6 +998,13 @@ test('ticket HTTP surfaces enforce the canonical resource matrix and actor integ
     ).status,
     200,
   )
+  const deleteMutation = mutations.find((entry) =>
+    entry.sql.startsWith('UPDATE tickets SET deleted_at'),
+  )
+  assert.ok(deleteMutation)
+  assert.equal(deleteMutation.parameters[1], actors.superadmin.id)
+  assert.match(deleteMutation.parameters[2], /superadmin/i)
+  assert.match(deleteMutation.sql, /deleted_at IS NULL/)
 
   const claimMutationsBeforeDenied = mutations.length
   assert.equal(
@@ -1102,6 +1235,18 @@ test('ticket HTTP surfaces enforce the canonical resource matrix and actor integ
     body: { rating: 5, feedback: 'Resolved well' },
   })
   assert.equal(submitCasp.status, 201)
+  const mutationsBeforeRatedReopen = mutations.length
+  assert.equal(
+    (
+      await request('/api/tickets/104', {
+        actor: actors.adminA,
+        method: 'PUT',
+        body: { status_tiket: 'In Progress' },
+      })
+    ).status,
+    409,
+  )
+  assert.equal(mutations.length, mutationsBeforeRatedReopen)
   assert.equal(
     (
       await request('/api/tickets/104/casp', {

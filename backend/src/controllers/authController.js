@@ -1,6 +1,13 @@
 import { pool } from '../config/database.js';
 import { env } from '../config/env.js';
 import jwt from 'jsonwebtoken';
+import {
+  DEFAULT_USER_PERMISSIONS,
+  SUPERADMIN_PERMISSIONS,
+  normalizePermissions,
+} from '../services/permissionService.js';
+import { verifyPassword } from '../security/passwordService.js';
+import { parseRequiredEmail } from '../security/requestValidation.js';
 
 const UNKNOWN_LOGIN_ACTOR = 'Tidak Diketahui'
 const MAX_LOGIN_EMAIL_LENGTH = 150
@@ -10,7 +17,12 @@ export function normalizeLoginCredentials(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null
   if (typeof body.email !== 'string' || typeof body.password !== 'string') return null
 
-  const email = body.email.trim().toLowerCase()
+  let email
+  try {
+    email = parseRequiredEmail(body.email)
+  } catch {
+    return null
+  }
   if (
     !email ||
     email.length > MAX_LOGIN_EMAIL_LENGTH ||
@@ -21,30 +33,6 @@ export function normalizeLoginCredentials(body) {
   }
 
   return { email, password: body.password }
-}
-
-const SUPERADMIN_PERMISSIONS = {
-  dashboard: true,
-  assets: true,
-  my_assets: true,
-  tickets: true,
-  submissions: true,
-  users: true,
-  logs: true,
-  karyawan: true,
-  export: true
-}
-
-const DEFAULT_USER_PERMISSIONS = {
-  dashboard: false,
-  assets: false,
-  my_assets: true,
-  tickets: true,
-  submissions: false,
-  users: false,
-  logs: false,
-  karyawan: false,
-  export: false
 }
 
 export async function login(req, res) {
@@ -70,6 +58,7 @@ export async function login(req, res) {
       FROM users u
       LEFT JOIN karyawan k ON LOWER(TRIM(u.email)) = LOWER(TRIM(k.email_kantor))
       WHERE u.email = $1
+        AND u.deleted_at IS NULL
     `, [email]);
     
     if (result.rowCount === 0) {
@@ -94,8 +83,7 @@ export async function login(req, res) {
       return res.status(403).json({ message: 'Akun Anda telah dinonaktifkan.' });
     }
 
-    // Verifikasi password (sementara menggunakan plain text sesuai permintaan)
-    const isPasswordValid = (password === user.password);
+    const isPasswordValid = await verifyPassword(password, user.password);
     
     if (!isPasswordValid) {
       await pool.query(
@@ -108,8 +96,8 @@ export async function login(req, res) {
     const userRole = (user.role || '').trim().toLowerCase()
     const isSuper = userRole === 'superadmin' || userRole === 'super admin'
     const permissions = isSuper
-      ? SUPERADMIN_PERMISSIONS
-      : (typeof user.permissions === 'object' && user.permissions !== null ? user.permissions : DEFAULT_USER_PERMISSIONS)
+      ? { ...SUPERADMIN_PERMISSIONS }
+      : normalizePermissions(user.permissions, { defaults: DEFAULT_USER_PERMISSIONS })
 
     // Buat JWT Token dengan NIK & Jabatan
     const payload = {
@@ -152,6 +140,7 @@ export async function getMe(req, res) {
       FROM users u
       LEFT JOIN karyawan k ON LOWER(TRIM(u.email)) = LOWER(TRIM(k.email_kantor))
       WHERE u.id = $1
+        AND u.deleted_at IS NULL
     `, [req.user.id]);
     
     if (result.rowCount === 0) {
@@ -162,8 +151,8 @@ export async function getMe(req, res) {
     const userRole = (user.role || '').trim().toLowerCase()
     const isSuper = userRole === 'superadmin' || userRole === 'super admin'
     user.permissions = isSuper
-      ? SUPERADMIN_PERMISSIONS
-      : (typeof user.permissions === 'object' && user.permissions !== null ? user.permissions : DEFAULT_USER_PERMISSIONS)
+      ? { ...SUPERADMIN_PERMISSIONS }
+      : normalizePermissions(user.permissions, { defaults: DEFAULT_USER_PERMISSIONS })
 
     res.json(user);
   } catch (error) {

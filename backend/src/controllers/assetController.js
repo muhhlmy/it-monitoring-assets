@@ -300,7 +300,7 @@ export async function showAssetStats(req, res) {
   // Query dijalankan satu per satu agar alurnya mudah diikuti.
   const totals = await pool.query(`
     SELECT
-      (SELECT COUNT(*) FROM aset_ti) AS total_assets,
+      (SELECT COUNT(*) FROM aset_ti WHERE deleted_at IS NULL) AS total_assets,
       (SELECT COUNT(*) FROM karyawan) AS total_employees
   `);
 
@@ -309,11 +309,13 @@ export async function showAssetStats(req, res) {
       COUNT(*) AS total,
       COUNT(CASE WHEN is_active = true THEN 1 END) AS active
     FROM users
+    WHERE deleted_at IS NULL
   `);
 
   const byStatus = await pool.query(`
     SELECT COALESCE(status_aset, 'Belum ditentukan') AS status, COUNT(*) AS count
     FROM aset_ti
+    WHERE deleted_at IS NULL
     GROUP BY status_aset
     ORDER BY count DESC
   `);
@@ -321,6 +323,7 @@ export async function showAssetStats(req, res) {
   const byCondition = await pool.query(`
     SELECT COALESCE(kondisi_aset, 'Belum ditentukan') AS condition, COUNT(*) AS count
     FROM aset_ti
+    WHERE deleted_at IS NULL
     GROUP BY kondisi_aset
     ORDER BY count DESC
   `);
@@ -328,6 +331,7 @@ export async function showAssetStats(req, res) {
   const byType = await pool.query(`
     SELECT COALESCE(tipe_perangkat, 'Belum ditentukan') AS device_type, COUNT(*) AS count
     FROM aset_ti
+    WHERE deleted_at IS NULL
     GROUP BY tipe_perangkat
     ORDER BY count DESC
   `);
@@ -355,6 +359,7 @@ export async function showAssetStats(req, res) {
       SELECT date_trunc('month', dibuat_pada) AS month_start, COUNT(*)::int AS added
       FROM aset_ti
       WHERE dibuat_pada >= date_trunc('month', CURRENT_DATE) - interval '11 month'
+        AND deleted_at IS NULL
       GROUP BY 1
     )
     SELECT
@@ -485,7 +490,7 @@ export async function replaceAsset(req, res) {
 
   async function updateInsideTransaction(databaseClient) {
     const lockResult = await databaseClient.query(
-      "SELECT id_aset FROM aset_ti WHERE id_aset = $1 FOR UPDATE",
+      "SELECT id_aset FROM aset_ti WHERE id_aset = $1 AND deleted_at IS NULL FOR UPDATE",
       [id],
     );
     if (lockResult.rowCount === 0) {
@@ -514,6 +519,7 @@ export async function replaceAsset(req, res) {
         catatan_aset = $11,
         diperbarui_pada = CURRENT_TIMESTAMP
       WHERE id_aset = $12
+        AND deleted_at IS NULL
     `;
 
     const values = [
@@ -563,7 +569,7 @@ export async function destroyAsset(req, res) {
 
   async function deleteInsideTransaction(databaseClient) {
     const lockResult = await databaseClient.query(
-      "SELECT id_aset FROM aset_ti WHERE id_aset = $1 FOR UPDATE",
+      "SELECT id_aset FROM aset_ti WHERE id_aset = $1 AND deleted_at IS NULL FOR UPDATE",
       [id],
     );
     if (lockResult.rowCount === 0) {
@@ -575,16 +581,23 @@ export async function destroyAsset(req, res) {
       throw createHttpError(409, "Snapshot aset tidak tersedia; muat ulang dan coba lagi.");
     }
 
-    // Tutup record aktif selagi FK masih menunjuk ke aset. DELETE akan
-    // mengubah id_aset riwayat menjadi NULL melalui ON DELETE SET NULL.
+    // Tutup record aktif sebelum aset disembunyikan dari seluruh read model.
     await closeAllDeviceCycleRecords(databaseClient, id);
 
-    const result = await databaseClient.query("DELETE FROM aset_ti WHERE id_aset = $1", [
-      id,
-    ]);
+    const deletionReason = "Dihapus oleh administrator melalui aplikasi.";
+    const result = await databaseClient.query(
+      `UPDATE aset_ti
+          SET deleted_at = CURRENT_TIMESTAMP,
+              deleted_by_user_id = $2,
+              deletion_reason = $3,
+              diperbarui_pada = CURRENT_TIMESTAMP
+        WHERE id_aset = $1
+          AND deleted_at IS NULL`,
+      [id, Number(req.user.id), deletionReason],
+    );
 
     if (result.rowCount === 0) {
-      throw createHttpError(404, "Aset tidak ditemukan.");
+      throw createHttpError(409, "Aset sudah dihapus atau berubah; muat ulang halaman.");
     }
 
     await logAssetChange(

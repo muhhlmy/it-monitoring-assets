@@ -1,10 +1,21 @@
-import { pool } from '../config/database.js'
+import { pool, withTransaction } from '../config/database.js'
 import {
   TICKET_ROLES,
   canListQueueAdmins,
   createTicketIdentity,
   isSuperAdmin,
+  normalizeTicketRole,
 } from '../services/ticketAccessService.js'
+import { hasWritePermissionLevel } from '../services/permissionService.js'
+import {
+  assertAllowedFields,
+  assertPlainObject,
+  parseOptionalBoolean,
+  parsePositiveInteger,
+  parsePositiveIntegerParam,
+} from '../security/requestValidation.js'
+
+const QUEUE_ADMIN_CREATE_FIELDS = new Set(['user_id', 'is_primary'])
 
 function createHttpError(statusCode, message) {
   const error = new Error(message)
@@ -42,10 +53,7 @@ export async function listQueueAdmins(req, res) {
     throw createHttpError(403, 'Anda tidak memiliki akses ke direktori admin queue.')
   }
 
-  const queueId = Number(req.params.queueId)
-  if (!Number.isSafeInteger(queueId) || queueId <= 0) {
-    throw createHttpError(400, 'Queue ID tidak valid.')
-  }
+  const queueId = parsePositiveIntegerParam(req.params.queueId, 'Queue ID')
 
   const queueAccess = await pool.query(
     `SELECT
@@ -71,6 +79,7 @@ export async function listQueueAdmins(req, res) {
      FROM users u
      LEFT JOIN user_ticket_queues utq ON utq.user_id = u.id AND utq.queue_id = $1
      WHERE u.is_active = true
+       AND u.deleted_at IS NULL
        AND LOWER(TRIM(u.role)) IN ('admin', 'superadmin', 'super admin')
        AND (
          (
@@ -95,24 +104,73 @@ export async function listQueueAdmins(req, res) {
 // POST /api/ticket-queues/:queueId/admins
 export async function addAdminToQueue(req, res) {
   if (!isSuperAdmin(req.user.role)) throw createHttpError(403, 'Hanya superadmin yang dapat mengatur mapping admin.')
-  const queueId = parseInt(req.params.queueId, 10)
-  const { user_id, is_primary } = req.body
-  if (isNaN(queueId) || !user_id) throw createHttpError(400, 'queue_id dan user_id wajib diisi.')
-  const userCheck = await pool.query('SELECT id FROM users WHERE id = $1 AND is_active = true', [user_id])
-  if (userCheck.rowCount === 0) throw createHttpError(404, 'User tidak ditemukan atau tidak aktif.')
-  await pool.query(
-    `INSERT INTO user_ticket_queues (user_id, queue_id, is_primary) VALUES ($1, $2, $3) ON CONFLICT (user_id, queue_id) DO UPDATE SET is_primary = EXCLUDED.is_primary`,
-    [user_id, queueId, is_primary === true]
-  )
+
+  assertPlainObject(req.body, 'Payload mapping queue harus berupa object JSON.')
+  assertAllowedFields(req.body, QUEUE_ADMIN_CREATE_FIELDS, 'Payload mapping queue')
+  const queueId = parsePositiveIntegerParam(req.params.queueId, 'Queue ID')
+  const userId = parsePositiveInteger(req.body.user_id, 'User ID')
+  const isPrimary = parseOptionalBoolean(req.body.is_primary, 'is_primary') ?? false
+
+  await withTransaction(async (client) => {
+    const queueCheck = await client.query(
+      `SELECT id
+         FROM ticket_queues
+        WHERE id = $1
+          AND is_active = true
+          AND deleted_at IS NULL
+        FOR UPDATE`,
+      [queueId],
+    )
+    if (queueCheck.rowCount === 0) {
+      throw createHttpError(404, 'Queue tidak ditemukan atau tidak aktif.')
+    }
+
+    const userCheck = await client.query(
+      `SELECT id, role, permissions
+         FROM users
+        WHERE id = $1
+          AND is_active = true
+        FOR UPDATE`,
+      [userId],
+    )
+    if (userCheck.rowCount === 0) {
+      throw createHttpError(404, 'User tidak ditemukan atau tidak aktif.')
+    }
+
+    const target = userCheck.rows[0]
+    if (
+      normalizeTicketRole(target.role) !== TICKET_ROLES.ADMIN ||
+      !hasWritePermissionLevel(target.permissions?.tickets)
+    ) {
+      throw createHttpError(403, 'Target wajib admin aktif dengan permission tickets full.')
+    }
+
+    if (isPrimary) {
+      await client.query(
+        `UPDATE user_ticket_queues
+            SET is_primary = false
+          WHERE user_id = $1
+            AND is_primary = true`,
+        [userId],
+      )
+    }
+
+    await client.query(
+      `INSERT INTO user_ticket_queues (user_id, queue_id, is_primary)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, queue_id)
+       DO UPDATE SET is_primary = EXCLUDED.is_primary`,
+      [userId, queueId, isPrimary],
+    )
+  })
   res.status(201).json({ message: 'Admin berhasil ditambahkan ke queue.' })
 }
 
 // DELETE /api/ticket-queues/:queueId/admins/:userId
 export async function removeAdminFromQueue(req, res) {
   if (!isSuperAdmin(req.user.role)) throw createHttpError(403, 'Hanya superadmin yang dapat mengatur mapping admin.')
-  const queueId = parseInt(req.params.queueId, 10)
-  const userId  = parseInt(req.params.userId, 10)
-  if (isNaN(queueId) || isNaN(userId)) throw createHttpError(400, 'ID tidak valid.')
+  const queueId = parsePositiveIntegerParam(req.params.queueId, 'Queue ID')
+  const userId = parsePositiveIntegerParam(req.params.userId, 'User ID')
   const result = await pool.query('DELETE FROM user_ticket_queues WHERE user_id = $1 AND queue_id = $2 RETURNING *', [userId, queueId])
   if (result.rowCount === 0) throw createHttpError(404, 'Mapping tidak ditemukan.')
   res.json({ message: 'Admin berhasil dihapus dari queue.' })

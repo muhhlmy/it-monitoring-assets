@@ -18,6 +18,7 @@ process.env.DB_USER = 'test_user'
 process.env.DB_PASSWORD = 'test_password_not_used'
 process.env.DB_NAME = 'test_database'
 process.env.CORS_ORIGINS = 'http://localhost:5173'
+process.env.PASSWORD_LEGACY_MODE = 'verify-plaintext'
 
 const { app } = await import('../src/app.js')
 const { pool } = await import('../src/config/database.js')

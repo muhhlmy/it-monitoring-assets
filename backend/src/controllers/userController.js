@@ -9,19 +9,37 @@ import {
   isValidUserPermissionPayload,
   normalizeUserManagementRole,
 } from "../services/userAccessService.js";
+import {
+  DEFAULT_USER_PERMISSIONS,
+  SUPERADMIN_PERMISSIONS,
+  normalizePermissions,
+} from "../services/permissionService.js";
+import { hashPassword } from "../security/passwordService.js";
+import {
+  assertAllowedFields,
+  assertPlainObject,
+  createHttpError,
+  parseNewPassword,
+  parseOptionalBoolean,
+  parsePositiveIntegerParam,
+  parseQueueIds,
+  parseRequiredEmail,
+  parseRequiredName,
+} from "../security/requestValidation.js";
 
-function createHttpError(statusCode, message) {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  return error;
-}
+const USER_CREATE_FIELDS = new Set([
+  "nama",
+  "email",
+  "password",
+  "role",
+  "permissions",
+  "queue_ids",
+  "is_active",
+]);
+const USER_UPDATE_FIELDS = USER_CREATE_FIELDS;
 
 function parseUserId(value) {
-  const id = Number(value);
-  if (!Number.isSafeInteger(id) || id <= 0 || String(id) !== String(value)) {
-    throw createHttpError(400, "ID pengguna tidak valid.");
-  }
-  return id;
+  return parsePositiveIntegerParam(value, "ID pengguna");
 }
 
 function parseRequestedRole(value, fallback) {
@@ -51,62 +69,31 @@ function assertAdminHasNoQueueGrant(actorRole, queueIds) {
   }
 }
 
-const SUPERADMIN_PERMISSIONS = {
-  dashboard: "full",
-  assets: "full",
-  my_assets: "full",
-  tickets: "full",
-  submissions: "full",
-  users: "full",
-  logs: "full",
-  karyawan: "full",
-  export: "full",
-};
-
-const DEFAULT_USER_PERMISSIONS = {
-  dashboard: "none",
-  assets: "none",
-  my_assets: "read_only",
-  tickets: "read_only",
-  submissions: "none",
-  users: "none",
-  logs: "none",
-  karyawan: "none",
-  export: "none",
-};
-
-function normaliseLegacyPermissions(raw) {
-  if (!raw || typeof raw !== "object") return { ...DEFAULT_USER_PERMISSIONS };
-  const KEYS = Object.keys(DEFAULT_USER_PERMISSIONS);
-  const out = {};
-  for (const k of KEYS) {
-    const v = raw[k];
-    if (v === "none" || v === "read_only" || v === "full") {
-      out[k] = v;
-    } else if (v === true) {
-      out[k] = "read_only";
-    } else {
-      out[k] = "none";
-    }
-  }
-  return out;
-}
-
 // Helper untuk sync mapping user_ticket_queues
 async function syncUserQueues(queryable, userId, queueIds) {
   if (!Array.isArray(queueIds)) return;
   await queryable.query("DELETE FROM user_ticket_queues WHERE user_id = $1", [
     userId,
   ]);
-  for (const qId of queueIds) {
-    const validId = parseInt(qId, 10);
-    if (!isNaN(validId)) {
-      await queryable.query(
-        `INSERT INTO user_ticket_queues (user_id, queue_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-        [userId, validId],
-      );
-    }
+  for (const queueId of queueIds) {
+    await queryable.query(
+      `INSERT INTO user_ticket_queues (user_id, queue_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [userId, queueId],
+    );
   }
+}
+
+async function lockActiveSuperadmins(queryable) {
+  const result = await queryable.query(
+    `SELECT id
+       FROM users
+      WHERE is_active = true
+        AND deleted_at IS NULL
+        AND LOWER(TRIM(role)) IN ('superadmin', 'super admin')
+      ORDER BY id
+      FOR UPDATE`,
+  );
+  return result.rows.map((row) => Number(row.id)).filter(Number.isSafeInteger);
 }
 
 export async function listUsers(req, res) {
@@ -120,6 +107,7 @@ export async function listUsers(req, res) {
        FROM users u
        LEFT JOIN user_ticket_queues utq ON utq.user_id = u.id
        LEFT JOIN ticket_queues q ON q.id = utq.queue_id AND q.is_active = true
+      WHERE u.deleted_at IS NULL
       GROUP BY u.id
       ORDER BY u.id DESC`,
   );
@@ -127,8 +115,8 @@ export async function listUsers(req, res) {
   const rows = result.rows.map((user) => {
     const isSuper = isSuperAdminRole(user.role);
     user.permissions = isSuper
-      ? SUPERADMIN_PERMISSIONS
-      : normaliseLegacyPermissions(user.permissions);
+      ? { ...SUPERADMIN_PERMISSIONS }
+      : normalizePermissions(user.permissions, { defaults: DEFAULT_USER_PERMISSIONS });
     user.queue_ids = (user.queues || []).map((q) => q.id);
     return user;
   });
@@ -136,17 +124,27 @@ export async function listUsers(req, res) {
 }
 
 export async function storeUser(req, res) {
-  const { nama, email, password, role, permissions, queue_ids } = req.body;
+  assertPlainObject(req.body, "Payload pengguna harus berupa object JSON.");
+  assertAllowedFields(req.body, USER_CREATE_FIELDS, "Payload pengguna");
+
+  const { role, permissions } = req.body;
+  const nama = parseRequiredName(req.body.nama);
+  const email = parseRequiredEmail(req.body.email);
+  const password = parseNewPassword(req.body.password);
+  const queueIds = parseQueueIds(req.body.queue_ids);
+  const requestedActive = parseOptionalBoolean(req.body.is_active, "is_active");
   const currentUserRole = normalizeUserManagementRole(req.user?.role);
   const newRole = parseRequestedRole(role, USER_MANAGEMENT_ROLES.USER);
 
   assertValidPermissions(permissions);
-  assertAdminHasNoQueueGrant(currentUserRole, queue_ids);
+  assertAdminHasNoQueueGrant(currentUserRole, queueIds);
 
   const userPermissions =
     newRole === USER_MANAGEMENT_ROLES.SUPERADMIN
-      ? SUPERADMIN_PERMISSIONS
-      : normaliseLegacyPermissions(permissions);
+      ? { ...SUPERADMIN_PERMISSIONS }
+      : normalizePermissions(permissions, {
+          defaults: permissions === undefined ? DEFAULT_USER_PERMISSIONS : {},
+        });
 
   if (!canCreateManagedUser(currentUserRole, newRole, userPermissions)) {
     throw createHttpError(
@@ -155,9 +153,8 @@ export async function storeUser(req, res) {
     );
   }
 
-  if (!nama || !email || !password) {
-    throw createHttpError(400, "Nama, email, dan password wajib diisi.");
-  }
+  const passwordHash = await hashPassword(password);
+  const isActive = requestedActive ?? true;
 
   const newUser = await withTransaction(async (client) => {
     const result = await client.query(
@@ -165,21 +162,21 @@ export async function storeUser(req, res) {
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, nama, email, role, permissions, is_active, dibuat_pada, diperbarui_pada`,
       [
-        String(nama).trim(),
-        String(email).trim().toLowerCase(),
-        String(password),
+        nama,
+        email,
+        passwordHash,
         newRole,
         JSON.stringify(userPermissions),
-        true,
+        isActive,
       ],
     );
 
     const createdUser = result.rows[0];
     if (
       currentUserRole === USER_MANAGEMENT_ROLES.SUPERADMIN &&
-      Array.isArray(queue_ids)
+      Array.isArray(queueIds)
     ) {
-      await syncUserQueues(client, createdUser.id, queue_ids);
+      await syncUserQueues(client, createdUser.id, queueIds);
     }
 
     const qResult = await client.query(
@@ -195,15 +192,24 @@ export async function storeUser(req, res) {
 }
 
 export async function replaceUser(req, res) {
+  assertPlainObject(req.body, "Payload pengguna harus berupa object JSON.");
+  assertAllowedFields(req.body, USER_UPDATE_FIELDS, "Payload pengguna");
+
   const id = parseUserId(req.params.id);
   const currentUserRole = normalizeUserManagementRole(req.user?.role);
+  const nama = parseRequiredName(req.body.nama);
+  const email = parseRequiredEmail(req.body.email);
+  const newPassword = parseNewPassword(req.body.password, { required: false });
+  const passwordHash = newPassword === undefined ? undefined : await hashPassword(newPassword);
+  const requestedActive = parseOptionalBoolean(req.body.is_active, "is_active");
+  const queueIds = parseQueueIds(req.body.queue_ids);
   const requestedRole =
     req.body.role === undefined
       ? undefined
       : parseRequestedRole(req.body.role, undefined);
 
   assertValidPermissions(req.body.permissions);
-  assertAdminHasNoQueueGrant(currentUserRole, req.body.queue_ids);
+  assertAdminHasNoQueueGrant(currentUserRole, queueIds);
 
   if (
     currentUserRole === USER_MANAGEMENT_ROLES.ADMIN &&
@@ -218,10 +224,12 @@ export async function replaceUser(req, res) {
   }
 
   const updatedUser = await withTransaction(async (client) => {
+    const activeSuperadminIds = await lockActiveSuperadmins(client);
     const oldUserResult = await client.query(
       `SELECT id, nama, email, password, role, permissions, is_active
          FROM users
         WHERE id = $1
+          AND deleted_at IS NULL
         FOR UPDATE`,
       [id],
     );
@@ -231,16 +239,18 @@ export async function replaceUser(req, res) {
     const oldUser = oldUserResult.rows[0];
     const oldRole = normalizeUserManagementRole(oldUser.role);
 
-    let { nama, email, password, role, permissions, is_active, queue_ids } =
-      req.body;
+    let { role, permissions } = req.body;
 
     role = requestedRole ?? oldRole;
+    const oldPermissions = normalizePermissions(oldUser.permissions, {
+      defaults: DEFAULT_USER_PERMISSIONS,
+    });
     const userPermissions =
       role === USER_MANAGEMENT_ROLES.SUPERADMIN
-        ? SUPERADMIN_PERMISSIONS
-        : normaliseLegacyPermissions(
-            permissions === undefined ? oldUser.permissions : permissions,
-          );
+        ? { ...SUPERADMIN_PERMISSIONS }
+        : permissions === undefined
+          ? oldPermissions
+          : normalizePermissions(permissions, { defaults: {} });
 
     if (!canUpdateManagedUser(currentUserRole, oldRole, role, userPermissions)) {
       throw createHttpError(
@@ -249,17 +259,17 @@ export async function replaceUser(req, res) {
       );
     }
 
-    if (!nama || !email) {
-      throw createHttpError(400, "Nama dan email wajib diisi.");
-    }
-
+    const isActive = requestedActive ?? oldUser.is_active === true;
+    const removesActiveSuperadmin =
+      oldRole === USER_MANAGEMENT_ROLES.SUPERADMIN &&
+      oldUser.is_active === true &&
+      (role !== USER_MANAGEMENT_ROLES.SUPERADMIN || isActive !== true);
     if (
-      oldRole === USER_MANAGEMENT_ROLES.SUPERADMIN ||
-      role === USER_MANAGEMENT_ROLES.SUPERADMIN
+      removesActiveSuperadmin &&
+      activeSuperadminIds.includes(id) &&
+      activeSuperadminIds.length <= 1
     ) {
-      is_active = true;
-    } else {
-      is_active = is_active !== false;
+      throw createHttpError(409, "Superadmin aktif terakhir tidak dapat dinonaktifkan atau diturunkan role-nya.");
     }
 
     const roleGuard =
@@ -268,19 +278,20 @@ export async function replaceUser(req, res) {
         : "";
 
     let result;
-    if (password && String(password).trim() !== "") {
+    if (passwordHash !== undefined) {
       result = await client.query(
         `UPDATE users
             SET nama = $1, email = $2, password = $3, role = $4, permissions = $5, is_active = $6, diperbarui_pada = CURRENT_TIMESTAMP
-          WHERE id = $7${roleGuard}
+          WHERE id = $7
+            AND deleted_at IS NULL${roleGuard}
           RETURNING id, nama, email, role, permissions, is_active, dibuat_pada, diperbarui_pada`,
         [
-          String(nama).trim(),
-          String(email).trim().toLowerCase(),
-          String(password),
+          nama,
+          email,
+          passwordHash,
           role,
           JSON.stringify(userPermissions),
-          is_active,
+          isActive,
           id,
         ],
       );
@@ -288,14 +299,15 @@ export async function replaceUser(req, res) {
       result = await client.query(
         `UPDATE users
             SET nama = $1, email = $2, role = $3, permissions = $4, is_active = $5, diperbarui_pada = CURRENT_TIMESTAMP
-          WHERE id = $6${roleGuard}
+          WHERE id = $6
+            AND deleted_at IS NULL${roleGuard}
           RETURNING id, nama, email, role, permissions, is_active, dibuat_pada, diperbarui_pada`,
         [
-          String(nama).trim(),
-          String(email).trim().toLowerCase(),
+          nama,
+          email,
           role,
           JSON.stringify(userPermissions),
-          is_active,
+          isActive,
           id,
         ],
       );
@@ -311,9 +323,9 @@ export async function replaceUser(req, res) {
     const transactionUser = result.rows[0];
     if (
       currentUserRole === USER_MANAGEMENT_ROLES.SUPERADMIN &&
-      Array.isArray(queue_ids)
+      Array.isArray(queueIds)
     ) {
-      await syncUserQueues(client, transactionUser.id, queue_ids);
+      await syncUserQueues(client, transactionUser.id, queueIds);
     }
 
     const qResult = await client.query(
@@ -322,6 +334,10 @@ export async function replaceUser(req, res) {
     );
     transactionUser.queues = qResult.rows;
     transactionUser.queue_ids = qResult.rows.map((q) => q.id);
+    transactionUser.permissions =
+      role === USER_MANAGEMENT_ROLES.SUPERADMIN
+        ? { ...SUPERADMIN_PERMISSIONS }
+        : normalizePermissions(transactionUser.permissions, { defaults: userPermissions });
     return transactionUser;
   });
 
@@ -338,12 +354,17 @@ export async function destroyUser(req, res) {
   }
 
   const id = parseUserId(req.params.id);
+  const deletedByUserId = Number(req.user?.id);
+  if (!Number.isSafeInteger(deletedByUserId) || deletedByUserId <= 0) {
+    throw createHttpError(403, "Identitas actor penghapusan tidak valid.");
+  }
 
   await withTransaction(async (client) => {
     const oldUserResult = await client.query(
       `SELECT role
          FROM users
         WHERE id = $1
+          AND deleted_at IS NULL
         FOR UPDATE`,
       [id],
     );
@@ -357,11 +378,17 @@ export async function destroyUser(req, res) {
     }
 
     const result = await client.query(
-      `DELETE FROM users
+      `UPDATE users
+          SET is_active = false,
+              deleted_at = CURRENT_TIMESTAMP,
+              deleted_by_user_id = $2,
+              deletion_reason = $3,
+              diperbarui_pada = CURRENT_TIMESTAMP
         WHERE id = $1
+          AND deleted_at IS NULL
           AND LOWER(TRIM(role)) NOT IN ('superadmin', 'super admin')
         RETURNING id`,
-      [id],
+      [id, deletedByUserId, "Soft-delete melalui user management API."],
     );
     if (result.rowCount === 0) {
       throw createHttpError(
@@ -371,5 +398,5 @@ export async function destroyUser(req, res) {
     }
   });
 
-  res.json({ message: "Pengguna berhasil dihapus." });
+  res.json({ message: "Pengguna berhasil dinonaktifkan dan dihapus secara logis." });
 }

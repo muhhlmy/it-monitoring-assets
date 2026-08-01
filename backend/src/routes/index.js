@@ -9,10 +9,12 @@ import { ticketRouter }   from './ticketRoutes.js'
 import { queueRouter }    from './queueRoutes.js'
 import { exportRouter }   from './exportRoutes.js'
 import authRoutes from './authRoutes.js'
+import { apiRateLimiter } from '../middleware/rateLimitMiddleware.js'
 
 export const router = Router()
 
 router.use('/health',     healthRouter)
+router.use('/api',        apiRateLimiter)
 router.use('/api/auth',   authRoutes)
 
 router.use('/api/assets',        authenticateToken, assetRouter)

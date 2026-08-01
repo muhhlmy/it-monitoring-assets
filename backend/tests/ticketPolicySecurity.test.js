@@ -6,12 +6,14 @@ import {
   buildTicketScopeQuery,
   canClaimTicket,
   canCommentTicket,
+  canCreateTicket,
   canDeleteTicket,
   canManageTicket,
   canRateTicket,
   canReadTicket,
   canReadTicketCasp,
   canReassignTicket,
+  canTransitionTicketStatus,
   checkCaspEligibility,
   createTicketIdentity,
   decideTicketAction,
@@ -20,6 +22,7 @@ import {
   isTicketAssignee,
   isTicketReporter,
   normalizeTicketRole,
+  normalizeTicketStatus,
   sameTicketActorId,
 } from '../src/services/ticketAccessService.js'
 
@@ -176,7 +179,14 @@ test('read policy covers reporter, queue admin, assignee, superadmin, and denial
   assert.equal(canReadTicket(users.reporterRead, null), false)
 })
 
-test('comment policy requires readable scope and a non-terminal ticket', () => {
+test('create and comment policies preserve reporter self-service while enforcing admin write access', () => {
+  assert.equal(canCreateTicket(users.reporterRead), true)
+  assert.equal(canCreateTicket(users.reporterFull), true)
+  assert.equal(canCreateTicket(users.adminRead), false)
+  assert.equal(canCreateTicket(users.adminFull), true)
+  assert.equal(canCreateTicket(users.superadmin), true)
+  assert.equal(canCreateTicket(users.unknown), false)
+
   for (const status of ['Open', 'In Progress', 'Pending']) {
     assert.equal(canCommentTicket(users.reporterRead, ticket({ status_tiket: status })), true)
   }
@@ -187,13 +197,46 @@ test('comment policy requires readable scope and a non-terminal ticket', () => {
 
   assert.equal(
     canCommentTicket(users.adminRead, ticket({ is_queue_member: true, status_tiket: 'Open' })),
-    true,
+    false,
   )
   assert.equal(
     canCommentTicket(users.adminRead, ticket({ is_queue_member: false, status_tiket: 'Open' })),
     false,
   )
   assert.equal(canCommentTicket(users.superadmin, ticket({ status_tiket: 'Open' })), true)
+  assert.equal(
+    canCommentTicket(users.adminFull, ticket({ is_queue_member: true, status_tiket: 'Open' })),
+    true,
+  )
+})
+
+test('ticket status transitions form an explicit lifecycle and normalize input', () => {
+  assert.equal(normalizeTicketStatus(' In Progress '), 'in progress')
+
+  for (const [from, to] of [
+    ['Open', 'In Progress'],
+    ['Open', 'Pending'],
+    ['In Progress', 'Resolved'],
+    ['Pending', 'Cancelled'],
+    ['Resolved', 'Closed'],
+    ['Resolved', 'In Progress'],
+    ['Closed', 'In Progress'],
+    ['Cancelled', 'Open'],
+    ['Open', 'Open'],
+  ]) {
+    assert.equal(canTransitionTicketStatus(from, to), true, `${from} -> ${to}`)
+  }
+
+  for (const [from, to] of [
+    ['Open', 'Closed'],
+    ['Closed', 'Open'],
+    ['Cancelled', 'Resolved'],
+    ['Resolved', 'Open'],
+    ['', 'Open'],
+    ['Open', 'Unknown'],
+  ]) {
+    assert.equal(canTransitionTicketStatus(from, to), false, `${from} -> ${to}`)
+  }
 })
 
 test('manage and delete policies enforce write permission and destructive superadmin boundary', () => {
@@ -334,6 +377,8 @@ test('action dispatcher maps every action and denies unknown action names', () =
   const claimableTicket = ticket({ is_queue_member: true, assigned_to_user_id: null })
   const assignedAdminTicket = ticket({ assigned_to_user_id: 20 })
 
+  assert.equal(decideTicketAction(TICKET_ACTIONS.CREATE, users.reporterRead), true)
+  assert.equal(decideTicketAction(TICKET_ACTIONS.CREATE, users.adminRead), false)
   assert.equal(decideTicketAction(TICKET_ACTIONS.READ, users.reporterRead, openReporterTicket), true)
   assert.equal(
     decideTicketAction(TICKET_ACTIONS.READ_CASP, users.reporterRead, openReporterTicket),
@@ -354,26 +399,28 @@ test('scope SQL parameterizes reporter and separates admin read from aggregate s
   assert.deepEqual(reporterScope, {
     scope: TICKET_ROLES.REPORTER,
     params: [10],
-    conditions: ['t.pelapor_user_id = $1'],
+    conditions: ['t.deleted_at IS NULL', 't.pelapor_user_id = $1'],
   })
   assert.equal(reporterScope.conditions.join(' ').includes('pelapor ='), false)
 
   const adminReadScope = buildTicketScopeQuery(users.adminRead, { mode: 'read', alias: 't' })
   assert.equal(adminReadScope.scope, TICKET_ROLES.ADMIN)
   assert.deepEqual(adminReadScope.params, [20])
-  assert.equal(adminReadScope.conditions.length, 1)
-  assert.match(adminReadScope.conditions[0], /^\(t\.assigned_to_user_id = \$1 OR EXISTS/)
-  assert.match(adminReadScope.conditions[0], /utq\.user_id = \$1/)
-  assert.match(adminReadScope.conditions[0], /utq\.queue_id = t\.queue_id/)
+  assert.equal(adminReadScope.conditions.length, 2)
+  assert.equal(adminReadScope.conditions[0], 't.deleted_at IS NULL')
+  assert.match(adminReadScope.conditions[1], /^\(t\.assigned_to_user_id = \$1 OR EXISTS/)
+  assert.match(adminReadScope.conditions[1], /utq\.user_id = \$1/)
+  assert.match(adminReadScope.conditions[1], /utq\.queue_id = t\.queue_id/)
 
   const adminAggregateScope = buildTicketScopeQuery(users.adminRead, {
     mode: 'aggregate',
     alias: 't',
   })
   assert.deepEqual(adminAggregateScope.params, [20])
-  assert.equal(adminAggregateScope.conditions.length, 1)
-  assert.match(adminAggregateScope.conditions[0], /^EXISTS/)
-  assert.equal(adminAggregateScope.conditions[0].includes('assigned_to_user_id'), false)
+  assert.equal(adminAggregateScope.conditions.length, 2)
+  assert.equal(adminAggregateScope.conditions[0], 't.deleted_at IS NULL')
+  assert.match(adminAggregateScope.conditions[1], /^EXISTS/)
+  assert.equal(adminAggregateScope.conditions[1].includes('assigned_to_user_id'), false)
 })
 
 test('scope tabs only narrow base access and unsafe aliases cannot enter SQL', () => {
@@ -383,21 +430,22 @@ test('scope tabs only narrow base access and unsafe aliases cannot enter SQL', (
     alias: 'ticket_row',
   })
   assert.deepEqual(assigned.params, [20, 20])
-  assert.equal(assigned.conditions.length, 2)
-  assert.match(assigned.conditions[0], /ticket_row\.assigned_to_user_id = \$1/)
-  assert.equal(assigned.conditions[1], 'ticket_row.assigned_to_user_id = $2')
+  assert.equal(assigned.conditions.length, 3)
+  assert.equal(assigned.conditions[0], 'ticket_row.deleted_at IS NULL')
+  assert.match(assigned.conditions[1], /ticket_row\.assigned_to_user_id = \$1/)
+  assert.equal(assigned.conditions[2], 'ticket_row.assigned_to_user_id = $2')
 
   const unassignedSuper = buildTicketScopeQuery(users.superadmin, { tab: 'unassigned' })
   assert.deepEqual(unassignedSuper, {
     scope: TICKET_ROLES.SUPERADMIN,
     params: [],
-    conditions: ['t.assigned_to_user_id IS NULL'],
+    conditions: ['t.deleted_at IS NULL', 't.assigned_to_user_id IS NULL'],
   })
 
   const unsafeAlias = buildTicketScopeQuery(users.reporterRead, {
     alias: 't; DROP TABLE tickets',
   })
-  assert.deepEqual(unsafeAlias.conditions, ['t.pelapor_user_id = $1'])
+  assert.deepEqual(unsafeAlias.conditions, ['t.deleted_at IS NULL', 't.pelapor_user_id = $1'])
   assert.equal(unsafeAlias.conditions.join(' ').includes('DROP'), false)
 
   const noPermission = buildTicketScopeQuery({

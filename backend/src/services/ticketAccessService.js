@@ -14,6 +14,7 @@ export const TICKET_ROLES = Object.freeze({
 })
 
 export const TICKET_ACTIONS = Object.freeze({
+  CREATE: 'create',
   READ: 'read',
   READ_CASP: 'read_casp',
   COMMENT: 'comment',
@@ -28,6 +29,15 @@ export const TICKET_ACTIONS = Object.freeze({
 const TERMINAL_TICKET_STATUSES = new Set(['closed', 'resolved', 'cancelled'])
 const READ_PERMISSION_LEVELS = new Set(['read_only', 'full'])
 const TICKET_IDENTITY = Symbol('ticketIdentity')
+
+const TICKET_STATUS_TRANSITIONS = Object.freeze({
+  open: new Set(['in progress', 'pending', 'resolved', 'cancelled']),
+  'in progress': new Set(['open', 'pending', 'resolved', 'cancelled']),
+  pending: new Set(['open', 'in progress', 'resolved', 'cancelled']),
+  resolved: new Set(['in progress', 'closed']),
+  closed: new Set(['in progress']),
+  cancelled: new Set(['open']),
+})
 
 function normalizeId(value) {
   const id = typeof value === 'number' ? value : Number(value)
@@ -141,6 +151,23 @@ export function isTicketOpenForComment(ticket) {
   return status !== '' && !TERMINAL_TICKET_STATUSES.has(status)
 }
 
+export function normalizeTicketStatus(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+export function isTicketResolutionStatus(value) {
+  const status = normalizeTicketStatus(value)
+  return status === 'resolved' || status === 'closed'
+}
+
+export function canTransitionTicketStatus(currentStatus, requestedStatus) {
+  const current = normalizeTicketStatus(currentStatus)
+  const requested = normalizeTicketStatus(requestedStatus)
+  if (!current || !requested) return false
+  if (current === requested) return true
+  return TICKET_STATUS_TRANSITIONS[current]?.has(requested) === true
+}
+
 function hasQueueMembership(ticket) {
   return ticket?.is_queue_member === true
 }
@@ -161,7 +188,21 @@ export function canReadTicket(userOrIdentity, ticket) {
 }
 
 export function canCommentTicket(userOrIdentity, ticket) {
-  return canReadTicket(userOrIdentity, ticket) && isTicketOpenForComment(ticket)
+  const identity = asTicketIdentity(userOrIdentity)
+  if (!canReadTicket(identity, ticket) || !isTicketOpenForComment(ticket)) return false
+  if (identity.role === TICKET_ROLES.REPORTER) return isTicketReporter(identity, ticket)
+  if (identity.role === TICKET_ROLES.SUPERADMIN) return true
+  return identity.role === TICKET_ROLES.ADMIN && hasTicketWritePermission(identity)
+}
+
+export function canCreateTicket(userOrIdentity) {
+  const identity = asTicketIdentity(userOrIdentity)
+  if (!hasTicketReadPermission(identity)) return false
+  if (identity.role === TICKET_ROLES.REPORTER) return true
+  return (
+    identity.role === TICKET_ROLES.SUPERADMIN ||
+    (identity.role === TICKET_ROLES.ADMIN && hasTicketWritePermission(identity))
+  )
 }
 
 export function canReadTicketCasp(userOrIdentity, ticket) {
@@ -228,6 +269,8 @@ export function canListQueueAdmins(userOrIdentity, queueFacts = {}) {
 
 export function decideTicketAction(action, userOrIdentity, ticket) {
   switch (action) {
+    case TICKET_ACTIONS.CREATE:
+      return canCreateTicket(userOrIdentity)
     case TICKET_ACTIONS.READ:
     case TICKET_ACTIONS.EVENT:
       return canReadTicket(userOrIdentity, ticket)
@@ -274,6 +317,8 @@ export function buildTicketScopeQuery(userOrIdentity, query = {}) {
   if (!hasTicketReadPermission(identity)) {
     return { scope: 'denied', params, conditions: ['FALSE'] }
   }
+
+  conditions.push(`${alias}.deleted_at IS NULL`)
 
   if (identity.role === TICKET_ROLES.REPORTER) {
     conditions.push(`${alias}.pelapor_user_id = ${bind(identity.id)}`)
@@ -345,6 +390,7 @@ export async function loadTicketAccessContext(
        ) AS is_queue_member
      FROM tickets t
      WHERE t.id = $1
+       AND t.deleted_at IS NULL
      ${lockClause}`,
     [ticketId, identity.id],
   )

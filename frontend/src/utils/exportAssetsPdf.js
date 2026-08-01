@@ -1,16 +1,20 @@
+import { escapeHtml, printHtmlDocument, safeCssToken } from './printDocument.js'
+
 export function downloadAssetsPdf(assets, filters = {}, date = new Date()) {
   if (!Array.isArray(assets) || assets.length === 0) return false
 
-  const printWindow = window.open('', '_blank')
-  if (!printWindow) {
-    alert('Pop-up terblokir. Harap izinkan pop-up untuk mencetak PDF.')
-    return false
-  }
-
-  const dateString = date.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+  const dateString = escapeHtml(
+    date.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
+  )
   
   // Build table rows
-  const rowsHtml = assets.map(asset => `
+  const rowsHtml = assets.map(rawAsset => {
+    const asset = Object.fromEntries(
+      Object.entries(rawAsset || {}).map(([key, value]) => [key, escapeHtml(value)]),
+    )
+    const statusClass = safeCssToken(rawAsset?.status_aset)
+
+    return `
     <tr>
       <td class="font-mono">${asset.id_aset}</td>
       <td>
@@ -27,13 +31,14 @@ export function downloadAssetsPdf(assets, filters = {}, date = new Date()) {
       </td>
       <td>${asset.lokasi_kerja || '—'}</td>
       <td>${asset.tipe_perangkat || '—'}</td>
-      <td><span class="badge badge-${(asset.status_aset || '').toLowerCase()}">${asset.status_aset || '—'}</span></td>
+      <td><span class="badge badge-${statusClass}">${asset.status_aset || '—'}</span></td>
       <td>${asset.kondisi_aset || '—'}</td>
     </tr>
-  `).join('')
+  `
+  }).join('')
 
-  const statusFilter = filters.status || 'Semua Status'
-  const tipeFilter = filters.tipe || 'Semua Tipe'
+  const statusFilter = escapeHtml(filters.status || 'Semua Status')
+  const tipeFilter = escapeHtml(filters.tipe || 'Semua Tipe')
 
   const html = `
     <!DOCTYPE html>
@@ -225,18 +230,11 @@ export function downloadAssetsPdf(assets, filters = {}, date = new Date()) {
         </tbody>
       </table>
 
-      <script>
-        window.onload = function() {
-          window.print();
-          window.onafterprint = function() {
-            window.close();
-          };
-        };
-      </script>
     </body>
     </html>
   `
-  printWindow.document.write(html)
-  printWindow.document.close()
-  return true
+  return printHtmlDocument(
+    html,
+    'Pop-up terblokir. Harap izinkan pop-up untuk mencetak PDF.',
+  )
 }

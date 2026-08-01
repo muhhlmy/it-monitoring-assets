@@ -6,8 +6,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
+import { useAuth } from '../composables/useAuth.js'
 import AppBadge from '../components/ui/AppBadge.vue'
-import { downloadAssetsCsv } from '../utils/exportAssetsCsv.js'
 import AssetTrendLineChart from '../components/charts/AssetTrendLineChart.vue'
 import AssetTypeBarChart from '../components/charts/AssetTypeBarChart.vue'
 import AssetConditionPieChart from '../components/charts/AssetConditionPieChart.vue'
@@ -15,13 +15,16 @@ import AssetStatusDonutChart from '../components/charts/AssetStatusDonutChart.vu
 import CsatDashboardSection from '../components/charts/CsatDashboardSection.vue'
 
 const { get } = useApi()
+const { hasPermission, hasWritePermission } = useAuth()
 const router = useRouter()
+const canReadAssets = computed(() => hasPermission('assets'))
+const canWriteAssets = computed(() => hasWritePermission('assets'))
+const canReadTickets = computed(() => hasPermission('tickets'))
 
 // ── State ────────────────────────────────────────────────────
 const stats     = ref(null)
 const recentTickets = ref([])
 const isLoading = ref(true)
-const isExporting = ref(false)
 const error     = ref('')
 
 // ── Computed: status breakdown ───────────────────────────────
@@ -37,18 +40,6 @@ function normalizeLabel(value) {
 }
 
 const totalAssets = computed(() => toCount(stats.value?.totalAssets))
-const totalUsers = computed(() => toCount(stats.value?.totalUsers))
-const totalEmployees = computed(() => toCount(stats.value?.totalEmployees))
-const hasActiveUsers = computed(() => {
-  const value = stats.value?.activeUsers
-  return value !== null && value !== undefined && Number.isFinite(Number(value))
-})
-const activeUsers = computed(() =>
-  hasActiveUsers.value ? toCount(stats.value?.activeUsers) : totalUsers.value,
-)
-const activeUsersCaption = computed(() =>
-  hasActiveUsers.value ? `${totalUsers.value} akun terdaftar` : 'Total akun terdaftar',
-)
 
 const statusMap = computed(() => {
   if (!Array.isArray(stats.value?.byStatus)) return {}
@@ -98,92 +89,8 @@ const pctTersedia = computed(() => percentage(countTersedia.value, statusChartTo
 const pctMaintenance = computed(() => percentage(countMaintenance.value, statusChartTotal.value))
 const pctRusak = computed(() => percentage(countRusak.value, statusChartTotal.value))
 
-const statusItems = computed(() => {
-  const items = [
-    { key: 'digunakan', label: 'Digunakan', count: countDipakai.value, color: '#10B981' },
-    { key: 'tersedia', label: 'Tersedia', count: countTersedia.value, color: '#FC841B' },
-    {
-      key: 'maintenance',
-      label: 'Maintenance',
-      count: countMaintenance.value,
-      color: '#F59E0B',
-    },
-    { key: 'rusak', label: 'Rusak', count: countRusak.value, color: '#EF4444' },
-    { key: 'disposal', label: 'Disposal', count: countDisposal.value, color: '#6B7280' },
-  ]
-
-  if (countLainnya.value > 0) {
-    items.push({ key: 'lainnya', label: 'Lainnya', count: countLainnya.value, color: '#8B5CF6' })
-  }
-
-  return items
-})
-
-const statusChartSegments = computed(() => {
-  let offset = 0
-
-  return statusItems.value
-    .map((item) => {
-      const pct = statusChartTotal.value > 0
-        ? (item.count / statusChartTotal.value) * 100
-        : 0
-      const segment = { ...item, pct, offset }
-      offset += pct
-      return segment
-    })
-    .filter((item) => item.pct > 0)
-})
-
-const statusChartDescription = computed(() =>
-  statusItems.value.map((item) => `${item.label} ${item.count}`).join(', '),
-)
-
 // Kondisi sehat dihitung dari aset berkondisi Baru + Baik, bukan dari status penggunaan.
-const conditionRows = computed(() =>
-  Array.isArray(stats.value?.byCondition) ? stats.value.byCondition : [],
-)
-const hasConditionStats = computed(() => conditionRows.value.length > 0)
-const conditionMap = computed(() => {
-  const map = {}
-  for (const row of conditionRows.value) {
-    const condition = normalizeLabel(row?.condition)
-    map[condition] = (map[condition] || 0) + toCount(row?.count)
-  }
-  return map
-})
-const conditionTotal = computed(() =>
-  Object.values(conditionMap.value).reduce((total, count) => total + count, 0),
-)
-const healthTotal = computed(() => totalAssets.value || conditionTotal.value)
-const healthyAssets = computed(() =>
-  (conditionMap.value['baru'] || 0) + (conditionMap.value['baik'] || 0),
-)
-const healthPct = computed(() =>
-  hasConditionStats.value ? percentage(healthyAssets.value, healthTotal.value) : 0,
-)
-const healthLabel = computed(() => {
-  if (healthTotal.value === 0) return 'Belum ada aset'
-  if (!hasConditionStats.value) return 'Data belum tersedia'
-  if (healthPct.value >= 70) return 'Baik'
-  if (healthPct.value >= 40) return 'Sedang'
-  return 'Perlu perhatian'
-})
-const healthDescription = computed(() => {
-  if (healthTotal.value === 0) return 'Belum ada aset untuk dinilai.'
-  if (!hasConditionStats.value) return 'Rincian kondisi belum tersedia dari server.'
-  return `${healthyAssets.value} dari ${healthTotal.value} aset berkondisi Baru atau Baik.`
-})
-
 // ── Computed: tipe breakdown ─────────────────────────────────
-const typeBreakdown = computed(() => {
-  if (!stats.value?.byType?.length) return []
-  return stats.value.byType.slice(0, 6).map(row => ({
-    label: row?.device_type || 'Tanpa tipe',
-    count: toCount(row?.count),
-    pct: percentage(toCount(row?.count)),
-  }))
-})
-
 const locationBreakdown = computed(() => {
   if (!Array.isArray(stats.value?.byLocation)) return []
 
@@ -204,9 +111,12 @@ async function fetchStats() {
   isLoading.value = true
   error.value     = ''
   try {
+    const ticketStatsRequest = canReadTickets.value
+      ? get('/api/tickets/stats').catch(() => null)
+      : Promise.resolve(null)
     const [statsRes, ticketStatsRes] = await Promise.all([
       get('/api/assets/stats'),
-      get('/api/tickets/stats').catch(() => null)
+      ticketStatsRequest,
     ])
     stats.value = statsRes
     if (ticketStatsRes && Array.isArray(ticketStatsRes.recentTickets)) {
@@ -224,24 +134,8 @@ async function fetchStats() {
 
 // ── Dashboard Actions ────────────────────────────────────────
 function goToAddAsset() {
+  if (!canWriteAssets.value) return
   router.push({ path: '/assets', query: { action: 'add' } })
-}
-
-async function exportAssets() {
-  if (isExporting.value) return
-
-  isExporting.value = true
-  try {
-    const data = await get('/api/assets')
-    if (!downloadAssetsCsv(data)) {
-      alert('Tidak ada data aset untuk diexport.')
-    }
-  } catch (e) {
-    console.error('Gagal mengekspor data aset:', e)
-    alert('Gagal mengekspor data aset.')
-  } finally {
-    isExporting.value = false
-  }
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -342,6 +236,7 @@ onMounted(fetchStats)
             <div class="mt-3 flex items-center justify-between gap-1">
               <span class="text-[11px] font-medium text-white/90">Unit terdaftar</span>
               <button
+                v-if="canWriteAssets"
                 type="button"
                 class="rounded-lg bg-white px-2.5 py-1 text-[10px] font-extrabold text-[#E26F10] shadow-xs hover:bg-[#FFF2E7] transition-all cursor-pointer"
                 @click="goToAddAsset"
@@ -463,7 +358,7 @@ onMounted(fetchStats)
       </div>
 
       <!-- ─── ROW 4: CSAT / Kepuasan Penanganan Tiket ────────── -->
-      <CsatDashboardSection />
+      <CsatDashboardSection v-if="canReadTickets" />
 
       <!-- ─── ROW 5: Lokasi Aset ─────────────────────────────── -->
       <div class="shadow-card rounded-2xl border border-[#E5EAEF] bg-white p-6">
@@ -502,7 +397,7 @@ onMounted(fetchStats)
       </div>
 
       <!-- ─── ROW 6: Tabel 5 Aset Terbaru ────────────────────── -->
-      <div class="shadow-card rounded-2xl border border-[#E5EAEF] bg-white overflow-hidden">
+      <div v-if="canReadAssets" class="shadow-card rounded-2xl border border-[#E5EAEF] bg-white overflow-hidden">
         <div class="flex items-center justify-between px-6 py-4.5 border-b border-[#E5EAEF]">
           <div>
             <h3 class="text-[16px] font-extrabold text-[#2A3547]">Aset Terbaru Ditambahkan</h3>
@@ -564,7 +459,7 @@ onMounted(fetchStats)
       </div>
 
       <!-- ─── ROW 7: Tabel Tiket Permintaan Terbaru ──────────────── -->
-      <div class="shadow-card rounded-2xl border border-[#E5EAEF] bg-white overflow-hidden">
+      <div v-if="canReadTickets" class="shadow-card rounded-2xl border border-[#E5EAEF] bg-white overflow-hidden">
         <div class="flex items-center justify-between px-6 py-4.5 border-b border-[#E5EAEF]">
           <div>
             <h3 class="text-[16px] font-extrabold text-[#2A3547]">Tiket Permintaan Terbaru</h3>
@@ -625,4 +520,3 @@ onMounted(fetchStats)
 
   </div>
 </template>
-

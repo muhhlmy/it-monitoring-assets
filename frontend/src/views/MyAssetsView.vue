@@ -6,7 +6,7 @@ import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 
 const { get } = useApi()
-const { isUser, isAdmin, isSuperAdmin, user } = useAuth()
+const { isAdmin, isSuperAdmin, user } = useAuth()
 
 // ── Tampilan: 'list' = daftar karyawan, 'detail' = aset karyawan terpilih
 const view = ref(isAdmin.value ? 'list' : 'detail')
@@ -140,7 +140,7 @@ async function selectEmployee(employee) {
       try {
         const cycleData = await get(`/api/assets/cycle/${encodeURIComponent(employee.nik)}`)
         deviceCycle.value = Array.isArray(cycleData) ? cycleData : []
-      } catch (_) {
+      } catch {
         deviceCycle.value = []
       } finally {
         isLoadingCycle.value = false
@@ -258,13 +258,6 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-onMounted(() => {
-  if (isUser.value) {
-    loadMyOwnAssets()
-  } else {
-    fetchEmployees()
-  }
-})
 </script>
 
 <template>

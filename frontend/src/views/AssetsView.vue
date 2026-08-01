@@ -10,9 +10,10 @@ import AppBadge from '../components/ui/AppBadge.vue'
 import SearchableSelect from '../components/ui/SearchableSelect.vue'
 
 const { get, post, put, del } = useApi()
-const { isAdmin, isSuperAdmin } = useAuth()
+const { isAdmin, isSuperAdmin, hasWritePermission } = useAuth()
 const route = useRoute()
 const router = useRouter()
+const canWriteAssets = computed(() => hasWritePermission('assets'))
 
 const assets = ref([])
 const employees = ref([])
@@ -125,6 +126,7 @@ async function fetchData() {
 }
 
 function openAdd() {
+  if (!canWriteAssets.value) return
   modalMode.value = 'add'
   selectedAsset.value = null
   form.value = emptyForm()
@@ -133,6 +135,7 @@ function openAdd() {
 }
 
 function openEdit(asset) {
+  if (!canWriteAssets.value) return
   modalMode.value = 'edit'
   selectedAsset.value = asset
   const assetForm = Object.fromEntries(
@@ -147,6 +150,7 @@ function openEdit(asset) {
 }
 
 function openDelete(asset) {
+  if (!canWriteAssets.value) return
   selectedAsset.value = asset
   modalError.value = ''
   showDeleteModal.value = true
@@ -193,6 +197,10 @@ function buildPayload() {
 }
 
 async function saveAsset() {
+  if (!canWriteAssets.value) {
+    modalError.value = 'Anda hanya memiliki akses baca untuk aset.'
+    return
+  }
   const payload = buildPayload()
   if (!payload.label_aset) {
     modalError.value = 'Label aset wajib diisi.'
@@ -223,7 +231,7 @@ async function saveAsset() {
 }
 
 async function deleteAsset() {
-  if (!selectedAsset.value) return
+  if (!canWriteAssets.value || !selectedAsset.value) return
   isSubmitting.value = true
   modalError.value = ''
   try {
@@ -368,7 +376,7 @@ watch(() => route.query.q, (query) => {
 onMounted(async () => {
   await fetchData()
   if (route.query.action === 'add') {
-    openAdd()
+    if (canWriteAssets.value) openAdd()
     const query = { ...route.query }
     delete query.action
     router.replace({ query })
@@ -423,7 +431,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
       <button type="button" @click="openExport" class="h-10 rounded-xl border border-[#DFE5EF] bg-white px-4 text-[12px] font-bold text-[#2A3547] hover:bg-[#F8FAFC] transition-all">
         Ekspor Data
       </button>
-      <button type="button" @click="openAdd" class="col-span-2 flex h-10 items-center justify-center gap-2 rounded-xl bg-[#5D87FF] px-5 text-[12px] font-bold text-white shadow-md shadow-blue-500/20 hover:bg-[#4570EA] transition-all">
+      <button v-if="canWriteAssets" type="button" @click="openAdd" class="col-span-2 flex h-10 items-center justify-center gap-2 rounded-xl bg-[#5D87FF] px-5 text-[12px] font-bold text-white shadow-md shadow-blue-500/20 hover:bg-[#4570EA] transition-all">
         <span class="material-symbols-outlined text-[18px]">add</span> Tambah Aset
       </button>
     </div>
@@ -479,8 +487,8 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               <td class="px-4 py-3 text-[12px] font-semibold text-[#2A3547]">{{ asset.kondisi_aset || '—' }}</td>
               <td class="px-4 py-3"><div class="flex justify-end gap-1.5">
                 <button type="button" @click="openDetails(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ECF2FF] text-[#5D87FF] hover:bg-[#5D87FF] hover:text-white transition-all" :aria-label="`Detail ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">visibility</span></button>
-                <button type="button" @click="openEdit(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#49BEFF] hover:bg-[#49BEFF] hover:text-white transition-all" :aria-label="`Edit ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">edit</span></button>
-                <button type="button" @click="openDelete(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FDEDE8] text-[#FA896B] hover:bg-[#FA896B] hover:text-white transition-all" :aria-label="`Hapus ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">delete</span></button>
+                <button v-if="canWriteAssets" type="button" @click="openEdit(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#49BEFF] hover:bg-[#49BEFF] hover:text-white transition-all" :aria-label="`Edit ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">edit</span></button>
+                <button v-if="canWriteAssets" type="button" @click="openDelete(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FDEDE8] text-[#FA896B] hover:bg-[#FA896B] hover:text-white transition-all" :aria-label="`Hapus ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">delete</span></button>
               </div></td>
             </tr>
             <tr v-if="filteredAssets.length === 0"><td colspan="9" class="px-5 py-12 text-center text-[13px] text-[#7C8BAC]">Tidak ada aset yang sesuai.</td></tr>
@@ -532,7 +540,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
         </div>
         <div class="flex justify-end gap-3 border-t border-[#F3F4F6] pt-3">
           <button type="button" :disabled="isSubmitting" @click="closeModal" class="h-10 rounded-xl border border-[#DCE3EC] px-5 text-[12px] font-semibold text-[#475569] hover:bg-[#F8FAFC]">Batal</button>
-          <button type="submit" :disabled="isSubmitting" class="h-10 rounded-xl bg-brand px-5 text-[12px] font-bold text-white shadow-md shadow-brand/20 hover:bg-brand-dark disabled:opacity-50">{{ isSubmitting ? 'Menyimpan...' : 'Simpan' }}</button>
+          <button type="submit" :disabled="isSubmitting || !canWriteAssets" class="h-10 rounded-xl bg-brand px-5 text-[12px] font-bold text-white shadow-md shadow-brand/20 hover:bg-brand-dark disabled:opacity-50">{{ isSubmitting ? 'Menyimpan...' : 'Simpan' }}</button>
         </div>
       </form>
     </AppModal>

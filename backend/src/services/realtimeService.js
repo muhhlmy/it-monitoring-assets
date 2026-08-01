@@ -14,6 +14,47 @@ const SUPPORTED_TICKET_EVENTS = new Set([
 ])
 
 const sseClients = new Set()
+const DEFAULT_MAX_SSE_CLIENTS = 500
+const DEFAULT_MAX_SSE_CONNECTIONS_PER_USER = 3
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 25_000
+
+function createSseCapacityError(statusCode, message) {
+  const error = new Error(message)
+  error.statusCode = statusCode
+  return error
+}
+
+function countUserConnections(userId) {
+  const normalizedUserId = Number(userId)
+  if (!Number.isSafeInteger(normalizedUserId) || normalizedUserId <= 0) return 0
+
+  let count = 0
+  for (const client of sseClients) {
+    if (client.__ticketEventContext?.identity?.id === normalizedUserId) count += 1
+  }
+  return count
+}
+
+export function assertSseCapacity(
+  userOrIdentity,
+  {
+    maxClients = DEFAULT_MAX_SSE_CLIENTS,
+    maxConnectionsPerUser = DEFAULT_MAX_SSE_CONNECTIONS_PER_USER,
+  } = {},
+) {
+  const identity = isCanonicalTicketIdentity(userOrIdentity)
+    ? userOrIdentity
+    : createTicketIdentity(userOrIdentity)
+
+  if (sseClients.size >= maxClients) {
+    throw createSseCapacityError(503, 'Kapasitas koneksi realtime sedang penuh. Coba lagi nanti.')
+  }
+  if (identity.valid && countUserConnections(identity.id) >= maxConnectionsPerUser) {
+    throw createSseCapacityError(429, 'Terlalu banyak koneksi realtime untuk akun ini.')
+  }
+
+  return identity
+}
 
 function normalizeQueueIds(queueIds) {
   if (!Array.isArray(queueIds)) return new Set()
@@ -31,9 +72,7 @@ function normalizeQueueIds(queueIds) {
  * without waiting for a reconnect.
  */
 export function addSseClient(res, userOrIdentity, queueIds = [], options = {}) {
-  const identity = isCanonicalTicketIdentity(userOrIdentity)
-    ? userOrIdentity
-    : createTicketIdentity(userOrIdentity)
+  const identity = assertSseCapacity(userOrIdentity, options)
 
   res.__ticketEventContext = {
     identity,
@@ -42,10 +81,18 @@ export function addSseClient(res, userOrIdentity, queueIds = [], options = {}) {
   sseClients.add(res)
 
   let expirationTimer = null
+  let heartbeatTimer = null
+  let removed = false
   const removeClient = () => {
+    if (removed) return
+    removed = true
     if (expirationTimer) clearTimeout(expirationTimer)
+    if (heartbeatTimer) clearInterval(heartbeatTimer)
     expirationTimer = null
+    heartbeatTimer = null
     sseClients.delete(res)
+    res.off?.('close', removeClient)
+    res.off?.('error', removeClient)
   }
   res.__ticketEventCleanup = removeClient
 
@@ -61,7 +108,22 @@ export function addSseClient(res, userOrIdentity, queueIds = [], options = {}) {
         }, Math.min(expirationDelay, 2_147_483_647))
   expirationTimer?.unref?.()
 
+  const heartbeatIntervalMs = Number(options.heartbeatIntervalMs)
+  const normalizedHeartbeatIntervalMs =
+    Number.isFinite(heartbeatIntervalMs) && heartbeatIntervalMs > 0
+      ? heartbeatIntervalMs
+      : DEFAULT_HEARTBEAT_INTERVAL_MS
+  heartbeatTimer = setInterval(() => {
+    try {
+      if (res.write(': heartbeat\n\n') === false) endSseClient(res)
+    } catch {
+      endSseClient(res)
+    }
+  }, normalizedHeartbeatIntervalMs)
+  heartbeatTimer.unref?.()
+
   res.on('close', removeClient)
+  res.on('error', removeClient)
   return removeClient
 }
 
@@ -219,7 +281,10 @@ export async function broadcastTicketEvent(eventType, ticket, { queryable } = {}
     }
     if (!shouldDeliverTicketEvent(eventType, ticket, liveContext)) continue
     try {
-      client.write(`data: ${data}\n\n`)
+      if (client.write(`data: ${data}\n\n`) === false) {
+        endSseClient(client)
+        continue
+      }
       delivered += 1
     } catch {
       endSseClient(client)
@@ -227,6 +292,12 @@ export async function broadcastTicketEvent(eventType, ticket, { queryable } = {}
   }
 
   return delivered
+}
+
+export function closeAllSseClients() {
+  const clients = [...sseClients]
+  for (const client of clients) endSseClient(client)
+  return clients.length
 }
 
 // Compatibility export for extensions that imported the old function name.

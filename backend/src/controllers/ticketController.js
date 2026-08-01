@@ -6,6 +6,7 @@ import {
   buildTicketScopeQuery,
   canClaimTicket,
   canCommentTicket,
+  canCreateTicket,
   canDeleteTicket,
   canManageTicket,
   canRateTicket,
@@ -16,8 +17,10 @@ import {
   hasTicketWritePermission,
   isTicketAssignee,
   isTicketReporter,
+  isTicketResolutionStatus,
   loadTicketAccessContext,
   normalizeTicketRole,
+  canTransitionTicketStatus,
 } from '../services/ticketAccessService.js'
 
 function createHttpError(statusCode, message) {
@@ -52,6 +55,31 @@ const TICKET_STATUSES = new Set([
   'Closed',
   'Cancelled',
 ])
+const TICKET_LIST_QUERY_FIELDS = new Set([
+  'search',
+  'status',
+  'prioritas',
+  'queue_id',
+  'tab',
+  'page',
+  'limit',
+])
+const TICKET_LIST_TABS = new Set([
+  '',
+  'all',
+  'open',
+  'pending',
+  'closed',
+  'resolved',
+  'assigned',
+  'mine',
+  'reported',
+  'created',
+  'unassigned',
+])
+const MAX_TICKET_SEARCH_LENGTH = 150
+const DEFAULT_TICKET_PAGE_SIZE = 50
+const MAX_TICKET_PAGE_SIZE = 100
 
 function getTicketIdentity(req) {
   return req.ticketIdentity || createTicketIdentity(req.user)
@@ -69,6 +97,67 @@ function parsePositiveId(value, message = 'ID tiket tidak valid.') {
   const id = Number(value)
   if (!Number.isSafeInteger(id) || id <= 0) throw createHttpError(400, message)
   return id
+}
+
+function parsePositiveQueryInteger(value, fallback, label, maximum = Number.MAX_SAFE_INTEGER) {
+  if (value === undefined || value === '') return fallback
+  if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) {
+    throw createHttpError(400, `${label} tidak valid.`)
+  }
+  const parsed = Number(value)
+  if (!Number.isSafeInteger(parsed) || parsed > maximum) {
+    throw createHttpError(400, `${label} tidak valid.`)
+  }
+  return parsed
+}
+
+function validateTicketListQuery(query) {
+  const unknownField = Object.keys(query).find((field) => !TICKET_LIST_QUERY_FIELDS.has(field))
+  if (unknownField) {
+    throw createHttpError(400, `Parameter daftar tiket tidak diizinkan: ${unknownField}.`)
+  }
+
+  const normalizeOptionalText = (value, label) => {
+    if (value === undefined || value === '') return ''
+    if (typeof value !== 'string') throw createHttpError(400, `${label} tidak valid.`)
+    return value.trim()
+  }
+
+  const search = normalizeOptionalText(query.search, 'Pencarian tiket')
+  if (search.length > MAX_TICKET_SEARCH_LENGTH) {
+    throw createHttpError(400, `Pencarian tiket maksimal ${MAX_TICKET_SEARCH_LENGTH} karakter.`)
+  }
+
+  const status = normalizeOptionalText(query.status, 'Status tiket')
+  if (status && !TICKET_STATUSES.has(status)) {
+    throw createHttpError(400, 'Status tiket tidak valid.')
+  }
+
+  const prioritas = normalizeOptionalText(query.prioritas, 'Prioritas tiket')
+  if (prioritas && !TICKET_PRIORITIES.has(prioritas)) {
+    throw createHttpError(400, 'Prioritas tiket tidak valid.')
+  }
+
+  const tab = normalizeOptionalText(query.tab, 'Tab tiket').toLowerCase()
+  if (!TICKET_LIST_TABS.has(tab)) throw createHttpError(400, 'Tab tiket tidak valid.')
+
+  return {
+    search,
+    status,
+    prioritas,
+    tab,
+    queueId:
+      query.queue_id === undefined || query.queue_id === ''
+        ? null
+        : parsePositiveId(query.queue_id, 'Queue ID tidak valid.'),
+    page: parsePositiveQueryInteger(query.page, 1, 'Halaman tiket'),
+    limit: parsePositiveQueryInteger(
+      query.limit,
+      DEFAULT_TICKET_PAGE_SIZE,
+      'Batas tiket',
+      MAX_TICKET_PAGE_SIZE,
+    ),
+  }
 }
 
 function assertPlainObject(body, message) {
@@ -141,7 +230,13 @@ function normalizeTicketAttachment(attachment) {
 function withoutInlineAttachment(record) {
   if (!record || typeof record !== 'object') return record
 
-  const { attachment, ...safeRecord } = record
+  const {
+    attachment,
+    deleted_at: _deletedAt,
+    deleted_by_user_id: _deletedByUserId,
+    deletion_reason: _deletionReason,
+    ...safeRecord
+  } = record
   return {
     ...safeRecord,
     has_attachment:
@@ -321,7 +416,7 @@ async function addTicketLog(queryable, id_tiket, nomor_tiket, aksi, perubahan, o
 // ── LIST TICKETS (queue-aware) ────────────────────────────────
 export async function listTickets(req, res) {
   const identity = assertCanonicalTicketIdentity(req)
-  const { search, status, prioritas, queue_id, tab } = req.query
+  const { search, status, prioritas, queueId, tab, page, limit } = validateTicketListQuery(req.query)
   const ticketScope = buildTicketScopeQuery(identity, { tab })
   const params = [...ticketScope.params]
   const conditions = [...ticketScope.conditions]
@@ -349,8 +444,8 @@ export async function listTickets(req, res) {
     params.push(prioritas)
     conditions.push(`t.prioritas = $${params.length}`)
   }
-  if (queue_id) {
-    params.push(parsePositiveId(queue_id, 'Queue ID tidak valid.'))
+  if (queueId !== null) {
+    params.push(queueId)
     conditions.push(`t.queue_id = $${params.length}`)
   }
 
@@ -381,17 +476,17 @@ export async function listTickets(req, res) {
       reporter.nama  AS pelapor_nama,
       COALESCE(k_rep.nik, '') AS pelapor_nik,
       COALESCE(k_rep.jabatan, 'User') AS pelapor_jabatan,
-      COALESCE(comm_count.total_komentar, 0)::int AS total_komentar
+      COALESCE((
+        SELECT COUNT(*)::int
+        FROM komentar_tiket comment_row
+        WHERE comment_row.id_tiket = t.id
+      ), 0)::int AS total_komentar,
+      COUNT(*) OVER()::int AS __total_count
     FROM tickets t
     LEFT JOIN ticket_queues q    ON q.id = t.queue_id
     LEFT JOIN users assignee     ON assignee.id = t.assigned_to_user_id
     LEFT JOIN users reporter     ON reporter.id = t.pelapor_user_id
     LEFT JOIN karyawan k_rep     ON LOWER(TRIM(reporter.email)) = LOWER(TRIM(k_rep.email_kantor))
-    LEFT JOIN (
-      SELECT id_tiket, COUNT(*)::int AS total_komentar
-      FROM komentar_tiket
-      GROUP BY id_tiket
-    ) comm_count ON comm_count.id_tiket = t.id
     ${whereClause}
     ORDER BY
       CASE t.prioritas
@@ -401,11 +496,19 @@ export async function listTickets(req, res) {
         WHEN 'Low (7d)'     THEN 4
         ELSE 5
       END,
-      t.dibuat_pada DESC
+      t.dibuat_pada DESC,
+      t.id DESC
+    LIMIT $${params.length + 1}
+    OFFSET $${params.length + 2}
   `
 
-  const result = await pool.query(sql, params)
-  res.json(result.rows)
+  const result = await pool.query(sql, [...params, limit, (page - 1) * limit])
+  const totalCount = Number(result.rows[0]?.__total_count) || 0
+  const rows = result.rows.map(({ __total_count: _totalCount, ...row }) => row)
+  res.setHeader('X-Total-Count', String(totalCount))
+  res.setHeader('X-Page', String(page))
+  res.setHeader('X-Page-Size', String(limit))
+  res.json(rows)
 }
 
 // ── TICKET STATS ──────────────────────────────────────────────
@@ -736,20 +839,33 @@ export async function streamTicketEvents(req, res) {
     throw createHttpError(401, 'Sesi realtime tidak valid atau telah berakhir.')
   }
 
-  res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-store')
-  res.setHeader('Connection', 'keep-alive')
-  if (res.flushHeaders) res.flushHeaders()
-
-  addSseClient(res, identity, [], {
+  const removeClient = addSseClient(res, identity, [], {
     expiresAt: tokenExpiresAt,
   })
-  res.write(`data: ${JSON.stringify({ type: 'CONNECTED', timestamp: Date.now() })}\n\n`)
+  try {
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-store, no-transform')
+    res.setHeader('Connection', 'keep-alive')
+    res.setHeader('X-Accel-Buffering', 'no')
+    if (res.flushHeaders) res.flushHeaders()
+
+    const connectedEvent = JSON.stringify({ type: 'CONNECTED', timestamp: Date.now() })
+    if (res.write(`retry: 5000\ndata: ${connectedEvent}\n\n`) === false) {
+      removeClient()
+      res.end()
+    }
+  } catch (error) {
+    removeClient()
+    throw error
+  }
 }
 
 // ── CREATE TICKET ─────────────────────────────────────────────
 export async function createTicket(req, res) {
   const identity = assertCanonicalTicketIdentity(req)
+  if (!canCreateTicket(identity)) {
+    throw createHttpError(403, 'Anda tidak memiliki akses untuk membuat tiket.')
+  }
   if (!identity.name) throw createHttpError(403, 'Identitas pelapor tidak lengkap.')
   const { judul, deskripsi, queue_id, prioritas, attachment } = validateTicketCreateBody(req.body)
   const pelaporNama = identity.name
@@ -865,6 +981,16 @@ export async function updateTicket(req, res) {
 
     const { judul, deskripsi, prioritas, status_tiket, queue_id, attachment } = update
 
+    if (
+      status_tiket !== undefined &&
+      !canTransitionTicketStatus(oldTicket.status_tiket, status_tiket)
+    ) {
+      throw createHttpError(
+        409,
+        `Perubahan status dari ${oldTicket.status_tiket} ke ${status_tiket} tidak diizinkan.`,
+      )
+    }
+
     // Jika queue berubah, validasi queue baru
     let newQueueId = oldTicket.queue_id
     let queueKode = oldTicket.kategori
@@ -905,7 +1031,25 @@ export async function updateTicket(req, res) {
     }
 
     const newAttachment = attachment !== undefined ? attachment : oldTicket.attachment
-    const isResolving = status_tiket === 'Resolved' && oldTicket.status_tiket !== 'Resolved'
+    const wasResolved = isTicketResolutionStatus(oldTicket.status_tiket)
+    const willBeResolved =
+      status_tiket === undefined ? wasResolved : isTicketResolutionStatus(status_tiket)
+    const isResolving = status_tiket !== undefined && willBeResolved && !wasResolved
+    const isReopening = status_tiket !== undefined && wasResolved && !willBeResolved
+    const queueChanged = Number(newQueueId) !== Number(oldTicket.queue_id)
+
+    if (isReopening) {
+      const ratingResult = await client.query(
+        'SELECT 1 FROM ticket_casp_ratings WHERE ticket_id = $1 LIMIT 1',
+        [id],
+      )
+      if (ratingResult.rowCount > 0) {
+        throw createHttpError(
+          409,
+          'Tiket yang sudah memiliki penilaian CASP tidak dapat dibuka kembali.',
+        )
+      }
+    }
 
     const result = await client.query(
       `UPDATE tickets t
@@ -916,10 +1060,21 @@ export async function updateTicket(req, res) {
             status_tiket = COALESCE($5, status_tiket),
             attachment  = CASE WHEN $12 = TRUE THEN $6 ELSE attachment END,
             queue_id    = CASE WHEN $11 = TRUE THEN $7 ELSE queue_id END,
-            resolved_at = CASE WHEN $13 = TRUE THEN CURRENT_TIMESTAMP ELSE resolved_at END,
-            resolved_by_user_id = CASE WHEN $13 = TRUE THEN $10 ELSE resolved_by_user_id END,
+            resolved_at = CASE
+              WHEN $13 = TRUE THEN CURRENT_TIMESTAMP
+              WHEN $14 = TRUE THEN NULL
+              ELSE resolved_at
+            END,
+            resolved_by_user_id = CASE
+              WHEN $13 = TRUE THEN $10
+              WHEN $14 = TRUE THEN NULL
+              ELSE resolved_by_user_id
+            END,
+            assigned_to = CASE WHEN $15 = TRUE THEN NULL ELSE assigned_to END,
+            assigned_to_user_id = CASE WHEN $15 = TRUE THEN NULL ELSE assigned_to_user_id END,
             diperbarui_pada = CURRENT_TIMESTAMP
       WHERE t.id = $8
+        AND t.deleted_at IS NULL
         AND (
           $9 = TRUE
           OR t.assigned_to_user_id = $10
@@ -956,6 +1111,8 @@ export async function updateTicket(req, res) {
         queue_id !== undefined,
         attachment !== undefined,
         isResolving,
+        isReopening,
+        queueChanged,
       ],
     )
     if (result.rowCount === 0) {
@@ -969,7 +1126,7 @@ export async function updateTicket(req, res) {
       changes.push(`Status: '${oldTicket.status_tiket}' → '${status_tiket}'`)
     if (prioritas && prioritas !== oldTicket.prioritas)
       changes.push(`Prioritas: '${oldTicket.prioritas}' → '${prioritas}'`)
-    if (newQueueId !== oldTicket.queue_id) changes.push(`Unit tujuan diubah`)
+    if (queueChanged) changes.push('Unit tujuan diubah dan assignment lama dikosongkan')
     if (newAttachment !== oldTicket.attachment) changes.push('Lampiran diperbarui')
 
     const aksi =
@@ -1018,6 +1175,7 @@ export async function claimTicket(req, res) {
             status_tiket = 'In Progress',
             diperbarui_pada = CURRENT_TIMESTAMP
       WHERE t.id = $3
+        AND t.deleted_at IS NULL
         AND t.assigned_to_user_id IS NULL
         AND t.status_tiket NOT IN ('Closed', 'Resolved', 'Cancelled')
         AND (
@@ -1117,6 +1275,7 @@ export async function reassignTicket(req, res) {
             assigned_to = $2,
             diperbarui_pada = CURRENT_TIMESTAMP
       WHERE t.id = $3
+        AND t.deleted_at IS NULL
         AND t.assigned_to_user_id IS NOT DISTINCT FROM $4
         AND t.queue_id IS NOT DISTINCT FROM $5
         AND LOWER(TRIM(t.status_tiket)) NOT IN ('closed', 'resolved', 'cancelled')
@@ -1181,12 +1340,41 @@ export async function reassignTicket(req, res) {
 export async function deleteTicket(req, res) {
   const id = parsePositiveId(req.params.id)
   const identity = assertCanonicalTicketIdentity(req)
-  if (!canDeleteTicket(identity)) {
-    throw createHttpError(403, 'Hanya superadmin yang dapat menghapus tiket.')
-  }
+  const deletedTicket = await withTransaction(async (client) => {
+    const ticket = await loadTicketAccessContext(client, identity, id, { forUpdate: true })
+    assertTicketFound(ticket)
+    if (!canDeleteTicket(identity, ticket)) {
+      throw createHttpError(403, 'Hanya superadmin yang dapat menghapus tiket.')
+    }
 
-  const result = await pool.query('DELETE FROM tickets WHERE id = $1 RETURNING id', [id])
-  if (result.rowCount === 0) throw createHttpError(404, 'Tiket tidak ditemukan.')
+    const deletionReason = 'Dihapus oleh superadmin melalui aplikasi.'
+    const result = await client.query(
+      `UPDATE tickets
+          SET deleted_at = CURRENT_TIMESTAMP,
+              deleted_by_user_id = $2,
+              deletion_reason = $3,
+              diperbarui_pada = CURRENT_TIMESTAMP
+        WHERE id = $1
+          AND deleted_at IS NULL
+      RETURNING *`,
+      [id, identity.id, deletionReason],
+    )
+    if (result.rowCount === 0) {
+      throw createHttpError(409, 'Tiket sudah dihapus atau berubah; muat ulang halaman.')
+    }
+
+    await addTicketLog(
+      client,
+      id,
+      ticket.nomor_tiket,
+      'HAPUS',
+      deletionReason,
+      identity.name,
+    )
+    return result.rows[0]
+  })
+
+  await broadcastTicketEvent('TICKET_UPDATED', deletedTicket)
   res.json({ message: 'Tiket berhasil dihapus.' })
 }
 

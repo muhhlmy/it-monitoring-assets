@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import SearchableSelect from '../components/ui/SearchableSelect.vue'
+import { escapeHtml, printHtmlDocument } from '../utils/printDocument.js'
 
 const { get } = useApi()
 
@@ -77,7 +78,7 @@ watch(() => form.value.penerimaNik, (nik) => {
 })
 
 // Watch isPenerimaLainnya to reset fields
-watch(() => form.value.isPenerimaLainnya, (val) => {
+watch(() => form.value.isPenerimaLainnya, () => {
   form.value.penerimaNik = ''
   form.value.penerimaNama = ''
   form.value.penerimaDirektorat = ''
@@ -138,12 +139,6 @@ function removeAssetLamaRow(index) {
 
 // ── PDF Print Engine ─────────────────────────────────────────
 function generatePdf() {
-  const printWindow = window.open('', '_blank')
-  if (!printWindow) {
-    alert('Pop-up terblokir. Harap izinkan pop-up untuk mencetak PDF.')
-    return
-  }
-
   // Format Date to Indonsian Date (e.g. 21 Juli 2026)
   const months = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -158,7 +153,9 @@ function generatePdf() {
   const isTujuanPerbaikan = (form.value.tujuan === 'perbaikan' || form.value.tujuan === 'penggantian') ? '✓' : ''
   const isTujuanDisposal = form.value.tujuan === 'disposal' ? '✓' : ''
   const isTujuanLainnya = form.value.tujuan === 'lainnya' ? '✓' : ''
-  const tujuanLainnyaText = form.value.tujuan === 'lainnya' ? form.value.tujuanLainnya : ''
+  const tujuanLainnyaText = form.value.tujuan === 'lainnya'
+    ? escapeHtml(form.value.tujuanLainnya)
+    : ''
 
   // Strikethrough logic for Peminjaman/Pengembalian
   let labelPeminjamanHtml = 'Peminjaman/Pengembalian'
@@ -193,9 +190,9 @@ function generatePdf() {
         rowsBaruHtml += `
           <tr>
             <td style="text-align: center;">${i + 1}</td>
-            <td>${asset.tipe || ''}</td>
-            <td style="text-align: center;">${asset.id_aset ? (asset.qty || 1) : ''}</td>
-            <td>${asset.spesifikasi || ''}</td>
+            <td>${escapeHtml(asset.tipe)}</td>
+            <td style="text-align: center;">${asset.id_aset ? escapeHtml(asset.qty || 1) : ''}</td>
+            <td>${escapeHtml(asset.spesifikasi)}</td>
           </tr>
         `
       }
@@ -229,9 +226,9 @@ function generatePdf() {
         rowsLamaHtml += `
           <tr>
             <td style="text-align: center;">${i + 1}</td>
-            <td>${asset.tipe || ''}</td>
-            <td style="text-align: center;">${asset.id_aset ? (asset.qty || 1) : ''}</td>
-            <td>${asset.spesifikasi || ''}</td>
+            <td>${escapeHtml(asset.tipe)}</td>
+            <td style="text-align: center;">${asset.id_aset ? escapeHtml(asset.qty || 1) : ''}</td>
+            <td>${escapeHtml(asset.spesifikasi)}</td>
           </tr>
         `
       }
@@ -257,7 +254,11 @@ function generatePdf() {
     }
   }
 
-  const html = `
+  const safeForm = Object.fromEntries(
+    Object.entries(form.value).map(([key, value]) => [key, escapeHtml(value)]),
+  )
+
+  const html = ((form) => `
     <!DOCTYPE html>
     <html lang="id">
     <head>
@@ -487,7 +488,7 @@ function generatePdf() {
         Dengan menandatangani dokumen ini, Pihak Pemberi dan Pihak Penerima menyatakan bahwa seluruh informasi yang tercantum dalam formulir ini adalah benar, lengkap, serta dibuat secara sadar tanpa paksaan dari pihak manapun, dan bahwa keduanya telah membaca, memahami, menyetujui, serta bersedia mematuhi seluruh ketentuan penggunaan aset perusahaan sebagaimana tercantum pada Bagian IV.
       </div>
 
-      <div class="sign-date">Jakarta, ${formattedDate}</div>
+      <div class="sign-date">Jakarta, ${escapeHtml(formattedDate)}</div>
 
       <table class="signature-table">
         <tbody>
@@ -495,8 +496,8 @@ function generatePdf() {
             <td>
               <div class="sig-title">Diserahkan Oleh</div>
               <div style="height: 50px;"></div>
-              <div class="sig-name">${form.value.pemberiNama}</div>
-              <div class="sig-sub">${form.value.pemberiDirektorat}</div>
+              <div class="sig-name">${escapeHtml(form.value.pemberiNama)}</div>
+              <div class="sig-sub">${escapeHtml(form.value.pemberiDirektorat)}</div>
             </td>
             <td>
               <div class="sig-title">Diterima Oleh</div>
@@ -514,19 +515,14 @@ function generatePdf() {
         </tbody>
       </table>
 
-      <script>
-        window.onload = function() {
-          window.print();
-          window.onafterprint = function() {
-            window.close();
-          };
-        };
-      </scr${'ipt'}>
     </body>
     </html>
-  `
-  printWindow.document.write(html)
-  printWindow.document.close()
+  `)({ value: safeForm })
+
+  return printHtmlDocument(
+    html,
+    'Pop-up terblokir. Harap izinkan pop-up untuk mencetak PDF.',
+  )
 }
 
 onMounted(fetchData)

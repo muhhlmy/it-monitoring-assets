@@ -1,6 +1,13 @@
 import { env } from '../config/env.js';
 import { pool } from '../config/database.js';
 import jwt from 'jsonwebtoken';
+import {
+  DEFAULT_USER_PERMISSIONS,
+  SUPERADMIN_PERMISSIONS,
+  hasReadPermissionLevel,
+  hasWritePermissionLevel,
+  normalizePermissions,
+} from '../services/permissionService.js';
 
 const BEARER_TOKEN_PATTERN =
   /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i;
@@ -67,6 +74,7 @@ export async function authenticateToken(req, res, next) {
        LEFT JOIN karyawan k
          ON LOWER(TRIM(u.email)) = LOWER(TRIM(k.email_kantor))
        WHERE u.id = $1
+         AND u.deleted_at IS NULL
          AND u.is_active = true`,
       [userId],
     );
@@ -76,18 +84,17 @@ export async function authenticateToken(req, res, next) {
     const user = result.rows[0];
     const role = normalizeAuthenticatedRole(user.role);
     if (!role) return rejectAuthentication(res);
+    const permissions =
+      role === 'superadmin'
+        ? { ...SUPERADMIN_PERMISSIONS }
+        : normalizePermissions(user.permissions, { defaults: DEFAULT_USER_PERMISSIONS });
 
     req.user = {
       id: userId,
       nama: typeof user.nama === 'string' ? user.nama : '',
       email: typeof user.email === 'string' ? user.email : '',
       role,
-      permissions:
-        user.permissions &&
-        typeof user.permissions === 'object' &&
-        !Array.isArray(user.permissions)
-          ? user.permissions
-          : {},
+      permissions,
       nik: typeof user.nik === 'string' ? user.nik : '',
       jabatan: typeof user.jabatan === 'string' ? user.jabatan : '',
       iat: claims.iat,
@@ -119,15 +126,11 @@ export function authorizeRoles(...allowedRoles) {
 }
 
 export function hasReadFeaturePermission(value) {
-  if (value === true) return true;
-  if (typeof value !== 'string') return false;
-  const level = value.trim().toLowerCase();
-  return level === 'read_only' || level === 'full';
+  return hasReadPermissionLevel(value);
 }
 
 export function hasWriteFeaturePermission(value) {
-  if (value === true) return true;
-  return typeof value === 'string' && value.trim().toLowerCase() === 'full';
+  return hasWritePermissionLevel(value);
 }
 
 export function authorizeAnyPermission(featureKeys, access = 'read') {

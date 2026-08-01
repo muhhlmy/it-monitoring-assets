@@ -9,6 +9,7 @@ const { login } = useAuth()
 const isMounting = ref(true)
 const email = ref('')
 const password = ref('')
+const rememberMe = ref(false)
 const showPassword = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
@@ -41,7 +42,7 @@ const handleLogin = async () => {
   errorMessage.value = ''
 
   try {
-    const response = await login(email.value, password.value)
+    const response = await login(email.value, password.value, rememberMe.value)
     
     // Redirect based on role
     if (response.user.role === 'user') {
@@ -204,7 +205,7 @@ const handleLogin = async () => {
             <div class="flex items-center justify-between mt-6">
               <label class="flex items-center gap-3 cursor-pointer group">
                 <div class="relative flex h-5 w-5 items-center justify-center rounded-md border-2 border-[#CBD5E1] bg-white transition-colors group-hover:border-[#0A51B0] has-[:checked]:border-[#0A51B0] has-[:checked]:bg-[#0A51B0]">
-                  <input type="checkbox" class="peer sr-only" />
+                  <input v-model="rememberMe" type="checkbox" class="peer sr-only" />
                   <span class="material-symbols-outlined text-[14px] text-white opacity-0 transition-opacity peer-checked:opacity-100">check</span>
                 </div>
                 <span class="text-[13px] font-semibold text-[#64748B] group-hover:text-[#111827]">Ingat Saya</span>

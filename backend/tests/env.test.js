@@ -13,6 +13,9 @@ function importEnvironment(overrides = {}) {
 
   delete childEnvironment.DB_PASSWORD
   delete childEnvironment.JWT_SECRET
+  delete childEnvironment.PASSWORD_BCRYPT_ROUNDS
+  delete childEnvironment.PASSWORD_LEGACY_MODE
+  delete childEnvironment.TRUST_PROXY_CIDRS
 
   Object.assign(childEnvironment, overrides)
 
@@ -20,7 +23,10 @@ function importEnvironment(overrides = {}) {
     const { env } = await import(${JSON.stringify(envModuleUrl)});
     process.stdout.write(JSON.stringify({
       databasePassword: env.database.password,
-      jwtSecret: env.jwt.secret
+      jwtSecret: env.jwt.secret,
+      bcryptRounds: env.password.bcryptRounds,
+      legacyMode: env.password.legacyMode,
+      trustProxy: env.trustProxy
     }));
   `
 
@@ -77,7 +83,44 @@ test('meneruskan secret valid tanpa fallback atau perubahan nilai', () => {
   assert.deepEqual(JSON.parse(result.stdout), {
     databasePassword: validDatabasePassword,
     jwtSecret: validJwtSecret,
+    bcryptRounds: 12,
+    legacyMode: 'disabled',
+    trustProxy: false,
   })
+})
+
+test('password compatibility dan trusted proxy harus dikonfigurasi secara eksplisit', () => {
+  const valid = importEnvironment({
+    DB_PASSWORD: validDatabasePassword,
+    JWT_SECRET: validJwtSecret,
+    PASSWORD_BCRYPT_ROUNDS: '10',
+    PASSWORD_LEGACY_MODE: 'verify-plaintext',
+    TRUST_PROXY_CIDRS: '127.0.0.1,10.0.0.0/8,2001:db8::/32',
+  })
+  assert.equal(valid.status, 0, valid.stderr)
+  assert.deepEqual(JSON.parse(valid.stdout), {
+    databasePassword: validDatabasePassword,
+    jwtSecret: validJwtSecret,
+    bcryptRounds: 10,
+    legacyMode: 'verify-plaintext',
+    trustProxy: ['127.0.0.1', '10.0.0.0/8', '2001:db8::/32'],
+  })
+
+  for (const overrides of [
+    { PASSWORD_BCRYPT_ROUNDS: '9' },
+    { PASSWORD_BCRYPT_ROUNDS: '12junk' },
+    { PASSWORD_LEGACY_MODE: 'true' },
+    { TRUST_PROXY_CIDRS: '*' },
+    { TRUST_PROXY_CIDRS: '1' },
+    { TRUST_PROXY_CIDRS: '10.0.0.0/99' },
+  ]) {
+    const result = importEnvironment({
+      DB_PASSWORD: validDatabasePassword,
+      JWT_SECRET: validJwtSecret,
+      ...overrides,
+    })
+    assert.notEqual(result.status, 0)
+  }
 })
 
 test('menolak wildcard CORS agar deployment memakai exact allowlist', () => {

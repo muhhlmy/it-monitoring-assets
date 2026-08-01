@@ -7,10 +7,16 @@ import {
   canWritePermission,
   getTicketEligibility,
 } from '../utils/permissionAccess.js'
+import {
+  clearAuthSession,
+  getAuthSnapshot,
+  storeAuthSession,
+} from '../utils/authStorage.js'
 
 // State global menggunakan ref (bisa juga pakai Pinia)
-const user = ref(JSON.parse(localStorage.getItem('user')) || null)
-const token = ref(localStorage.getItem('token') || null)
+const initialSession = getAuthSnapshot()
+const user = ref(initialSession.user)
+const token = ref(initialSession.token)
 
 export function useAuth() {
   const api = useApi()
@@ -30,16 +36,17 @@ export function useAuth() {
     () => ticketEligibility.value.role === TICKET_ROLES.REPORTER,
   )
 
-  const login = async (email, password) => {
+  const login = async (email, password, remember = false) => {
     const response = await api.post('/api/auth/login', { email, password })
 
-    // Simpan ke state
+    storeAuthSession({
+      token: response.token,
+      user: response.user,
+      remember,
+    })
+
     token.value = response.token
     user.value = response.user
-
-    // Simpan ke localStorage
-    localStorage.setItem('token', response.token)
-    localStorage.setItem('user', JSON.stringify(response.user))
 
     return response
   }
@@ -47,8 +54,7 @@ export function useAuth() {
   const logout = () => {
     token.value = null
     user.value = null
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    clearAuthSession()
     router.push('/login')
   }
 
@@ -65,10 +71,10 @@ export function useAuth() {
   // Returns true only if the user has 'full' (CRUD) access to the feature
   const hasWritePermission = (featureKey) => {
     if (!token.value || !user.value) return false
+    if (!featureKey) return false
     if (featureKey === 'tickets') return ticketEligibility.value.canWrite
     if (isSuperAdmin.value) return true
     if (featureKey === 'export') return false
-    if (!featureKey) return true
     const perms = user.value.permissions
     if (perms && typeof perms === 'object') {
       return canWritePermission(perms[featureKey])
@@ -87,6 +93,6 @@ export function useAuth() {
     hasWritePermission,
     login,
     logout,
-    getProfile
+    getProfile,
   }
 }

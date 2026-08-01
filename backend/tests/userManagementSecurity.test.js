@@ -14,9 +14,11 @@ process.env.DB_USER = 'test_user'
 process.env.DB_PASSWORD = 'test_password_not_used'
 process.env.DB_NAME = 'test_database'
 process.env.CORS_ORIGINS = 'http://localhost:5173'
+process.env.PASSWORD_BCRYPT_ROUNDS = '10'
 
 const { app } = await import('../src/app.js')
 const { pool } = await import('../src/config/database.js')
+const { isBcryptPasswordHash } = await import('../src/security/passwordService.js')
 const {
   USER_MANAGEMENT_ROLES,
   canCreateManagedUser,
@@ -186,16 +188,33 @@ test('user-management HTTP mutations deny escalation before database mutation', 
 
     if (isCanonicalAuthQuery(normalized)) {
       const user = users.get(parameters[0])
+      const liveUser = user && user.deleted_at == null ? user : null
       return {
-        rows: user
+        rows: liveUser
           ? [{
-              ...user,
+              ...liveUser,
               nik: '',
-              jabatan: user.role
+              jabatan: liveUser.role
             }]
           : [],
-        rowCount: user ? 1 : 0
+        rowCount: liveUser ? 1 : 0
       }
+    }
+
+    if (
+      normalized.startsWith('SELECT id FROM users WHERE is_active = true') &&
+      normalized.includes("LOWER(TRIM(role)) IN ('superadmin', 'super admin')")
+    ) {
+      const rows = [...users.values()]
+        .filter(
+          (user) =>
+            user.is_active === true &&
+            user.deleted_at == null &&
+            ['superadmin', 'super admin'].includes(user.role.trim().toLowerCase()),
+        )
+        .sort((left, right) => left.id - right.id)
+        .map((user) => ({ id: user.id }))
+      return { rows, rowCount: rows.length }
     }
 
     if (
@@ -222,7 +241,7 @@ test('user-management HTTP mutations deny escalation before database mutation', 
       normalized.includes('GROUP BY u.id')
     ) {
       return {
-        rows: [...users.values()].map((user) => ({
+        rows: [...users.values()].filter((user) => user.deleted_at == null).map((user) => ({
           id: user.id,
           nama: user.nama,
           email: user.email,
@@ -274,7 +293,7 @@ test('user-management HTTP mutations deny escalation before database mutation', 
       return { rows: [{ ...updated }], rowCount: 1 }
     }
 
-    if (normalized.startsWith('DELETE FROM users WHERE id = $1')) {
+    if (normalized.startsWith('UPDATE users SET is_active = false, deleted_at')) {
       const user = users.get(parameters[0])
       if (promoteBeforeGuardedDelete && user) {
         user.role = 'superadmin'
@@ -290,8 +309,12 @@ test('user-management HTTP mutations deny escalation before database mutation', 
       ) {
         return { rows: [], rowCount: 0 }
       }
-      const existed = users.delete(parameters[0])
-      return { rows: existed ? [{ id: parameters[0] }] : [], rowCount: existed ? 1 : 0 }
+      if (!user || user.deleted_at != null) return { rows: [], rowCount: 0 }
+      user.is_active = false
+      user.deleted_at = '2026-08-01T00:00:00.000Z'
+      user.deleted_by_user_id = parameters[1]
+      user.deletion_reason = parameters[2]
+      return { rows: [{ id: parameters[0] }], rowCount: 1 }
     }
 
     if (normalized.startsWith('SELECT q.id, q.kode, q.nama FROM user_ticket_queues')) {
@@ -502,7 +525,7 @@ test('user-management HTTP mutations deny escalation before database mutation', 
     assert.equal(transactionQueries[0], 'BEGIN')
     assert.match(transactionQueries[1], /SELECT role .* FOR UPDATE/)
     assert.equal(
-      transactionQueries.some((sql) => sql.startsWith('DELETE FROM users')),
+      transactionQueries.some((sql) => sql.startsWith('UPDATE users SET is_active = false')),
       false
     )
     assert.equal(transactionQueries.at(-1), 'ROLLBACK')
@@ -522,11 +545,11 @@ test('user-management HTTP mutations deny escalation before database mutation', 
       .filter(({ sql }) => !isAuthenticationQuery(sql))
       .map(({ sql }) => sql)
     const guardedDelete = transactionQueries.find((sql) =>
-      sql.startsWith('DELETE FROM users')
+      sql.startsWith('UPDATE users SET is_active = false')
     )
     assert.match(
       guardedDelete,
-      /LOWER\(TRIM\(role\)\) NOT IN \('superadmin', 'super admin'\)/
+      /deleted_at IS NULL AND LOWER\(TRIM\(role\)\) NOT IN \('superadmin', 'super admin'\)/
     )
     assert.equal(transactionQueries.at(-1), 'ROLLBACK')
     assert.equal(transactionQueries.includes('COMMIT'), false)
@@ -545,6 +568,8 @@ test('user-management HTTP mutations deny escalation before database mutation', 
     const insert = queryLog.find(({ sql }) => sql.startsWith('INSERT INTO users'))
     assert.ok(insert)
     assert.equal(insert.parameters[3], 'user')
+    assert.equal(isBcryptPasswordHash(insert.parameters[2]), true)
+    assert.notEqual(insert.parameters[2], createBody().password)
     assert.deepEqual(JSON.parse(insert.parameters[4]), {
       dashboard: 'none',
       assets: 'none',
@@ -597,6 +622,66 @@ test('user-management HTTP mutations deny escalation before database mutation', 
         .map(({ sql }) => sql),
       ['BEGIN', 'COMMIT']
     )
+  })
+
+  await t.test('update preserves inactive state when is_active is omitted', async () => {
+    users.get(3).is_active = false
+    const body = replaceBody()
+    delete body.is_active
+
+    const result = await request('/api/users/3', {
+      method: 'PUT',
+      body,
+    })
+
+    assert.equal(result.response.status, 200)
+    assert.equal(result.body.is_active, false)
+    assert.equal(users.get(3).is_active, false)
+  })
+
+  await t.test('strict user payload rejects coercion, weak password, and unknown fields', async () => {
+    for (const body of [
+      createBody({ email: { value: 'coerced@example.test' } }),
+      createBody({ password: 'too-short' }),
+      createBody({ queue_ids: ['7'] }),
+      createBody({ is_active: 'false' }),
+      createBody({ unexpected: true }),
+    ]) {
+      const before = mutationCount()
+      const result = await request('/api/users', { body })
+      assert.equal(result.response.status, 400)
+      assert.equal(mutationCount(), before)
+    }
+  })
+
+  await t.test('last active superadmin cannot be demoted or deactivated', async () => {
+    // The rollback mock above intentionally mutates user 5 to emulate a race;
+    // restore its committed state before evaluating the active-super invariant.
+    users.get(5).role = 'user'
+    const demoteOther = await request('/api/users/2', {
+      method: 'PUT',
+      actor: { id: 9, role: 'superadmin' },
+      body: replaceBody({
+        role: 'admin',
+        permissions: { users: 'full', export: 'none' },
+      }),
+    })
+    assert.equal(demoteOther.response.status, 200)
+    assert.equal(users.get(2).role, 'admin')
+
+    const deactivateLast = await request('/api/users/9', {
+      method: 'PUT',
+      actor: { id: 9, role: 'superadmin' },
+      body: replaceBody({
+        role: 'superadmin',
+        is_active: false,
+        permissions: { users: 'full', export: 'full' },
+      }),
+    })
+    assert.equal(deactivateLast.response.status, 409)
+    assert.match(deactivateLast.body.message, /Superadmin aktif terakhir/)
+    assert.equal(users.get(9).is_active, true)
+    assert.equal(users.get(9).role, 'superadmin')
   })
 
   await t.test('queue mapping failure rolls the complete user mutation back', async () => {

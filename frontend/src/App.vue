@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from './components/layout/AppSidebar.vue'
 import AppHeader  from './components/layout/AppHeader.vue'
+import { getAuthToken } from './utils/authStorage.js'
 
 const route = useRoute()
 
@@ -12,7 +13,7 @@ const isLoginPage = computed(() => {
   if (route.name === 'login') return true
   if (route.path === '/login') return true
   if (typeof window !== 'undefined' && window.location.pathname.endsWith('/login')) return true
-  if (typeof window !== 'undefined' && !localStorage.getItem('token')) return true
+  if (typeof window !== 'undefined' && !getAuthToken()) return true
   return false
 })
 // Dual state navigasi sesuai Plan.md (mobile drawer vs desktop collapse)

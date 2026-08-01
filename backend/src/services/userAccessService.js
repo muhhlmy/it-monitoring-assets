@@ -1,29 +1,14 @@
+import {
+  hasReadPermissionLevel,
+  isValidPermissionPayload,
+} from './permissionService.js'
+
 export const USER_MANAGEMENT_ROLES = Object.freeze({
   USER: 'user',
   ADMIN: 'admin',
   SUPERADMIN: 'superadmin',
   UNKNOWN: 'unknown'
 })
-
-const ALLOWED_PERMISSION_KEYS = new Set([
-  'dashboard',
-  'assets',
-  'my_assets',
-  'tickets',
-  'submissions',
-  'users',
-  'logs',
-  'karyawan',
-  'export'
-])
-
-const ALLOWED_PERMISSION_LEVELS = new Set([
-  'none',
-  'read_only',
-  'full',
-  true,
-  false
-])
 
 const SENSITIVE_PERMISSION_KEYS = ['users', 'export']
 
@@ -45,21 +30,14 @@ export function isSuperAdminRole(value) {
 }
 
 export function isValidUserPermissionPayload(value) {
-  if (value === undefined) return true
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-
-  return Object.entries(value).every(
-    ([key, level]) =>
-      ALLOWED_PERMISSION_KEYS.has(key) && ALLOWED_PERMISSION_LEVELS.has(level)
-  )
+  return isValidPermissionPayload(value)
 }
 
 export function hasSensitiveUserPermission(permissions) {
   if (!permissions || typeof permissions !== 'object') return false
 
   return SENSITIVE_PERMISSION_KEYS.some((key) => {
-    const level = permissions[key]
-    return level === true || level === 'read_only' || level === 'full'
+    return hasReadPermissionLevel(permissions[key])
   })
 }
 

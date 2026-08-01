@@ -2,6 +2,7 @@
  * exportEngine.js
  * Utilitas serbaguna untuk mengekspor data ke format CSV, JSON, Excel (.xls), dan PDF Laporan.
  */
+import { escapeHtml, printHtmlDocument } from './printDocument.js'
 
 function formatDateStamp(date = new Date()) {
   const yyyy = date.getFullYear()
@@ -29,18 +30,6 @@ function toExportText(value, nullValue = '') {
 
   const serialized = JSON.stringify(value)
   return serialized === undefined ? String(value) : serialized
-}
-
-function escapeHtml(value) {
-  const entities = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  }
-
-  return toExportText(value).replace(/[&<>"']/g, (character) => entities[character])
 }
 
 function neutralizeSpreadsheetFormula(value) {
@@ -156,12 +145,6 @@ export function exportToExcel(data, columns = [], tableName = 'Data', filenamePr
 export function exportToPdf(data, columns = [], tableName = 'Data', title = 'Laporan Ekspor Data', filters = {}) {
   if (!Array.isArray(data) || data.length === 0) return false
 
-  const printWindow = window.open('', '_blank')
-  if (!printWindow) {
-    alert('Pop-up terblokir. Harap izinkan pop-up peramban untuk melihat / mengunduh PDF.')
-    return false
-  }
-
   const colKeys = columns.length > 0 ? columns.map(c => c.name) : Object.keys(data[0])
   const colLabels = columns.length > 0 ? columns.map(c => c.label) : colKeys
 
@@ -249,17 +232,12 @@ export function exportToPdf(data, columns = [], tableName = 'Data', title = 'Lap
         Dicetak secara otomatis oleh Sistem Monitoring Aset IT • Dokumentasi Internal &amp; Audit
       </div>
 
-      <script>
-        window.onload = function() {
-          window.print();
-          window.onafterprint = function() { window.close(); };
-        };
-      </script>
     </body>
     </html>
   `
 
-  printWindow.document.write(html)
-  printWindow.document.close()
-  return true
+  return printHtmlDocument(
+    html,
+    'Pop-up terblokir. Harap izinkan pop-up peramban untuk melihat / mengunduh PDF.',
+  )
 }

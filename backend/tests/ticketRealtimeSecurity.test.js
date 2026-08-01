@@ -384,6 +384,61 @@ test('realtime write failure ends and fully removes the broken client', async (t
   assert.equal(queryCount, 1)
 })
 
+test('realtime backpressure disconnects a slow client instead of buffering without bound', async (t) => {
+  const client = new FakeSseResponse()
+  client.write = () => false
+  const removeClient = addSseClient(client, user(10, 'user'))
+  t.after(removeClient)
+
+  const delivered = await broadcastTicketEvent('TICKET_UPDATED', ticket(), {
+    queryable: {
+      query: async () => ({ rows: [liveUser(user(10, 'user', 'read_only'))] }),
+    },
+  })
+
+  assert.equal(delivered, 0)
+  assert.equal(client.ended, true)
+})
+
+test('realtime connection caps protect the process and each authenticated account', (t) => {
+  const first = new FakeSseResponse()
+  const removeFirst = addSseClient(first, user(10, 'user'), [], {
+    maxConnectionsPerUser: 1,
+  })
+  t.after(removeFirst)
+
+  assert.throws(
+    () =>
+      addSseClient(new FakeSseResponse(), user(10, 'user'), [], {
+        maxConnectionsPerUser: 1,
+      }),
+    (error) => error?.statusCode === 429,
+  )
+  assert.throws(
+    () =>
+      addSseClient(new FakeSseResponse(), user(11, 'user'), [], {
+        maxClients: 1,
+      }),
+    (error) => error?.statusCode === 503,
+  )
+})
+
+test('SSE heartbeat keeps healthy streams alive and is cleaned up on close', async (t) => {
+  const client = new FakeSseResponse()
+  const removeClient = addSseClient(client, user(10, 'user'), [], {
+    heartbeatIntervalMs: 10,
+  })
+  t.after(removeClient)
+
+  await new Promise((resolve) => setTimeout(resolve, 25))
+  assert.ok(client.writes.some((chunk) => chunk === ': heartbeat\n\n'))
+
+  client.end()
+  const writesAfterClose = client.writes.length
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.equal(client.writes.length, writesAfterClose)
+})
+
 test('SSE client is removed when its authenticated token expires', async (t) => {
   const client = new FakeSseResponse()
   const removeClient = addSseClient(client, user(10, 'user'), [], {

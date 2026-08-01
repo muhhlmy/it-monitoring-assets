@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { isIP } from "node:net";
 
 // Secret tidak boleh memiliki fallback karena nilai bawaan di source akan
 // digunakan oleh setiap deployment yang lupa mengatur environment.
@@ -37,6 +38,57 @@ function readNumber(name, defaultValue) {
   }
 
   return number;
+}
+
+function readBoundedInteger(name, defaultValue, minimum, maximum) {
+  const text = process.env[name];
+  if (text === undefined || text === "") return defaultValue;
+
+  if (!/^\d+$/.test(text)) {
+    throw new Error(`${name} wajib berupa integer ${minimum}-${maximum}.`);
+  }
+
+  const value = Number(text);
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    throw new Error(`${name} wajib berupa integer ${minimum}-${maximum}.`);
+  }
+  return value;
+}
+
+function readLegacyPasswordMode() {
+  const value = process.env.PASSWORD_LEGACY_MODE || "disabled";
+  if (value !== "disabled" && value !== "verify-plaintext") {
+    throw new Error(
+      "PASSWORD_LEGACY_MODE hanya boleh 'disabled' atau 'verify-plaintext'.",
+    );
+  }
+  return value;
+}
+
+function isValidProxyAddress(value) {
+  const slashIndex = value.indexOf("/");
+  if (slashIndex === -1) return isIP(value) !== 0;
+
+  const address = value.slice(0, slashIndex);
+  const prefixText = value.slice(slashIndex + 1);
+  const family = isIP(address);
+  if (family === 0 || !/^\d+$/.test(prefixText)) return false;
+
+  const prefix = Number(prefixText);
+  return Number.isInteger(prefix) && prefix >= 0 && prefix <= (family === 4 ? 32 : 128);
+}
+
+function readTrustedProxyCidrs() {
+  const text = process.env.TRUST_PROXY_CIDRS;
+  if (!text) return false;
+
+  const entries = text.split(",").map((value) => value.trim()).filter(Boolean);
+  if (entries.length === 0 || !entries.every(isValidProxyAddress)) {
+    throw new Error(
+      "TRUST_PROXY_CIDRS wajib berupa daftar IP/CIDR exact yang dipisahkan koma.",
+    );
+  }
+  return entries;
 }
 
 // CORS_ORIGINS berisi beberapa alamat yang dipisahkan dengan koma.
@@ -104,5 +156,10 @@ export const env = {
   jwt: {
     secret: jwtSecret,
   },
+  password: {
+    bcryptRounds: readBoundedInteger("PASSWORD_BCRYPT_ROUNDS", 12, 10, 14),
+    legacyMode: readLegacyPasswordMode(),
+  },
+  trustProxy: readTrustedProxyCidrs(),
   corsOrigins: readCorsOrigins(),
 };

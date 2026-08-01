@@ -17,6 +17,10 @@ const {
   hasReadFeaturePermission,
   hasWriteFeaturePermission,
 } = await import('../src/middleware/authMiddleware.js')
+const {
+  normalizePermissions,
+  DEFAULT_USER_PERMISSIONS,
+} = await import('../src/services/permissionService.js')
 
 function evaluateMiddleware(middleware, user) {
   let nextCalled = false
@@ -106,6 +110,22 @@ test('feature permission levels separate read from write and fail closed', () =>
     }).nextCalled,
     true,
   )
+})
+
+test('canonical permission normalization preserves legacy true as full and rejects corrupt values', () => {
+  const normalized = normalizePermissions(
+    {
+      assets: true,
+      tickets: 'unexpected',
+      users: false,
+    },
+    { defaults: DEFAULT_USER_PERMISSIONS },
+  )
+
+  assert.equal(normalized.assets, 'full')
+  assert.equal(normalized.tickets, 'none')
+  assert.equal(normalized.users, 'none')
+  assert.equal(normalized.my_assets, 'read_only')
 })
 
 test('any-permission read supports shared reference endpoints without weakening write', () => {

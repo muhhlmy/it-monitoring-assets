@@ -57,9 +57,10 @@ export function getTicketEligibility(user) {
 }
 
 export function canAccessFrontendFeature(user, featureKey) {
-  if (!featureKey) return true
+  if (!featureKey) return false
 
   const ticketEligibility = getTicketEligibility(user)
+  if (ticketEligibility.role === TICKET_ROLES.UNKNOWN) return false
   if (featureKey === 'export') {
     return ticketEligibility.role === TICKET_ROLES.SUPERADMIN
   }
