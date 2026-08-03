@@ -27,6 +27,23 @@ const notificationsList  = ref([])
 const knownTicketStates  = ref({})
 const isFetchingNotif    = ref(false)
 
+const realtimeToast = ref(null)
+
+function showRealtimeToast(title, message, nomorTiket = '', type = 'CREATED') {
+  if (realtimeToast.value?.timer) clearTimeout(realtimeToast.value.timer)
+  const timer = setTimeout(() => {
+    realtimeToast.value = null
+  }, 5000)
+  realtimeToast.value = {
+    id: `toast_${Date.now()}`,
+    title,
+    message,
+    nomorTiket,
+    type,
+    timer
+  }
+}
+
 function loadNotifications() {
   try {
     const stored = localStorage.getItem('app_notifications')
@@ -50,11 +67,12 @@ function addNotificationItem({ ticketId, type, title, message, nomor_tiket, judu
   const ts = timestamp || Date.now()
   const msg = message || (type === 'CREATED' ? 'Tiket baru telah dibuat' : 'Detail tiket diperbarui')
 
-  // Deduplicate: avoid adding identical notification message for the same ticket
+  // Deduplicate: avoid adding identical notification message within 3 seconds
   const recentDuplicate = notificationsList.value.find(n =>
     n.ticketId === ticketId &&
     n.type === type &&
-    n.message === msg
+    n.message === msg &&
+    (Date.now() - (n.timestamp || 0)) < 3000
   )
   if (recentDuplicate) return
 
@@ -225,7 +243,7 @@ const pageTitle = computed(() => {
     '/':            { title: 'Dashboard',            subtitle: 'Overview & analytics' },
     '/assets':      { title: 'Manajemen Aset IT',    subtitle: 'Inventaris & status perangkat' },
     '/my-assets':   { title: 'Aset Karyawan',        subtitle: 'Daftar perangkat milik Anda' },
-    '/tickets':     { title: 'Tiket Kendala IT',     subtitle: 'Pengajuan & riwayat tiket' },
+    '/tickets':     { title: 'Tiket',                 subtitle: 'Pengajuan & riwayat tiket' },
     '/submissions': { title: 'Pengajuan & Handover', subtitle: 'Formulir serah terima aset' },
     '/users':       { title: 'Manajemen Pengguna',   subtitle: 'Hak akses & akun pengguna' },
     '/logs':        { title: 'Audit Log & Activity', subtitle: 'Catatan riwayat sistem' },
@@ -259,24 +277,25 @@ onMounted(() => {
   // Polling 30 detik dipertahankan sebagai safety net bila SSE putus / gagal reconnect.
   pollTimer = setInterval(fetchTickets, 30000)
 
-  // Realtime push via SSE: bell update instan saat ada tiket baru / perubahan.
+  // Realtime push via SSE: bell update & toast instan saat ada tiket baru / perubahan.
   connectSSE()
 
-  // Backend (realtimeService.js) sudah memfilter event mana yang berhak diterima setiap user/role.
-  // Frontend cukup mendaftarkan handler untuk memproses event yang masuk secara realtime.
   onSSE('TICKET_CREATED', (data) => {
     if (data && typeof data === 'object') {
+      const title = 'Tiket Baru Masuk'
+      const msg = `${data.nomor_tiket ? data.nomor_tiket + ': ' : ''}${data.judul || 'Tanpa Judul'}${data.pelapor ? ' — oleh ' + data.pelapor : ''}`
       addNotificationItem({
         ticketId: data.id,
         type: 'CREATED',
-        title: 'Tiket Baru Masuk',
-        message: data.judul,
+        title,
+        message: data.judul || 'Tiket baru telah dibuat',
         nomor_tiket: data.nomor_tiket,
         judul_tiket: data.judul,
         status_tiket: data.status_tiket,
         prioritas: data.prioritas,
         pelapor: data.pelapor,
       })
+      showRealtimeToast(title, msg, data.nomor_tiket, 'CREATED')
       if (!allTickets.value.some(t => t.id === data.id)) {
         allTickets.value = [data, ...allTickets.value]
       }
@@ -289,6 +308,8 @@ onMounted(() => {
       const changesText = Array.isArray(data.changes) && data.changes.length > 0
         ? data.changes.join('. ')
         : 'Detail tiket diperbarui'
+      const title = data.nomor_tiket ? `Perubahan Tiket ${data.nomor_tiket}` : 'Perubahan Tiket'
+      const msg = `${data.judul ? data.judul + ' — ' : ''}${changesText}`
 
       addNotificationItem({
         ticketId: data.id,
@@ -301,6 +322,7 @@ onMounted(() => {
         prioritas: data.prioritas,
         pelapor: data.pelapor,
       })
+      showRealtimeToast(title, msg, data.nomor_tiket, 'UPDATED')
     }
     fetchTickets()
   })
@@ -309,6 +331,9 @@ onMounted(() => {
     if (data && (data.ticketId != null || data.id != null)) {
       const ticketId = data.ticketId || data.id
       const targetTicket = allTickets.value.find(t => t.id === ticketId)
+      const nomorTiket = targetTicket?.nomor_tiket || `#${ticketId}`
+      const title = `Komentar Baru (${nomorTiket})`
+      const msg = targetTicket ? `Pada tiket '${targetTicket.judul}'` : 'Komentar baru ditambahkan pada tiket'
 
       addNotificationItem({
         ticketId,
@@ -321,6 +346,7 @@ onMounted(() => {
         prioritas: targetTicket?.prioritas,
         pelapor: targetTicket?.pelapor,
       })
+      showRealtimeToast(title, msg, nomorTiket, 'COMMENT')
     }
     fetchTickets()
   })

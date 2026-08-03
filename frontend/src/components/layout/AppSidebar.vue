@@ -54,9 +54,9 @@ const menuGroups = computed(() => {
       items: [
         {
           to: '/tickets',
-          label: 'Tiket IT',
+          label: 'Tiket',
           icon: 'confirmation_number',
-          caption: 'Kendala & Laporan IT',
+          caption: 'Pengajuan & riwayat tiket',
           permission: 'tickets',
           badge: 'New',
         },

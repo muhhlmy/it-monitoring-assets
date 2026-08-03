@@ -56,7 +56,7 @@ const routes = [
     path: '/tickets',
     name: 'tickets',
     component: () => import('../views/TicketsView.vue'),
-    meta: { title: 'Tiket Kendala IT', permission: 'tickets' },
+    meta: { title: 'Tiket', permission: 'tickets' },
   },
   {
     path: '/users',

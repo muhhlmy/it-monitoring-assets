@@ -76,19 +76,19 @@ test('realtime delivery uses role-based rules: superadmin=all, admin=CREATED, re
   assert.equal(shouldDeliverTicketEvent('TICKET_CREATED', resource, reporter), false)
   assert.equal(shouldDeliverTicketEvent('TICKET_CREATED', resource, otherReporter), false)
 
-  // TICKET_UPDATED: superadmin=yes, admin=no (all), reporter(own)=yes, reporter(other)=no
+  // TICKET_UPDATED: superadmin=yes, queue admin=yes, other queue admin=no, assigned admin=yes, reporter(own)=yes, reporter(other)=no
   assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, superadmin), true)
-  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, sameQueueAdmin), false)
+  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, sameQueueAdmin), true)
   assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, otherQueueAdmin), false)
-  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, assignedAdmin), false)
+  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, assignedAdmin), true)
   assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, reporter), true)
   assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, otherReporter), false)
 
-  // COMMENT_CREATED: superadmin=yes, admin=no, reporter(own)=yes, reporter(other)=no
+  // COMMENT_CREATED: superadmin=yes, queue admin=yes, other queue admin=no, assigned admin=yes, reporter(own)=yes, reporter(other)=no
   assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, superadmin), true)
-  assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, sameQueueAdmin), false)
+  assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, sameQueueAdmin), true)
   assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, otherQueueAdmin), false)
-  assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, assignedAdmin), false)
+  assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, assignedAdmin), true)
   assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, reporter), true)
   assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, otherReporter), false)
 })
@@ -264,13 +264,13 @@ test('broadcast sends role-appropriate DTOs only to authorized realtime clients'
       },
     },
   })
-  // Only superadmin + reporter(pelapor_user_id=10) receive TICKET_UPDATED
-  assert.equal(delivered, 2)
+  // superadmin + reporter(pelapor_user_id=10) + sameQueueAdmin + assignee receive TICKET_UPDATED
+  assert.equal(delivered, 4)
 
   assert.equal(clients.reporter.writes.length, 1)
-  assert.equal(clients.sameQueueAdmin.writes.length, 0)
+  assert.equal(clients.sameQueueAdmin.writes.length, 1)
   assert.equal(clients.otherQueueAdmin.writes.length, 0)
-  assert.equal(clients.assignee.writes.length, 0)
+  assert.equal(clients.assignee.writes.length, 1)
   assert.equal(clients.superadmin.writes.length, 1)
   assert.equal(clients.unknown.writes.length, 0)
   assert.equal(clients.invalid.writes.length, 0)

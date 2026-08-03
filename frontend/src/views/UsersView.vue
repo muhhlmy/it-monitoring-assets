@@ -11,7 +11,8 @@ import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 
 const { get, post, put, del } = useApi()
-const { user: currentUser, isSuperAdmin, hasWritePermission } = useAuth()
+const { isSuperAdmin, hasWritePermission } = useAuth()
+const { user: currentUser } = useAuth()
 const canWriteUsers = computed(() => hasWritePermission('users'))
 
 // ── State Utama ──────────────────────────────────────────────
@@ -37,7 +38,7 @@ const ALL_FEATURES = [
   { key: 'dashboard', label: 'Dashboard Overview', icon: 'grid_view', desc: 'Ringkasan sistem & statistik' },
   { key: 'assets', label: 'Manajemen Aset IT', icon: 'devices', desc: 'Inventaris & pengolahan data aset' },
   { key: 'my_assets', label: 'Aset Saya / Karyawan', icon: 'badge', desc: 'Daftar aset per karyawan' },
-  { key: 'tickets', label: 'Tiket Kendala IT', icon: 'confirmation_number', desc: 'Pengajuan & riwayat tiket kendala' },
+  { key: 'tickets', label: 'Tiket', icon: 'confirmation_number', desc: 'Pengajuan & riwayat tiket kendala' },
   { key: 'submissions', label: 'Pengajuan Serah Terima', icon: 'assignment', desc: 'Form serah terima unit' },
   { key: 'users', label: 'Manajemen Pengguna', icon: 'group', desc: 'Pengaturan akun & hak akses RBAC' },
   { key: 'logs', label: 'Audit Log Aktivitas', icon: 'receipt_long', desc: 'Riwayat audit login & aset' },
@@ -189,6 +190,7 @@ function openAdd() {
 }
 
 function openEdit(u) {
+  if (!canWriteUsers.value) return
   if (!canManageUser(u)) return
   modalMode.value     = 'edit'
   selectedUser.value  = u

@@ -148,10 +148,6 @@ function expireLocalSession() {
 
 function scheduleReconnect(generation) {
   if (stopped || generation !== connectionGeneration || reconnectTimer) return
-  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-    stopped = true
-    return
-  }
 
   const delay = Math.min(reconnectBaseDelay * 2 ** reconnectAttempts, MAX_RECONNECT_DELAY_MS)
   reconnectAttempts += 1
@@ -216,7 +212,7 @@ async function openStream(generation) {
 }
 
 function connect() {
-  if (!stopped || activeController || reconnectTimer) return
+  if (activeController || reconnectTimer || isConnected.value) return
   if (!localStorage.getItem('token')) return
 
   stopped = false

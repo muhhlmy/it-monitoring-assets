@@ -11,12 +11,35 @@ import TicketCaspRating from '../components/tickets/TicketCaspRating.vue'
 
 const { get, post, put, del } = useApi()
 const { user, isSuperAdmin, isAdmin, isUser, hasWritePermission } = useAuth()
-const { connect: connectSSE, disconnect: disconnectSSE, on: onSSE } = useTicketEvents()
+const { connect: connectSSE, disconnect: disconnectSSE, on: onSSE, off: offSSE } = useTicketEvents()
 const route  = useRoute()
 const router = useRouter()
 
 const nowTick = ref(Date.now())
 let tickerInterval = null
+
+const handleTicketCreated = (data) => {
+  if (isAdmin.value && data) {
+    toast(`🔔 Tiket Baru! ${data.nomor_tiket || ''}: ${data.judul || 'Tanpa Judul'} — oleh ${data.pelapor || 'User'}`, 'info')
+  }
+  fetchTickets(true)
+}
+
+const handleTicketUpdated = (data) => {
+  fetchTickets(true)
+  if (data && selectedTicket.value && data.id === selectedTicket.value.id) {
+    if (data.status_tiket) selectedTicket.value.status_tiket = data.status_tiket
+    fetchTicketHistory(selectedTicket.value.id)
+    fetchTicketComments(selectedTicket.value.id, true)
+  }
+}
+
+const handleCommentCreated = (data) => {
+  fetchTickets(true)
+  if (data && selectedTicket.value && (data.ticketId === selectedTicket.value.id || data.id === selectedTicket.value.id)) {
+    fetchTicketComments(selectedTicket.value.id, true)
+  }
+}
 
 onMounted(async () => {
   tickerInterval = setInterval(() => {
@@ -32,33 +55,17 @@ onMounted(async () => {
 
   connectSSE()
 
-  onSSE('TICKET_CREATED', (data) => {
-    if (isAdmin.value && data) {
-      toast(`🔔 Tiket Baru! ${data.nomor_tiket || ''}: ${data.judul || 'Tanpa Judul'} — oleh ${data.pelapor || 'User'}`, 'info')
-    }
-    fetchTickets(true)
-  })
-
-  onSSE('TICKET_UPDATED', (data) => {
-    fetchTickets(true)
-    if (data && selectedTicket.value && data.id === selectedTicket.value.id) {
-      if (data.status_tiket) selectedTicket.value.status_tiket = data.status_tiket
-      fetchTicketHistory(selectedTicket.value.id)
-      fetchTicketComments(selectedTicket.value.id, true)
-    }
-  })
-
-  onSSE('COMMENT_CREATED', (data) => {
-    fetchTickets(true)
-    if (data && selectedTicket.value && (data.ticketId === selectedTicket.value.id || data.id === selectedTicket.value.id)) {
-      fetchTicketComments(selectedTicket.value.id, true)
-    }
-  })
+  onSSE('TICKET_CREATED', handleTicketCreated)
+  onSSE('TICKET_UPDATED', handleTicketUpdated)
+  onSSE('COMMENT_CREATED', handleCommentCreated)
 })
 
 onUnmounted(() => {
   if (tickerInterval) clearInterval(tickerInterval)
   stopChatPoll()
+  offSSE('TICKET_CREATED', handleTicketCreated)
+  offSSE('TICKET_UPDATED', handleTicketUpdated)
+  offSSE('COMMENT_CREATED', handleCommentCreated)
 })
 
 // ── Queue / Tab state ─────────────────────────────────────────
