@@ -163,9 +163,12 @@ function eventTicketFacts(ticket, clientContext) {
 /**
  * Role-based notification delivery:
  * - superadmin: receives ALL ticket events EXCEPT those they triggered themselves
- * - admin: receives ONLY TICKET_CREATED events (new tickets)
+ * - admin: receives ALL ticket events for tickets they can read (queue membership or
+ *   assigned to them), EXCEPT those they triggered themselves. Admin/superadmin both
+ *   act as ticket handlers, so they must see new tickets, status changes, and comments
+ *   in realtime to respond promptly.
  * - user (reporter): receives ONLY change events (TICKET_UPDATED, COMMENT_CREATED)
- *   on tickets they reported
+ *   on tickets they reported — never TICKET_CREATED (no "new ticket" spam for users).
  */
 export function shouldDeliverTicketEvent(eventType, ticket, clientContext) {
   if (!SUPPORTED_TICKET_EVENTS.has(eventType)) return false
@@ -177,24 +180,30 @@ export function shouldDeliverTicketEvent(eventType, ticket, clientContext) {
   const identity = clientContext.identity
   const role = identity.role
   const actorUserId = ticket?._actor_user_id != null ? Number(ticket._actor_user_id) : null
+  const isSelfAction = actorUserId !== null && actorUserId === identity.id
 
   // ── SUPERADMIN ──
-  // Receives all events, but NOT if the superadmin is the actor (self-notifications excluded)
+  // Receives all events on all tickets, except self-triggered actions.
   if (role === 'superadmin') {
-    if (actorUserId !== null && actorUserId === identity.id) return false
+    if (isSelfAction) return false
     return canReceiveTicketEvent(identity, scopedTicket)
   }
 
   // ── ADMIN ──
-  // Only receives TICKET_CREATED (new ticket notifications)
+  // Receives ALL event types (created, updated, comment) for tickets they can read
+  // (queue membership or assigned to them). Self-triggered actions are excluded so
+  // an admin doesn't get notified about their own update/comment.
   if (role === 'admin') {
-    if (eventType !== 'TICKET_CREATED') return false
+    if (isSelfAction) return false
     return canReceiveTicketEvent(identity, scopedTicket)
   }
 
   // ── USER / REPORTER ──
-  // Only receives change events on tickets they reported
+  // Only receives change events (TICKET_UPDATED, COMMENT_CREATED) on tickets they
+  // reported. Does NOT receive TICKET_CREATED. Self-triggered actions (e.g. the
+  // reporter commenting on their own ticket) are excluded.
   if (role === 'reporter') {
+    if (isSelfAction) return false
     if (!TICKET_CHANGE_EVENTS.has(eventType)) return false
     // Must be the reporter of this ticket
     const reporterUserId = Number(scopedTicket.pelapor_user_id)
