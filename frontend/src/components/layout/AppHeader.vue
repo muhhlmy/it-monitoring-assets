@@ -263,135 +263,68 @@ onMounted(() => {
   // Realtime push via SSE: bell update instan saat ada tiket baru / perubahan.
   connectSSE()
 
-  if (isSuperAdmin.value) {
-    // ── SUPER ADMIN ──
-    // Menerima SEMUA notif (tiket baru + perubahan apapun pada tiket)
-    // KECUALI aksi yang dilakukan oleh superadmin sendiri (sudah difilter backend).
-    onSSE('TICKET_CREATED', (data) => {
-      if (data && typeof data === 'object') {
-        addNotificationItem({
-          ticketId: data.id,
-          type: 'CREATED',
-          title: 'Tiket Baru Masuk',
-          message: data.judul,
-          nomor_tiket: data.nomor_tiket,
-          judul_tiket: data.judul,
-          status_tiket: data.status_tiket,
-          prioritas: data.prioritas,
-          pelapor: data.pelapor,
-        })
-        if (!allTickets.value.some(t => t.id === data.id)) {
-          allTickets.value = [data, ...allTickets.value]
-        }
+  // Backend (realtimeService.js) sudah memfilter event mana yang berhak diterima setiap user/role.
+  // Frontend cukup mendaftarkan handler untuk memproses event yang masuk secara realtime.
+  onSSE('TICKET_CREATED', (data) => {
+    if (data && typeof data === 'object') {
+      addNotificationItem({
+        ticketId: data.id,
+        type: 'CREATED',
+        title: 'Tiket Baru Masuk',
+        message: data.judul,
+        nomor_tiket: data.nomor_tiket,
+        judul_tiket: data.judul,
+        status_tiket: data.status_tiket,
+        prioritas: data.prioritas,
+        pelapor: data.pelapor,
+      })
+      if (!allTickets.value.some(t => t.id === data.id)) {
+        allTickets.value = [data, ...allTickets.value]
       }
-      fetchTickets()
-    })
-    onSSE('TICKET_UPDATED', (data) => {
-      if (data && data.id != null) {
-        const changesText = Array.isArray(data.changes) && data.changes.length > 0
-          ? data.changes.join('. ')
-          : 'Detail tiket diperbarui'
+    }
+    fetchTickets()
+  })
 
-        addNotificationItem({
-          ticketId: data.id,
-          type: 'UPDATED',
-          title: data.judul ? `Perubahan Tiket: ${data.judul}` : 'Perubahan Tiket',
-          message: changesText,
-          nomor_tiket: data.nomor_tiket,
-          judul_tiket: data.judul,
-          status_tiket: data.status_tiket,
-          prioritas: data.prioritas,
-          pelapor: data.pelapor,
-        })
-      }
-      fetchTickets()
-    })
-    onSSE('COMMENT_CREATED', (data) => {
-      if (data && (data.ticketId != null || data.id != null)) {
-        const ticketId = data.ticketId || data.id
-        const targetTicket = allTickets.value.find(t => t.id === ticketId)
+  onSSE('TICKET_UPDATED', (data) => {
+    if (data && data.id != null) {
+      const changesText = Array.isArray(data.changes) && data.changes.length > 0
+        ? data.changes.join('. ')
+        : 'Detail tiket diperbarui'
 
-        addNotificationItem({
-          ticketId,
-          type: 'COMMENT',
-          title: targetTicket ? `Komentar: ${targetTicket.judul}` : 'Komentar Baru',
-          message: 'Komentar baru ditambahkan pada tiket',
-          nomor_tiket: targetTicket?.nomor_tiket,
-          judul_tiket: targetTicket?.judul,
-          status_tiket: targetTicket?.status_tiket,
-          prioritas: targetTicket?.prioritas,
-          pelapor: targetTicket?.pelapor,
-        })
-      }
-      fetchTickets()
-    })
-  } else if (isAdmin.value) {
-    // ── ADMIN ──
-    // Hanya menerima notif tiket baru masuk (TICKET_CREATED).
-    // Backend sudah memfilter sehingga TICKET_UPDATED / COMMENT_CREATED tidak dikirim.
-    onSSE('TICKET_CREATED', (data) => {
-      if (data && typeof data === 'object') {
-        addNotificationItem({
-          ticketId: data.id,
-          type: 'CREATED',
-          title: 'Tiket Baru Masuk',
-          message: data.judul,
-          nomor_tiket: data.nomor_tiket,
-          judul_tiket: data.judul,
-          status_tiket: data.status_tiket,
-          prioritas: data.prioritas,
-          pelapor: data.pelapor,
-        })
-        if (!allTickets.value.some(t => t.id === data.id)) {
-          allTickets.value = [data, ...allTickets.value]
-        }
-      }
-      fetchTickets()
-    })
-  } else if (isUser.value) {
-    // ── USER BIASA (pelapor) ──
-    // Hanya menerima notif PERUBAHAN pada tiket miliknya sendiri.
-    // Backend sudah memfilter: hanya TICKET_UPDATED dan COMMENT_CREATED pada tiket yg dia laporkan.
-    onSSE('TICKET_UPDATED', (data) => {
-      if (data && data.id != null) {
-        const changesText = Array.isArray(data.changes) && data.changes.length > 0
-          ? data.changes.join('. ')
-          : 'Detail tiket diperbarui'
+      addNotificationItem({
+        ticketId: data.id,
+        type: 'UPDATED',
+        title: data.judul ? `Perubahan Tiket: ${data.judul}` : 'Perubahan Tiket',
+        message: changesText,
+        nomor_tiket: data.nomor_tiket,
+        judul_tiket: data.judul,
+        status_tiket: data.status_tiket,
+        prioritas: data.prioritas,
+        pelapor: data.pelapor,
+      })
+    }
+    fetchTickets()
+  })
 
-        addNotificationItem({
-          ticketId: data.id,
-          type: 'UPDATED',
-          title: data.judul ? `Perubahan Tiket: ${data.judul}` : 'Perubahan Tiket',
-          message: changesText,
-          nomor_tiket: data.nomor_tiket,
-          judul_tiket: data.judul,
-          status_tiket: data.status_tiket,
-          prioritas: data.prioritas,
-          pelapor: data.pelapor,
-        })
-      }
-      fetchTickets()
-    })
-    onSSE('COMMENT_CREATED', (data) => {
-      if (data && (data.ticketId != null || data.id != null)) {
-        const ticketId = data.ticketId || data.id
-        const targetTicket = allTickets.value.find(t => t.id === ticketId)
+  onSSE('COMMENT_CREATED', (data) => {
+    if (data && (data.ticketId != null || data.id != null)) {
+      const ticketId = data.ticketId || data.id
+      const targetTicket = allTickets.value.find(t => t.id === ticketId)
 
-        addNotificationItem({
-          ticketId,
-          type: 'COMMENT',
-          title: targetTicket ? `Komentar: ${targetTicket.judul}` : 'Komentar Baru',
-          message: 'Komentar baru ditambahkan pada tiket',
-          nomor_tiket: targetTicket?.nomor_tiket,
-          judul_tiket: targetTicket?.judul,
-          status_tiket: targetTicket?.status_tiket,
-          prioritas: targetTicket?.prioritas,
-          pelapor: targetTicket?.pelapor,
-        })
-      }
-      fetchTickets()
-    })
-  }
+      addNotificationItem({
+        ticketId,
+        type: 'COMMENT',
+        title: targetTicket ? `Komentar: ${targetTicket.judul}` : 'Komentar Baru',
+        message: 'Komentar baru ditambahkan pada tiket',
+        nomor_tiket: targetTicket?.nomor_tiket,
+        judul_tiket: targetTicket?.judul,
+        status_tiket: targetTicket?.status_tiket,
+        prioritas: targetTicket?.prioritas,
+        pelapor: targetTicket?.pelapor,
+      })
+    }
+    fetchTickets()
+  })
 })
 onBeforeUnmount(() => {
   clearInterval(pollTimer)

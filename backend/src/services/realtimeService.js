@@ -21,7 +21,7 @@ const TICKET_CHANGE_EVENTS = new Set([
 
 const sseClients = new Set()
 const DEFAULT_MAX_SSE_CLIENTS = 500
-const DEFAULT_MAX_SSE_CONNECTIONS_PER_USER = 3
+const DEFAULT_MAX_SSE_CONNECTIONS_PER_USER = 10
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 25_000
 
 function createSseCapacityError(statusCode, message) {
