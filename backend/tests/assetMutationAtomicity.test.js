@@ -182,7 +182,7 @@ test('asset delete closes active device cycles before FK nulling and rolls back 
         if (sql.startsWith('UPDATE riwayat_pemakaian_aset')) {
           return { rowCount: 1, rows: [] }
         }
-        if (sql.startsWith('DELETE FROM aset_ti')) {
+        if (sql.startsWith('DELETE FROM aset_ti') || sql.startsWith('UPDATE aset_ti SET deleted_at')) {
           return { rowCount: 1, rows: [] }
         }
         if (sql.startsWith('INSERT INTO log_riwayat_aset')) {
@@ -214,7 +214,9 @@ test('asset delete closes active device cycles before FK nulling and rolls back 
     const cycleIndex = queries.findIndex((sql) =>
       sql.startsWith('UPDATE riwayat_pemakaian_aset'),
     )
-    const deleteIndex = queries.findIndex((sql) => sql.startsWith('DELETE FROM aset_ti'))
+    const deleteIndex = queries.findIndex(
+      (sql) => sql.startsWith('DELETE FROM aset_ti') || sql.startsWith('UPDATE aset_ti SET deleted_at'),
+    )
     const auditIndex = queries.findIndex((sql) =>
       sql.startsWith('INSERT INTO log_riwayat_aset'),
     )

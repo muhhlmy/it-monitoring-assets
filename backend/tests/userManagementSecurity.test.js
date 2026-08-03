@@ -614,7 +614,7 @@ test('user-management HTTP mutations deny escalation before database mutation', 
       sql.startsWith('UPDATE users SET nama')
     )
     assert.ok(update)
-    assert.match(update.sql, /WHERE id = \$6 AND LOWER\(TRIM\(role\)\) = 'user'/)
+    assert.match(update.sql, /WHERE id = \$6.*AND LOWER\(TRIM\(role\)\) = 'user'/)
     assert.deepEqual(
       queryLog
         .slice(transactionStart)

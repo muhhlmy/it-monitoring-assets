@@ -30,20 +30,21 @@ function getTicketIdentity(req) {
 // GET /api/ticket-queues
 export async function listQueues(req, res) {
   const result = await pool.query(`SELECT id, kode, nama, deskripsi, is_active FROM ticket_queues WHERE is_active = true ORDER BY kode`)
-  res.json(result.rows)
+  const rows = result.rows.map((row) => ({ ...row, id: Number(row.id) }))
+  res.json(rows)
 }
 
 // GET /api/ticket-queues/my
 export async function listMyQueues(req, res) {
   if (isSuperAdmin(req.user.role)) {
     const result = await pool.query(`SELECT id, kode, nama, deskripsi FROM ticket_queues WHERE is_active = true ORDER BY kode`)
-    return res.json(result.rows)
+    return res.json(result.rows.map((row) => ({ ...row, id: Number(row.id) })))
   }
   const result = await pool.query(
     `SELECT q.id, q.kode, q.nama, q.deskripsi, utq.is_primary FROM user_ticket_queues utq JOIN ticket_queues q ON q.id = utq.queue_id WHERE utq.user_id = $1 AND q.is_active = true ORDER BY utq.is_primary DESC, q.kode ASC`,
     [req.user.id]
   )
-  res.json(result.rows)
+  res.json(result.rows.map((row) => ({ ...row, id: Number(row.id) })))
 }
 
 // GET /api/ticket-queues/:queueId/admins

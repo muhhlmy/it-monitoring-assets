@@ -117,7 +117,7 @@ export async function listUsers(req, res) {
     user.permissions = isSuper
       ? { ...SUPERADMIN_PERMISSIONS }
       : normalizePermissions(user.permissions, { defaults: DEFAULT_USER_PERMISSIONS });
-    user.queue_ids = (user.queues || []).map((q) => q.id);
+    user.queue_ids = (user.queues || []).map((q) => Number(q.id)).filter(Number.isSafeInteger);
     return user;
   });
   res.json(rows);
@@ -183,8 +183,8 @@ export async function storeUser(req, res) {
       `SELECT q.id, q.kode, q.nama FROM user_ticket_queues utq JOIN ticket_queues q ON q.id = utq.queue_id WHERE utq.user_id = $1`,
       [createdUser.id],
     );
-    createdUser.queues = qResult.rows;
-    createdUser.queue_ids = qResult.rows.map((q) => q.id);
+    createdUser.queues = qResult.rows.map((q) => ({ ...q, id: Number(q.id) }));
+    createdUser.queue_ids = qResult.rows.map((q) => Number(q.id)).filter(Number.isSafeInteger);
     return createdUser;
   });
 
@@ -332,8 +332,8 @@ export async function replaceUser(req, res) {
       `SELECT q.id, q.kode, q.nama FROM user_ticket_queues utq JOIN ticket_queues q ON q.id = utq.queue_id WHERE utq.user_id = $1`,
       [transactionUser.id],
     );
-    transactionUser.queues = qResult.rows;
-    transactionUser.queue_ids = qResult.rows.map((q) => q.id);
+    transactionUser.queues = qResult.rows.map((q) => ({ ...q, id: Number(q.id) }));
+    transactionUser.queue_ids = qResult.rows.map((q) => Number(q.id)).filter(Number.isSafeInteger);
     transactionUser.permissions =
       role === USER_MANAGEMENT_ROLES.SUPERADMIN
         ? { ...SUPERADMIN_PERMISSIONS }

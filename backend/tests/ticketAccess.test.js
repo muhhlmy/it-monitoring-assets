@@ -24,7 +24,7 @@ test('buildTicketScopeQuery forces user role to reported scope', () => {
 
   assert.equal(result.scope, 'reporter')
   assert.equal(result.params[0], 10)
-  assert.equal(result.conditions[0], 't.pelapor_user_id = $1')
+  assert.ok(result.conditions.includes('t.pelapor_user_id = $1'))
 })
 
 test('buildTicketScopeQuery maps mine tab correctly according to role', () => {

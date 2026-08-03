@@ -827,7 +827,7 @@ export async function createTicketComment(req, res) {
     client.release()
   }
 
-  await broadcastTicketEvent('COMMENT_CREATED', ticket)
+  await broadcastTicketEvent('COMMENT_CREATED', ticket, { actorUserId: identity.id })
   res.status(201).json(withoutInlineAttachment(newComment))
 }
 
@@ -931,7 +931,7 @@ export async function createTicket(req, res) {
     return createdTicket
   })
 
-  await broadcastTicketEvent('TICKET_CREATED', newTicket)
+  await broadcastTicketEvent('TICKET_CREATED', newTicket, { actorUserId: identity.id })
 
   res.status(201).json(withoutInlineAttachment(newTicket))
 }
@@ -952,7 +952,7 @@ export async function updateTicket(req, res) {
     throw createHttpError(403, 'Anda tidak memiliki akses untuk mengubah tiket ini.')
   }
 
-  const updatedTicket = await withTransaction(async (client) => {
+  const updateResult = await withTransaction(async (client) => {
     const lockedAccessTicket = await loadTicketAccessContext(client, identity, id, {
       forUpdate: true,
     })
@@ -1141,12 +1141,15 @@ export async function updateTicket(req, res) {
       : changes.join('. ') || 'Detail tiket diperbarui'
 
     await addTicketLog(client, id, oldTicket.nomor_tiket, aksi, logDetail, identity.name)
-    return transactionTicket
+    return { ticket: transactionTicket, changes }
   })
 
-  await broadcastTicketEvent('TICKET_UPDATED', updatedTicket)
+  await broadcastTicketEvent('TICKET_UPDATED', updateResult.ticket, {
+    actorUserId: identity.id,
+    changes: updateResult.changes,
+  })
 
-  res.json(withoutInlineAttachment(updatedTicket))
+  res.json(withoutInlineAttachment(updateResult.ticket))
 }
 
 // ── CLAIM TICKET (atomic) ─────────────────────────────────────
@@ -1207,7 +1210,10 @@ export async function claimTicket(req, res) {
     return claimedTicket
   })
 
-  await broadcastTicketEvent('TICKET_UPDATED', ticket)
+  await broadcastTicketEvent('TICKET_UPDATED', ticket, {
+    actorUserId: identity.id,
+    changes: [`Ditangani oleh ${identity.name}`, `Status: 'Open' → 'In Progress'`],
+  })
 
   res.json(withoutInlineAttachment(ticket))
 }
@@ -1331,7 +1337,10 @@ export async function reassignTicket(req, res) {
     )
     return result.rows[0]
   })
-  await broadcastTicketEvent('TICKET_UPDATED', reassignedTicket)
+  await broadcastTicketEvent('TICKET_UPDATED', reassignedTicket, {
+    actorUserId: identity.id,
+    changes: [`Dialihkan ke ${target.nama}`],
+  })
 
   res.json(withoutInlineAttachment(reassignedTicket))
 }
@@ -1374,7 +1383,10 @@ export async function deleteTicket(req, res) {
     return result.rows[0]
   })
 
-  await broadcastTicketEvent('TICKET_UPDATED', deletedTicket)
+  await broadcastTicketEvent('TICKET_UPDATED', deletedTicket, {
+    actorUserId: identity.id,
+    changes: ['Tiket dihapus'],
+  })
   res.json({ message: 'Tiket berhasil dihapus.' })
 }
 

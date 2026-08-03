@@ -59,7 +59,7 @@ function ticket(overrides = {}) {
   }
 }
 
-test('realtime delivery uses reporter, queue, assignee, and superadmin resource facts', () => {
+test('realtime delivery uses role-based rules: superadmin=all, admin=CREATED, reporter=changes on own', () => {
   const resource = ticket()
   const reporter = context(user(10, 'user'))
   const otherReporter = context(user(11, 'user'))
@@ -68,14 +68,44 @@ test('realtime delivery uses reporter, queue, assignee, and superadmin resource 
   const assignedAdmin = context(user(30, 'admin'), [8])
   const superadmin = context(user(99, 'superadmin', 'none'))
 
-  for (const eventType of ['TICKET_CREATED', 'TICKET_UPDATED', 'COMMENT_CREATED']) {
-    assert.equal(shouldDeliverTicketEvent(eventType, resource, reporter), true)
-    assert.equal(shouldDeliverTicketEvent(eventType, resource, otherReporter), false)
-    assert.equal(shouldDeliverTicketEvent(eventType, resource, sameQueueAdmin), true)
-    assert.equal(shouldDeliverTicketEvent(eventType, resource, otherQueueAdmin), false)
-    assert.equal(shouldDeliverTicketEvent(eventType, resource, assignedAdmin), true)
-    assert.equal(shouldDeliverTicketEvent(eventType, resource, superadmin), true)
-  }
+  // TICKET_CREATED: superadmin=yes, admin(queue member)=yes, admin(not member)=no, reporter=no
+  assert.equal(shouldDeliverTicketEvent('TICKET_CREATED', resource, superadmin), true)
+  assert.equal(shouldDeliverTicketEvent('TICKET_CREATED', resource, sameQueueAdmin), true)
+  assert.equal(shouldDeliverTicketEvent('TICKET_CREATED', resource, otherQueueAdmin), false)
+  assert.equal(shouldDeliverTicketEvent('TICKET_CREATED', resource, assignedAdmin), true)
+  assert.equal(shouldDeliverTicketEvent('TICKET_CREATED', resource, reporter), false)
+  assert.equal(shouldDeliverTicketEvent('TICKET_CREATED', resource, otherReporter), false)
+
+  // TICKET_UPDATED: superadmin=yes, admin=no (all), reporter(own)=yes, reporter(other)=no
+  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, superadmin), true)
+  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, sameQueueAdmin), false)
+  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, otherQueueAdmin), false)
+  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, assignedAdmin), false)
+  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, reporter), true)
+  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, otherReporter), false)
+
+  // COMMENT_CREATED: superadmin=yes, admin=no, reporter(own)=yes, reporter(other)=no
+  assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, superadmin), true)
+  assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, sameQueueAdmin), false)
+  assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, otherQueueAdmin), false)
+  assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, assignedAdmin), false)
+  assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, reporter), true)
+  assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, otherReporter), false)
+})
+
+test('superadmin does not receive self-triggered events', () => {
+  const resource = ticket({ _actor_user_id: 99 })
+  const superadmin = context(user(99, 'superadmin', 'none'))
+  const otherSuperadmin = context(user(100, 'superadmin', 'none'))
+
+  assert.equal(shouldDeliverTicketEvent('TICKET_CREATED', resource, superadmin), false)
+  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, superadmin), false)
+  assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, superadmin), false)
+
+  // Other superadmin should still receive it
+  assert.equal(shouldDeliverTicketEvent('TICKET_CREATED', resource, otherSuperadmin), true)
+  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, otherSuperadmin), true)
+  assert.equal(shouldDeliverTicketEvent('COMMENT_CREATED', resource, otherSuperadmin), true)
 })
 
 test('realtime delivery fails closed for unknown, missing, unauthorized, and legacy-only actors', () => {
@@ -91,7 +121,7 @@ test('realtime delivery fails closed for unknown, missing, unauthorized, and leg
   })
 
   assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, unknownRole), false)
-  assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, noPermissionAdmin), false)
+  assert.equal(shouldDeliverTicketEvent('TICKET_CREATED', resource, noPermissionAdmin), false)
   assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, invalidIdentity), false)
   assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', resource, null), false)
   assert.equal(shouldDeliverTicketEvent('TICKET_UPDATED', null, context(user(99, 'superadmin'))), false)
@@ -106,7 +136,7 @@ test('realtime delivery fails closed for unknown, missing, unauthorized, and leg
   )
 })
 
-test('ticket event DTO exposes exact notification keys and excludes attachments and routing facts', () => {
+test('ticket event DTO exposes exact notification keys including actor_user_id and changes, and excludes attachments and routing facts', () => {
   const resource = ticket()
   const expectedTicketKeys = [
     'id',
@@ -115,7 +145,10 @@ test('ticket event DTO exposes exact notification keys and excludes attachments 
     'status_tiket',
     'prioritas',
     'dibuat_pada',
+    'diperbarui_pada',
     'pelapor',
+    'actor_user_id',
+    'changes',
   ]
 
   for (const eventType of ['TICKET_CREATED', 'TICKET_UPDATED']) {
@@ -128,13 +161,22 @@ test('ticket event DTO exposes exact notification keys and excludes attachments 
       status_tiket: 'Open',
       prioritas: 'High (1day)',
       dibuat_pada: '2026-07-30T10:00:00.000Z',
+      diperbarui_pada: null,
       pelapor: 'Canonical Reporter',
+      actor_user_id: null,
+      changes: null,
     })
   }
 
+  // Test with actor_user_id and changes set
+  const resourceWithActor = ticket({ _actor_user_id: 42, _changes: ['Status: Open -> In Progress'] })
+  const dtoWithActor = buildTicketEventDto('TICKET_CREATED', resourceWithActor)
+  assert.equal(dtoWithActor.actor_user_id, 42)
+  assert.deepEqual(dtoWithActor.changes, ['Status: Open -> In Progress'])
+
   const commentDto = buildTicketEventDto('COMMENT_CREATED', resource)
-  assert.deepEqual(Object.keys(commentDto), ['ticketId'])
-  assert.deepEqual(commentDto, { ticketId: 101 })
+  assert.deepEqual(Object.keys(commentDto), ['ticketId', 'actor_user_id', 'changes'])
+  assert.deepEqual(commentDto, { ticketId: 101, actor_user_id: null, changes: ['Komentar baru ditambahkan'] })
 
   for (const dto of [
     buildTicketEventDto('TICKET_CREATED', resource),
@@ -178,7 +220,7 @@ class FakeSseResponse extends EventEmitter {
   }
 }
 
-test('broadcast sends a redacted DTO only to authorized realtime clients', async (t) => {
+test('broadcast sends role-appropriate DTOs only to authorized realtime clients', async (t) => {
   const clients = {
     reporter: new FakeSseResponse(),
     sameQueueAdmin: new FakeSseResponse(),
@@ -202,6 +244,7 @@ test('broadcast sends a redacted DTO only to authorized realtime clients', async
     for (const removeClient of removeClients) removeClient()
   })
 
+  // TICKET_UPDATED: superadmin + reporter(own) should receive; admin should NOT
   const delivered = await broadcastTicketEvent('TICKET_UPDATED', ticket(), {
     queryable: {
       query: async (sql, parameters) => {
@@ -221,12 +264,13 @@ test('broadcast sends a redacted DTO only to authorized realtime clients', async
       },
     },
   })
-  assert.equal(delivered, 4)
+  // Only superadmin + reporter(pelapor_user_id=10) receive TICKET_UPDATED
+  assert.equal(delivered, 2)
 
   assert.equal(clients.reporter.writes.length, 1)
-  assert.equal(clients.sameQueueAdmin.writes.length, 1)
+  assert.equal(clients.sameQueueAdmin.writes.length, 0)
   assert.equal(clients.otherQueueAdmin.writes.length, 0)
-  assert.equal(clients.assignee.writes.length, 1)
+  assert.equal(clients.assignee.writes.length, 0)
   assert.equal(clients.superadmin.writes.length, 1)
   assert.equal(clients.unknown.writes.length, 0)
   assert.equal(clients.invalid.writes.length, 0)
@@ -237,14 +281,17 @@ test('broadcast sends a redacted DTO only to authorized realtime clients', async
   const event = JSON.parse(eventLine.slice('data: '.length).trim())
   assert.deepEqual(Object.keys(event).sort(), ['data', 'timestamp', 'type'])
   assert.equal(event.type, 'TICKET_UPDATED')
-  assert.deepEqual(Object.keys(event.data), [
-    'id',
-    'nomor_tiket',
-    'judul',
-    'status_tiket',
-    'prioritas',
+  assert.deepEqual(Object.keys(event.data).sort(), [
+    'actor_user_id',
+    'changes',
     'dibuat_pada',
+    'diperbarui_pada',
+    'id',
+    'judul',
+    'nomor_tiket',
     'pelapor',
+    'prioritas',
+    'status_tiket',
   ])
   assert.equal(JSON.stringify(event).includes('secret-binary'), false)
   assert.equal(JSON.stringify(event).includes('must-not-leak'), false)
@@ -264,15 +311,16 @@ test('broadcast rechecks queue membership and stops delivery after revocation', 
       rows: [liveUser(user(20, 'admin', 'full'), isMember)],
     }),
   }
+  // Admin only gets TICKET_CREATED, not TICKET_UPDATED
   const resource = ticket({ assigned_to_user_id: null })
 
   assert.equal(
-    await broadcastTicketEvent('TICKET_UPDATED', resource, { queryable }),
+    await broadcastTicketEvent('TICKET_CREATED', resource, { queryable }),
     1,
   )
   isMember = false
   assert.equal(
-    await broadcastTicketEvent('TICKET_UPDATED', resource, { queryable }),
+    await broadcastTicketEvent('TICKET_CREATED', resource, { queryable }),
     0,
   )
   assert.equal(client.writes.length, 1)
@@ -298,11 +346,13 @@ test('broadcast revalidates active role and permission and disconnects missing u
   const queryable = { query: async () => ({ rows }) }
   const resource = ticket({ assigned_to_user_id: null })
 
+  // TICKET_UPDATED: reporter(own) + superadmin = 2
   assert.equal(
     await broadcastTicketEvent('TICKET_UPDATED', resource, { queryable }),
     2,
   )
 
+  // Reporter loses permission, superadmin changed to admin (admin doesn't get TICKET_UPDATED)
   rows = [
     liveUser(user(10, 'user', 'none')),
     liveUser(user(99, 'admin', 'none')),
@@ -338,6 +388,7 @@ test('realtime lookup failure drops the event without permanently disconnecting 
     },
   }
 
+  // Reporter gets TICKET_UPDATED for own tickets
   assert.equal(
     await broadcastTicketEvent('TICKET_UPDATED', ticket(), { queryable }),
     0,
@@ -359,6 +410,7 @@ test('realtime write failure ends and fully removes the broken client', async (t
   client.write = () => {
     throw new Error('socket closed')
   }
+  // Use reporter (user 10 = pelapor_user_id=10) so TICKET_UPDATED is delivered
   const removeClient = addSseClient(client, user(10, 'user'))
   t.after(removeClient)
 
@@ -387,6 +439,7 @@ test('realtime write failure ends and fully removes the broken client', async (t
 test('realtime backpressure disconnects a slow client instead of buffering without bound', async (t) => {
   const client = new FakeSseResponse()
   client.write = () => false
+  // Use reporter (user 10 = pelapor_user_id=10) so TICKET_UPDATED is delivered
   const removeClient = addSseClient(client, user(10, 'user'))
   t.after(removeClient)
 

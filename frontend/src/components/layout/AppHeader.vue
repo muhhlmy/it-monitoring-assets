@@ -13,7 +13,7 @@ defineEmits(['toggle-mobile', 'toggle-collapse'])
 
 const route  = useRoute()
 const router = useRouter()
-const { user, logout, isAdmin, isUser, hasPermission } = useAuth()
+const { user, logout, isAdmin, isUser, isSuperAdmin, hasPermission } = useAuth()
 const { get } = useApi()
 const { connect: connectSSE, disconnect: disconnectSSE, on: onSSE } = useTicketEvents()
 
@@ -21,19 +21,135 @@ const searchQuery     = ref('')
 const isProfileOpen   = ref(false)
 const isNotifOpen     = ref(false)
 
-// Notification / Ticket state
-const allTickets      = ref([])
-const seenTicketIds   = ref(new Set(JSON.parse(localStorage.getItem('seen_ticket_ids') || '[]')))
-const isFetchingNotif = ref(false)
+// Notification / Activity State
+const allTickets         = ref([])
+const notificationsList  = ref([])
+const knownTicketStates  = ref({})
+const isFetchingNotif    = ref(false)
 
-const latestTickets = computed(() =>
-  [...allTickets.value]
-    .sort((a, b) => new Date(b.dibuat_pada) - new Date(a.dibuat_pada))
-    .slice(0, 6)
+function loadNotifications() {
+  try {
+    const stored = localStorage.getItem('app_notifications')
+    if (stored) notificationsList.value = JSON.parse(stored)
+    const storedStates = localStorage.getItem('known_ticket_states')
+    if (storedStates) knownTicketStates.value = JSON.parse(storedStates)
+  } catch (_) {
+    notificationsList.value = []
+    knownTicketStates.value = {}
+  }
+}
+
+function persistNotifications() {
+  try {
+    localStorage.setItem('app_notifications', JSON.stringify(notificationsList.value))
+    localStorage.setItem('known_ticket_states', JSON.stringify(knownTicketStates.value))
+  } catch (_) {}
+}
+
+function addNotificationItem({ ticketId, type, title, message, nomor_tiket, judul_tiket, status_tiket, prioritas, pelapor, timestamp }) {
+  const ts = timestamp || Date.now()
+  const msg = message || (type === 'CREATED' ? 'Tiket baru telah dibuat' : 'Detail tiket diperbarui')
+
+  // Deduplicate: avoid adding identical notification for the same ticket within 5 seconds
+  const recentDuplicate = notificationsList.value.find(n =>
+    n.ticketId === ticketId &&
+    n.type === type &&
+    n.message === msg &&
+    Math.abs((n.timestamp || 0) - ts) < 5000
+  )
+  if (recentDuplicate) return
+
+  const notif = {
+    id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    ticketId,
+    type,
+    title: title || (type === 'CREATED' ? 'Tiket Baru Masuk' : type === 'COMMENT' ? 'Komentar Baru' : 'Perubahan Tiket'),
+    message: msg,
+    nomor_tiket: nomor_tiket || `#${ticketId}`,
+    judul_tiket: judul_tiket || 'Tiket',
+    status_tiket: status_tiket || 'Open',
+    prioritas: prioritas || 'Medium (3d)',
+    pelapor: pelapor || '',
+    timestamp: ts,
+    isRead: false,
+  }
+
+  notificationsList.value = [notif, ...notificationsList.value].slice(0, 50)
+  persistNotifications()
+}
+
+function seedNotificationsFromTickets(ticketsList) {
+  if (notificationsList.value.length > 0) return
+  const items = ticketsList.slice(0, 10).map(t => ({
+    id: `notif_seed_${t.id}`,
+    ticketId: t.id,
+    type: 'CREATED',
+    title: 'Tiket Masuk',
+    message: t.judul,
+    nomor_tiket: t.nomor_tiket,
+    judul_tiket: t.judul,
+    status_tiket: t.status_tiket,
+    prioritas: t.prioritas,
+    pelapor: t.pelapor || t.pelapor_nama || '',
+    timestamp: new Date(t.diperbarui_pada || t.dibuat_pada).getTime(),
+    isRead: true,
+  }))
+  notificationsList.value = items
+  persistNotifications()
+}
+
+function syncTicketStatusChanges(ticketsList) {
+  if (!Array.isArray(ticketsList)) return
+  const isFirstLoad = Object.keys(knownTicketStates.value).length === 0
+
+  for (const t of ticketsList) {
+    const prev = knownTicketStates.value[t.id]
+    if (prev && !isFirstLoad) {
+      if (prev.status && prev.status !== t.status_tiket) {
+        addNotificationItem({
+          ticketId: t.id,
+          type: 'UPDATED',
+          title: `Perubahan Tiket: ${t.judul}`,
+          message: `Status: '${prev.status}' → '${t.status_tiket}'`,
+          nomor_tiket: t.nomor_tiket,
+          judul_tiket: t.judul,
+          status_tiket: t.status_tiket,
+          prioritas: t.prioritas,
+          pelapor: t.pelapor || t.pelapor_nama || '',
+          timestamp: new Date(t.diperbarui_pada || Date.now()).getTime(),
+        })
+      } else if (prev.assignedTo !== t.assigned_to && t.assigned_to) {
+        addNotificationItem({
+          ticketId: t.id,
+          type: 'UPDATED',
+          title: `Perubahan Tiket: ${t.judul}`,
+          message: `Ditangani oleh ${t.assigned_to}`,
+          nomor_tiket: t.nomor_tiket,
+          judul_tiket: t.judul,
+          status_tiket: t.status_tiket,
+          prioritas: t.prioritas,
+          pelapor: t.pelapor || t.pelapor_nama || '',
+          timestamp: new Date(t.diperbarui_pada || Date.now()).getTime(),
+        })
+      }
+    }
+
+    knownTicketStates.value[t.id] = {
+      status: t.status_tiket,
+      assignedTo: t.assigned_to,
+      updatedAt: t.diperbarui_pada,
+    }
+  }
+
+  persistNotifications()
+}
+
+const latestNotifications = computed(() =>
+  [...notificationsList.value].slice(0, 8)
 )
 
 const unreadCount = computed(() =>
-  latestTickets.value.filter(t => !seenTicketIds.value.has(t.id)).length
+  notificationsList.value.filter(n => !n.isRead).length
 )
 
 async function fetchTickets() {
@@ -41,7 +157,11 @@ async function fetchTickets() {
   isFetchingNotif.value = true
   try {
     const data = await get('/api/tickets')
-    if (Array.isArray(data)) allTickets.value = data
+    if (Array.isArray(data)) {
+      allTickets.value = data
+      seedNotificationsFromTickets(data)
+      syncTicketStatusChanges(data)
+    }
   } catch (_) {
     // silently fail
   } finally {
@@ -51,30 +171,20 @@ async function fetchTickets() {
 
 function toggleNotif() {
   isNotifOpen.value = !isNotifOpen.value
-  if (isNotifOpen.value) markAllSeen()
+  if (isNotifOpen.value) markAllNotificationsRead()
   isProfileOpen.value = false
 }
 
-function persistSeenIds() {
-  localStorage.setItem('seen_ticket_ids', JSON.stringify([...seenTicketIds.value]))
+function markAllNotificationsRead() {
+  notificationsList.value.forEach(n => { n.isRead = true })
+  persistNotifications()
 }
 
-function markAllSeen() {
-  latestTickets.value.forEach(t => seenTicketIds.value.add(t.id))
-  persistSeenIds()
-}
-
-// Tandai sebuah tiket sebagai UNREAD (sehingga badge lonceng naik kembali),
-// dipakai saat user menerima notifikasi perubahan tiket miliknya.
-function markTicketUnread(id) {
-  if (id == null) return
-  seenTicketIds.value.delete(id)
-  persistSeenIds()
-}
-
-function goToTicket(id) {
+function goToNotif(notif) {
+  notif.isRead = true
+  persistNotifications()
   isNotifOpen.value = false
-  router.push({ path: '/tickets', query: { id } })
+  router.push({ path: '/tickets', query: { id: notif.ticketId } })
 }
 
 function goToAllTickets() {
@@ -98,9 +208,10 @@ function priorityDot(prioritas) {
   return 'bg-[#6B7280]'
 }
 
-function relativeTime(dateStr) {
-  if (!dateStr) return ''
-  const diff = Date.now() - new Date(dateStr).getTime()
+function relativeTime(dateStrOrMs) {
+  if (!dateStrOrMs) return ''
+  const timestamp = typeof dateStrOrMs === 'number' ? dateStrOrMs : new Date(dateStrOrMs).getTime()
+  const diff = Date.now() - timestamp
   const m = Math.floor(diff / 60000)
   if (m < 1)  return 'Baru saja'
   if (m < 60) return `${m} mnt lalu`
@@ -144,6 +255,7 @@ watch(
 let pollTimer
 onMounted(() => {
   if (!hasPermission('tickets')) return
+  loadNotifications()
   fetchTickets()
   // Polling 30 detik dipertahankan sebagai safety net bila SSE putus / gagal reconnect.
   pollTimer = setInterval(fetchTickets, 30000)
@@ -151,29 +263,134 @@ onMounted(() => {
   // Realtime push via SSE: bell update instan saat ada tiket baru / perubahan.
   connectSSE()
 
-  if (isUser.value) {
-    // ── USER BIASA (pelapor) ──
-    // Tidak mendapat notif "tiket baru" (backend juga sudah memfilter).
-    // Hanya mendapat notif SETIAP PERUBAHAN pada tiket miliknya sendiri.
-    onSSE('TICKET_UPDATED', (data) => {
-      if (data && data.id != null) {
-        markTicketUnread(data.id)   // naikkan badge lonceng
-      }
-      fetchTickets()                // refresh list (sudah role-aware: hanya tiket milik user)
-    })
-  } else if (isAdmin.value) {
-    // ── ADMIN / SUPERADMIN ──
-    // Mendapat notif tiket baru + semua perubahan tiket.
+  if (isSuperAdmin.value) {
+    // ── SUPER ADMIN ──
+    // Menerima SEMUA notif (tiket baru + perubahan apapun pada tiket)
+    // KECUALI aksi yang dilakukan oleh superadmin sendiri (sudah difilter backend).
     onSSE('TICKET_CREATED', (data) => {
       if (data && typeof data === 'object') {
+        addNotificationItem({
+          ticketId: data.id,
+          type: 'CREATED',
+          title: 'Tiket Baru Masuk',
+          message: data.judul,
+          nomor_tiket: data.nomor_tiket,
+          judul_tiket: data.judul,
+          status_tiket: data.status_tiket,
+          prioritas: data.prioritas,
+          pelapor: data.pelapor,
+        })
         if (!allTickets.value.some(t => t.id === data.id)) {
           allTickets.value = [data, ...allTickets.value]
         }
       }
       fetchTickets()
     })
-    onSSE('TICKET_UPDATED', () => fetchTickets())
-    onSSE('COMMENT_CREATED', () => fetchTickets())
+    onSSE('TICKET_UPDATED', (data) => {
+      if (data && data.id != null) {
+        const changesText = Array.isArray(data.changes) && data.changes.length > 0
+          ? data.changes.join('. ')
+          : 'Detail tiket diperbarui'
+
+        addNotificationItem({
+          ticketId: data.id,
+          type: 'UPDATED',
+          title: data.judul ? `Perubahan Tiket: ${data.judul}` : 'Perubahan Tiket',
+          message: changesText,
+          nomor_tiket: data.nomor_tiket,
+          judul_tiket: data.judul,
+          status_tiket: data.status_tiket,
+          prioritas: data.prioritas,
+          pelapor: data.pelapor,
+        })
+      }
+      fetchTickets()
+    })
+    onSSE('COMMENT_CREATED', (data) => {
+      if (data && (data.ticketId != null || data.id != null)) {
+        const ticketId = data.ticketId || data.id
+        const targetTicket = allTickets.value.find(t => t.id === ticketId)
+
+        addNotificationItem({
+          ticketId,
+          type: 'COMMENT',
+          title: targetTicket ? `Komentar: ${targetTicket.judul}` : 'Komentar Baru',
+          message: 'Komentar baru ditambahkan pada tiket',
+          nomor_tiket: targetTicket?.nomor_tiket,
+          judul_tiket: targetTicket?.judul,
+          status_tiket: targetTicket?.status_tiket,
+          prioritas: targetTicket?.prioritas,
+          pelapor: targetTicket?.pelapor,
+        })
+      }
+      fetchTickets()
+    })
+  } else if (isAdmin.value) {
+    // ── ADMIN ──
+    // Hanya menerima notif tiket baru masuk (TICKET_CREATED).
+    // Backend sudah memfilter sehingga TICKET_UPDATED / COMMENT_CREATED tidak dikirim.
+    onSSE('TICKET_CREATED', (data) => {
+      if (data && typeof data === 'object') {
+        addNotificationItem({
+          ticketId: data.id,
+          type: 'CREATED',
+          title: 'Tiket Baru Masuk',
+          message: data.judul,
+          nomor_tiket: data.nomor_tiket,
+          judul_tiket: data.judul,
+          status_tiket: data.status_tiket,
+          prioritas: data.prioritas,
+          pelapor: data.pelapor,
+        })
+        if (!allTickets.value.some(t => t.id === data.id)) {
+          allTickets.value = [data, ...allTickets.value]
+        }
+      }
+      fetchTickets()
+    })
+  } else if (isUser.value) {
+    // ── USER BIASA (pelapor) ──
+    // Hanya menerima notif PERUBAHAN pada tiket miliknya sendiri.
+    // Backend sudah memfilter: hanya TICKET_UPDATED dan COMMENT_CREATED pada tiket yg dia laporkan.
+    onSSE('TICKET_UPDATED', (data) => {
+      if (data && data.id != null) {
+        const changesText = Array.isArray(data.changes) && data.changes.length > 0
+          ? data.changes.join('. ')
+          : 'Detail tiket diperbarui'
+
+        addNotificationItem({
+          ticketId: data.id,
+          type: 'UPDATED',
+          title: data.judul ? `Perubahan Tiket: ${data.judul}` : 'Perubahan Tiket',
+          message: changesText,
+          nomor_tiket: data.nomor_tiket,
+          judul_tiket: data.judul,
+          status_tiket: data.status_tiket,
+          prioritas: data.prioritas,
+          pelapor: data.pelapor,
+        })
+      }
+      fetchTickets()
+    })
+    onSSE('COMMENT_CREATED', (data) => {
+      if (data && (data.ticketId != null || data.id != null)) {
+        const ticketId = data.ticketId || data.id
+        const targetTicket = allTickets.value.find(t => t.id === ticketId)
+
+        addNotificationItem({
+          ticketId,
+          type: 'COMMENT',
+          title: targetTicket ? `Komentar: ${targetTicket.judul}` : 'Komentar Baru',
+          message: 'Komentar baru ditambahkan pada tiket',
+          nomor_tiket: targetTicket?.nomor_tiket,
+          judul_tiket: targetTicket?.judul,
+          status_tiket: targetTicket?.status_tiket,
+          prioritas: targetTicket?.prioritas,
+          pelapor: targetTicket?.pelapor,
+        })
+      }
+      fetchTickets()
+    })
   }
 })
 onBeforeUnmount(() => {
@@ -263,13 +480,13 @@ onBeforeUnmount(() => {
         <Transition name="dropdown">
           <div
             v-if="isNotifOpen"
-            class="absolute right-0 mt-2 w-80 rounded-2xl border border-[#E5EAEF] bg-white shadow-2xl z-50 overflow-hidden"
+            class="absolute right-0 mt-2 w-84 sm:w-90 rounded-2xl border border-[#E5EAEF] bg-white shadow-2xl z-50 overflow-hidden"
             @click.stop
           >
             <div class="flex items-center justify-between px-4 py-3 border-b border-[#F1F5F9]">
               <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-[18px] text-[#5D87FF]">confirmation_number</span>
-                <span class="text-[13px] font-extrabold text-[#2A3547]">Tiket Masuk</span>
+                <span class="material-symbols-outlined text-[18px] text-[#5D87FF]">notifications</span>
+                <span class="text-[13px] font-extrabold text-[#2A3547]">Notifikasi Tiket</span>
                 <span
                   v-if="unreadCount > 0"
                   class="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#FA896B] px-1.5 text-[9px] font-black text-white"
@@ -284,41 +501,49 @@ onBeforeUnmount(() => {
               </button>
             </div>
 
-            <div class="max-h-[340px] overflow-y-auto divide-y divide-[#F8FAFC]">
-              <div v-if="isFetchingNotif && latestTickets.length === 0" class="flex items-center justify-center gap-2 py-8 text-[12px] text-[#9CA3AF]">
+            <div class="max-h-[360px] overflow-y-auto divide-y divide-[#F8FAFC]">
+              <div v-if="isFetchingNotif && latestNotifications.length === 0" class="flex items-center justify-center gap-2 py-8 text-[12px] text-[#9CA3AF]">
                 <div class="w-4 h-4 border-2 border-[#E5E7EB] border-t-[#5D87FF] rounded-full animate-spin"></div>
-                Memuat tiket...
+                Memuat notifikasi...
               </div>
 
-              <div v-else-if="latestTickets.length === 0" class="flex flex-col items-center gap-2 py-10 text-center">
+              <div v-else-if="latestNotifications.length === 0" class="flex flex-col items-center gap-2 py-10 text-center">
                 <span class="material-symbols-outlined text-[40px] text-[#D1D5DB]">inbox</span>
-                <p class="text-[12px] text-[#9CA3AF]">Belum ada tiket masuk</p>
+                <p class="text-[12px] text-[#9CA3AF]">Belum ada notifikasi</p>
               </div>
 
               <button
-                v-for="ticket in latestTickets"
-                :key="ticket.id"
+                v-for="notif in latestNotifications"
+                :key="notif.id"
                 type="button"
-                @click="goToTicket(ticket.id)"
+                @click="goToNotif(notif)"
                 class="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-[#F8FAFC] transition-all group"
-                :class="!seenTicketIds.has(ticket.id) ? 'bg-[#F0F5FF]' : ''"
+                :class="!notif.isRead ? 'bg-[#F0F5FF]' : ''"
               >
-                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" :class="priorityDot(ticket.prioritas)"></span>
+                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" :class="priorityDot(notif.prioritas)"></span>
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-1.5 mb-0.5">
-                    <span v-if="!seenTicketIds.has(ticket.id)" class="h-1.5 w-1.5 rounded-full bg-[#5D87FF] shrink-0"></span>
+                    <span v-if="!notif.isRead" class="h-1.5 w-1.5 rounded-full bg-[#5D87FF] shrink-0"></span>
                     <p class="text-[12px] font-bold text-[#2A3547] truncate leading-tight group-hover:text-[#5D87FF] transition-colors">
-                      {{ ticket.judul }}
+                      {{ notif.title }}
                     </p>
                   </div>
-                  <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
-                    <span class="text-[10px] text-[#9CA3AF]">{{ ticket.nomor_tiket || '#' + ticket.id }}</span>
+
+                  <p class="text-[11px] font-semibold text-[#5D87FF] mt-0.5 truncate flex items-center gap-1 bg-[#ECF2FF] px-2 py-0.5 rounded-md w-fit max-w-full">
+                    <span class="material-symbols-outlined text-[12px] text-[#5D87FF] shrink-0">
+                      {{ notif.type === 'CREATED' ? 'add_circle' : notif.type === 'COMMENT' ? 'chat' : 'update' }}
+                    </span>
+                    <span class="truncate">{{ notif.message }}</span>
+                  </p>
+
+                  <div class="flex items-center gap-1.5 flex-wrap mt-1">
+                    <span class="text-[10px] text-[#9CA3AF]">{{ notif.nomor_tiket }}</span>
+                    <span v-if="notif.status_tiket" class="text-[10px] text-[#CBD5E1]">·</span>
+                    <span v-if="notif.status_tiket" class="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" :class="statusColor(notif.status_tiket)">{{ notif.status_tiket }}</span>
                     <span class="text-[10px] text-[#CBD5E1]">·</span>
-                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" :class="statusColor(ticket.status_tiket)">{{ ticket.status_tiket }}</span>
-                    <span class="text-[10px] text-[#CBD5E1]">·</span>
-                    <span class="text-[10px] text-[#9CA3AF]">{{ relativeTime(ticket.dibuat_pada) }}</span>
+                    <span class="text-[10px] text-[#9CA3AF]">{{ relativeTime(notif.timestamp) }}</span>
                   </div>
-                  <p v-if="ticket.pelapor" class="text-[10px] text-[#B0BAC9] mt-0.5 truncate">Dari: {{ ticket.pelapor }}</p>
+                  <p v-if="notif.pelapor" class="text-[10px] text-[#B0BAC9] mt-0.5 truncate">Dari: {{ notif.pelapor }}</p>
                 </div>
                 <span class="material-symbols-outlined text-[15px] text-[#CBD5E1] group-hover:text-[#5D87FF] shrink-0 mt-1 transition-colors">chevron_right</span>
               </button>

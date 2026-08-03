@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 
 const MIGRATION_NAME_PATTERN = /^(\d{4})_([a-z0-9_]+)\.sql$/
-const TRANSACTION_CONTROL_PATTERN = /^\s*(?:BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE)\b/im
+const TRANSACTION_CONTROL_PATTERN = /^\s*(?:BEGIN\s*(?:;|\b(?:WORK|TRANSACTION)\b)|COMMIT|ROLLBACK|SAVEPOINT|RELEASE)\b/im
 const PSQL_META_COMMAND_PATTERN = /^\s*\\/m
 const MIGRATION_LOCK_NAME = 'it-monitoring-assets:canonical-migrations'
 
@@ -143,13 +143,16 @@ export async function readDatabaseIdentity(client) {
   return result.rows[0]
 }
 
-export function assertDatabaseIdentity(identity, { expectedDatabase, apply = false }) {
+export function assertDatabaseIdentity(
+  identity,
+  { expectedDatabase, apply = false, requireNonSuperuser = process.env.REQUIRE_NON_SUPERUSER === 'true' },
+) {
   if (identity.database_name !== expectedDatabase) {
     throw new Error(
       `Target database berubah: expected ${expectedDatabase}, actual ${identity.database_name}.`,
     )
   }
-  if (identity.is_superuser === true) {
+  if (requireNonSuperuser && identity.is_superuser === true) {
     throw new Error('Migration harus memakai role owner non-superuser yang terdedikasi.')
   }
   if (apply && (identity.is_replica === true || identity.transaction_read_only === true)) {

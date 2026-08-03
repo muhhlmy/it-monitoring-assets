@@ -11,7 +11,7 @@ import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 
 const { get, post, put, del } = useApi()
-const { isSuperAdmin, hasWritePermission } = useAuth()
+const { user: currentUser, isSuperAdmin, hasWritePermission } = useAuth()
 const canWriteUsers = computed(() => hasWritePermission('users'))
 
 // ── State Utama ──────────────────────────────────────────────
@@ -73,12 +73,6 @@ const PERMISSION_LEVELS = [
   { value: 'full', label: 'CRUD Penuh', shortLabel: 'Full', color: 'green' },
 ]
 
-function getLevelColor(level) {
-  if (level === 'full') return 'full'
-  if (level === 'read_only') return 'read'
-  return 'none'
-}
-
 // ── Form Data ────────────────────────────────────────────────
 const emptyForm = () => ({
   nama: '',
@@ -94,13 +88,30 @@ const form = ref(emptyForm())
 // ── Options ──────────────────────────────────────────────────
 const roleOptions = ['superadmin', 'admin', 'user']
 const availableRoleOptions = computed(() => {
-  const options = isSuperAdmin.value ? roleOptions : roleOptions.filter(r => r !== 'superadmin')
-  return [...new Set([form.value.role, ...options, ...users.value.map((user) => user.role)].filter(Boolean))]
+  if (!isSuperAdmin.value) return ['user']
+  return [...new Set([form.value.role, ...roleOptions].filter(Boolean))]
 })
+const filterRoleOptions = computed(() =>
+  [...new Set([...roleOptions, ...users.value.map((listedUser) => listedUser.role)].filter(Boolean))],
+)
+
+function canManageUser(target) {
+  if (!canWriteUsers.value || !target) return false
+  if (isSuperAdmin.value) return true
+  return target.role === 'user' && target.id !== currentUser.value?.id
+}
+
+function setPermissionLevel(featureKey, level) {
+  if (!isSuperAdmin.value && featureKey === 'users') {
+    form.value.permissions.users = 'none'
+    return
+  }
+  form.value.permissions[featureKey] = level
+}
 
 function selectAllPermissions(val) {
   ALL_FEATURES.forEach(f => {
-    form.value.permissions[f.key] = val // val: 'none' | 'read_only' | 'full'
+    setPermissionLevel(f.key, val)
   })
 }
 
@@ -111,6 +122,7 @@ function handleRoleChange() {
   } else {
     form.value.permissions = defaultPermissions()
   }
+  if (!isSuperAdmin.value) form.value.permissions.users = 'none'
 }
 
 function getPermissionBadge(u) {
@@ -150,7 +162,7 @@ async function fetchQueues() {
   try {
     const data = await get('/api/ticket-queues')
     if (Array.isArray(data)) queues.value = data
-  } catch (_) {}
+  } catch {}
 }
 
 async function fetchUsers() {
@@ -177,7 +189,7 @@ function openAdd() {
 }
 
 function openEdit(u) {
-  if (!canWriteUsers.value) return
+  if (!canManageUser(u)) return
   modalMode.value     = 'edit'
   selectedUser.value  = u
   const isSuper = isRoleSuperAdmin(u.role)
@@ -197,6 +209,7 @@ function openEdit(u) {
             base[k] = 'none'
           }
         }
+        if (!isSuperAdmin.value) base.users = 'none'
         return base
       })()
 
@@ -206,7 +219,9 @@ function openEdit(u) {
     password: '',
     role: u.role || 'user',
     permissions: initialPerms,
-    queue_ids: Array.isArray(u.queue_ids) ? [...u.queue_ids] : [],
+    queue_ids: Array.isArray(u.queue_ids)
+      ? u.queue_ids.map((id) => Number(id)).filter(Number.isSafeInteger)
+      : [],
     is_active: u.is_active !== false,
   }
   modalError.value = ''
@@ -214,6 +229,7 @@ function openEdit(u) {
 }
 
 function openDelete(user) {
+  if (!isSuperAdmin.value || isRoleSuperAdmin(user?.role)) return
   selectedUser.value   = user
   modalError.value      = ''
   showDeleteModal.value = true
@@ -236,12 +252,16 @@ async function saveUser() {
     modalError.value = 'Anda hanya memiliki akses baca untuk pengguna.'
     return
   }
+  if (modalMode.value === 'edit' && !canManageUser(selectedUser.value)) {
+    modalError.value = 'Anda tidak dapat mengubah pengguna ini.'
+    return
+  }
   isSubmitting.value = true
   modalError.value   = ''
 
   const nama = form.value.nama.trim()
   const email = form.value.email.trim()
-  const role = form.value.role.trim()
+  const role = isSuperAdmin.value ? form.value.role.trim() : 'user'
 
   if (!nama || !email || !role) {
     modalError.value = 'Nama, email, dan role wajib diisi.'
@@ -260,13 +280,20 @@ async function saveUser() {
   }
 
   try {
+    const permissions = { ...form.value.permissions }
+    if (!isSuperAdmin.value) permissions.users = 'none'
+
     const payload = {
       nama,
       email,
       role,
-      permissions: form.value.permissions,
-      queue_ids: form.value.queue_ids,
+      permissions,
       is_active: form.value.is_active,
+    }
+    if (isSuperAdmin.value) {
+      payload.queue_ids = (form.value.queue_ids || [])
+        .map((id) => Number(id))
+        .filter(Number.isSafeInteger)
     }
     if (form.value.password) payload.password = form.value.password
 
@@ -288,7 +315,7 @@ async function saveUser() {
 }
 
 async function deleteUser() {
-  if (!selectedUser.value) return
+  if (!isSuperAdmin.value || !selectedUser.value || isRoleSuperAdmin(selectedUser.value.role)) return
   isSubmitting.value = true
   modalError.value = ''
   try {
@@ -625,11 +652,11 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               v-for="q in queues"
               :key="q.id"
               class="flex items-center gap-2 rounded-xl border bg-white p-3 cursor-pointer transition-all"
-              :class="form.queue_ids.includes(q.id) ? 'border-[#5D87FF] bg-[#ECF2FF]/40 text-[#5D87FF]' : 'border-[#E5E7EB] text-[#374151]'"
+              :class="form.queue_ids.includes(Number(q.id)) ? 'border-[#5D87FF] bg-[#ECF2FF]/40 text-[#5D87FF]' : 'border-[#E5E7EB] text-[#374151]'"
             >
               <input
                 type="checkbox"
-                :value="q.id"
+                :value="Number(q.id)"
                 v-model="form.queue_ids"
                 class="h-4 w-4 rounded border-gray-300 text-[#5D87FF] focus:ring-[#5D87FF]"
               />

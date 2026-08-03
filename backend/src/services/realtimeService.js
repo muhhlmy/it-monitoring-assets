@@ -13,6 +13,12 @@ const SUPPORTED_TICKET_EVENTS = new Set([
   'COMMENT_CREATED',
 ])
 
+// Events that represent a change to an existing ticket (not creation)
+const TICKET_CHANGE_EVENTS = new Set([
+  'TICKET_UPDATED',
+  'COMMENT_CREATED',
+])
+
 const sseClients = new Set()
 const DEFAULT_MAX_SSE_CLIENTS = 500
 const DEFAULT_MAX_SSE_CONNECTIONS_PER_USER = 3
@@ -154,12 +160,49 @@ function eventTicketFacts(ticket, clientContext) {
   }
 }
 
+/**
+ * Role-based notification delivery:
+ * - superadmin: receives ALL ticket events EXCEPT those they triggered themselves
+ * - admin: receives ONLY TICKET_CREATED events (new tickets)
+ * - user (reporter): receives ONLY change events (TICKET_UPDATED, COMMENT_CREATED)
+ *   on tickets they reported
+ */
 export function shouldDeliverTicketEvent(eventType, ticket, clientContext) {
   if (!SUPPORTED_TICKET_EVENTS.has(eventType)) return false
   if (!clientContext?.identity?.valid) return false
 
   const scopedTicket = eventTicketFacts(ticket, clientContext)
-  return scopedTicket !== null && canReceiveTicketEvent(clientContext.identity, scopedTicket)
+  if (scopedTicket === null) return false
+
+  const identity = clientContext.identity
+  const role = identity.role
+  const actorUserId = ticket?._actor_user_id != null ? Number(ticket._actor_user_id) : null
+
+  // ── SUPERADMIN ──
+  // Receives all events, but NOT if the superadmin is the actor (self-notifications excluded)
+  if (role === 'superadmin') {
+    if (actorUserId !== null && actorUserId === identity.id) return false
+    return canReceiveTicketEvent(identity, scopedTicket)
+  }
+
+  // ── ADMIN ──
+  // Only receives TICKET_CREATED (new ticket notifications)
+  if (role === 'admin') {
+    if (eventType !== 'TICKET_CREATED') return false
+    return canReceiveTicketEvent(identity, scopedTicket)
+  }
+
+  // ── USER / REPORTER ──
+  // Only receives change events on tickets they reported
+  if (role === 'reporter') {
+    if (!TICKET_CHANGE_EVENTS.has(eventType)) return false
+    // Must be the reporter of this ticket
+    const reporterUserId = Number(scopedTicket.pelapor_user_id)
+    if (reporterUserId !== identity.id) return false
+    return canReceiveTicketEvent(identity, scopedTicket)
+  }
+
+  return false
 }
 
 /**
@@ -169,8 +212,14 @@ export function shouldDeliverTicketEvent(eventType, ticket, clientContext) {
 export function buildTicketEventDto(eventType, ticket) {
   if (!SUPPORTED_TICKET_EVENTS.has(eventType) || !ticket) return null
 
+  // Include actor_user_id in all event payloads so the frontend knows who triggered the event
+  const actorUserId = ticket._actor_user_id ?? null
+  const changes = Array.isArray(ticket._changes) && ticket._changes.length > 0
+    ? ticket._changes
+    : null
+
   if (eventType === 'COMMENT_CREATED') {
-    return { ticketId: ticket.id }
+    return { ticketId: ticket.id, actor_user_id: actorUserId, changes: ['Komentar baru ditambahkan'] }
   }
 
   return {
@@ -180,7 +229,10 @@ export function buildTicketEventDto(eventType, ticket) {
     status_tiket: ticket.status_tiket ?? null,
     prioritas: ticket.prioritas ?? null,
     dibuat_pada: ticket.dibuat_pada ?? null,
+    diperbarui_pada: ticket.diperbarui_pada ?? null,
     pelapor: ticket.pelapor_nama ?? ticket.pelapor ?? null,
+    actor_user_id: actorUserId,
+    changes,
   }
 }
 
@@ -259,7 +311,12 @@ async function resolveLiveClientContexts(ticket, queryable) {
   }
 }
 
-export async function broadcastTicketEvent(eventType, ticket, { queryable } = {}) {
+export async function broadcastTicketEvent(eventType, ticket, { queryable, actorUserId, changes } = {}) {
+  // Attach actor info and change descriptions to the ticket object for delivery/DTO
+  const extra = {}
+  if (actorUserId != null) extra._actor_user_id = actorUserId
+  if (Array.isArray(changes) && changes.length > 0) extra._changes = changes
+  if (Object.keys(extra).length > 0) ticket = { ...ticket, ...extra }
   const payload = buildTicketEventDto(eventType, ticket)
   if (payload === null) return 0
   if (sseClients.size === 0) return 0
