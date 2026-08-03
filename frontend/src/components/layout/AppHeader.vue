@@ -50,12 +50,11 @@ function addNotificationItem({ ticketId, type, title, message, nomor_tiket, judu
   const ts = timestamp || Date.now()
   const msg = message || (type === 'CREATED' ? 'Tiket baru telah dibuat' : 'Detail tiket diperbarui')
 
-  // Deduplicate: avoid adding identical notification for the same ticket within 5 seconds
+  // Deduplicate: avoid adding identical notification message for the same ticket
   const recentDuplicate = notificationsList.value.find(n =>
     n.ticketId === ticketId &&
     n.type === type &&
-    n.message === msg &&
-    Math.abs((n.timestamp || 0) - ts) < 5000
+    n.message === msg
   )
   if (recentDuplicate) return
 

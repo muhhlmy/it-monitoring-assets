@@ -18,14 +18,47 @@ const router = useRouter()
 const nowTick = ref(Date.now())
 let tickerInterval = null
 
-onMounted(() => {
+onMounted(async () => {
   tickerInterval = setInterval(() => {
     nowTick.value = Date.now()
   }, 30000)
+
+  if (!isAdmin.value) {
+    activeTab.value = 'all'
+  }
+
+  await fetchQueues()
+  await fetchTickets()
+
+  connectSSE()
+
+  onSSE('TICKET_CREATED', (data) => {
+    if (isAdmin.value && data) {
+      toast(`🔔 Tiket Baru! ${data.nomor_tiket || ''}: ${data.judul || 'Tanpa Judul'} — oleh ${data.pelapor || 'User'}`, 'info')
+    }
+    fetchTickets(true)
+  })
+
+  onSSE('TICKET_UPDATED', (data) => {
+    fetchTickets(true)
+    if (data && selectedTicket.value && data.id === selectedTicket.value.id) {
+      if (data.status_tiket) selectedTicket.value.status_tiket = data.status_tiket
+      fetchTicketHistory(selectedTicket.value.id)
+      fetchTicketComments(selectedTicket.value.id, true)
+    }
+  })
+
+  onSSE('COMMENT_CREATED', (data) => {
+    fetchTickets(true)
+    if (data && selectedTicket.value && (data.ticketId === selectedTicket.value.id || data.id === selectedTicket.value.id)) {
+      fetchTicketComments(selectedTicket.value.id, true)
+    }
+  })
 })
 
 onUnmounted(() => {
   if (tickerInterval) clearInterval(tickerInterval)
+  stopChatPoll()
 })
 
 // ── Queue / Tab state ─────────────────────────────────────────
@@ -718,46 +751,7 @@ function toast(message, type = 'success') {
   toastTimer = window.setTimeout(() => { notification.value = null }, 3500)
 }
 
-onMounted(async () => {
-  if (!isAdmin.value) {
-    activeTab.value = 'all'
-  }
-  await fetchQueues()
-  await fetchTickets()
 
-  // Connect SSE for realtime events
-  connectSSE()
-
-  // ── ADMIN / SUPERADMIN: toast tiket baru + refresh otomatis ──
-  if (isAdmin.value) {
-    onSSE('TICKET_CREATED', (data) => {
-      toast(`🔔 Tiket Baru! ${data.nomor_tiket || ''}: ${data.judul || 'Tanpa Judul'} — oleh ${data.pelapor || 'User'}`, 'info')
-      fetchTickets(true)
-    })
-  }
-
-  // ── SEMUA ROLE: refresh saat tiket di-update ──
-  onSSE('TICKET_UPDATED', () => {
-    fetchTickets(true)
-  })
-
-  // ── ADMIN / SUPERADMIN: refresh komentar saat ada komentar baru ──
-  if (isAdmin.value) {
-    onSSE('COMMENT_CREATED', (data) => {
-      // Update comment count in ticket list silently
-      fetchTickets(true)
-      // If chat modal is open for this ticket, refresh comments
-      if (showDetailModal.value && selectedTicket.value?.id === data.ticketId) {
-        fetchTicketComments(data.ticketId, true)
-      }
-    })
-  }
-})
-
-onUnmounted(() => {
-  disconnectSSE()
-  stopChatPoll()
-})
 </script>
 
 <template>
