@@ -340,12 +340,14 @@ export async function broadcastTicketEvent(eventType, ticket, { queryable, actor
 
   for (const client of sseClients) {
     const storedContext = client.__ticketEventContext
-    const liveContext = liveClients.contexts.get(String(storedContext?.identity?.id))
+    const lookupKey = String(storedContext?.identity?.id)
+    const liveContext = liveClients.contexts.get(lookupKey)
     if (!liveContext && liveClients.resolved) {
       endSseClient(client)
       continue
     }
-    if (!shouldDeliverTicketEvent(eventType, ticket, liveContext)) continue
+    const shouldDeliver = shouldDeliverTicketEvent(eventType, ticket, liveContext)
+    if (!shouldDeliver) continue
     try {
       if (client.write(`data: ${data}\n\n`) === false) {
         endSseClient(client)

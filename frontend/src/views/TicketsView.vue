@@ -17,6 +17,7 @@ const router = useRouter()
 
 const nowTick = ref(Date.now())
 let tickerInterval = null
+let ticketPollInterval = null
 
 const handleTicketCreated = (data) => {
   if (isAdmin.value && data) {
@@ -46,6 +47,12 @@ onMounted(async () => {
     nowTick.value = Date.now()
   }, 30000)
 
+  // Polling 15 detik sebagai safety net untuk self-action exclusion:
+  // SSE tidak mengirim event ke user yang melakukan aksi sendiri.
+  ticketPollInterval = setInterval(() => {
+    fetchTickets(true)
+  }, 15000)
+
   if (!isAdmin.value) {
     activeTab.value = 'all'
   }
@@ -62,6 +69,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (tickerInterval) clearInterval(tickerInterval)
+  if (ticketPollInterval) clearInterval(ticketPollInterval)
   stopChatPoll()
   offSSE('TICKET_CREATED', handleTicketCreated)
   offSSE('TICKET_UPDATED', handleTicketUpdated)

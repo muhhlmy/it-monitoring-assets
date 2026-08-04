@@ -25,7 +25,9 @@ const isNotifOpen     = ref(false)
 const allTickets         = ref([])
 const notificationsList  = ref([])
 const knownTicketStates  = ref({})
+const knownTicketIds     = ref(new Set())
 const isFetchingNotif    = ref(false)
+const notifFilter        = ref('ALL')
 
 const realtimeToast = ref(null)
 
@@ -91,12 +93,20 @@ function addNotificationItem({ ticketId, type, title, message, nomor_tiket, judu
     isRead: false,
   }
 
-  notificationsList.value = [notif, ...notificationsList.value].slice(0, 50)
+  notificationsList.value = [notif, ...notificationsList.value]
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, 50)
   persistNotifications()
 }
 
 function seedNotificationsFromTickets(ticketsList) {
-  if (notificationsList.value.length > 0) return
+  if (notificationsList.value.length > 0) {
+    // Populate knownTicketIds even if we skip seeding
+    for (const t of ticketsList) {
+      if (t.id != null) knownTicketIds.value.add(String(t.id))
+    }
+    return
+  }
   const items = ticketsList.slice(0, 10).map(t => ({
     id: `notif_seed_${t.id}`,
     ticketId: t.id,
@@ -112,6 +122,9 @@ function seedNotificationsFromTickets(ticketsList) {
     isRead: true,
   }))
   notificationsList.value = items
+  for (const t of ticketsList) {
+    if (t.id != null) knownTicketIds.value.add(String(t.id))
+  }
   persistNotifications()
 }
 
@@ -120,7 +133,25 @@ function syncTicketStatusChanges(ticketsList) {
   const isFirstLoad = Object.keys(knownTicketStates.value).length === 0
 
   for (const t of ticketsList) {
+    const ticketKey = String(t.id)
     const prev = knownTicketStates.value[t.id]
+
+    // Detect brand-new tickets from polling (covers self-action SSE exclusion)
+    if (!isFirstLoad && !knownTicketIds.value.has(ticketKey)) {
+      addNotificationItem({
+        ticketId: t.id,
+        type: 'CREATED',
+        title: 'Tiket Baru Masuk',
+        message: t.judul || 'Tiket baru telah dibuat',
+        nomor_tiket: t.nomor_tiket,
+        judul_tiket: t.judul,
+        status_tiket: t.status_tiket,
+        prioritas: t.prioritas,
+        pelapor: t.pelapor || t.pelapor_nama || '',
+        timestamp: new Date(t.dibuat_pada || Date.now()).getTime(),
+      })
+    }
+
     if (prev && !isFirstLoad) {
       if (prev.status && prev.status !== t.status_tiket) {
         addNotificationItem({
@@ -156,14 +187,22 @@ function syncTicketStatusChanges(ticketsList) {
       assignedTo: t.assigned_to,
       updatedAt: t.diperbarui_pada,
     }
+    knownTicketIds.value.add(ticketKey)
   }
 
   persistNotifications()
 }
 
-const latestNotifications = computed(() =>
-  [...notificationsList.value].slice(0, 8)
-)
+const latestNotifications = computed(() => {
+  let list = [...notificationsList.value]
+  // Filter by type
+  if (notifFilter.value !== 'ALL') {
+    list = list.filter(n => n.type === notifFilter.value)
+  }
+  // Always sort newest first by timestamp descending
+  list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+  return list.slice(0, 8)
+})
 
 const unreadCount = computed(() =>
   notificationsList.value.filter(n => !n.isRead).length
@@ -188,7 +227,10 @@ async function fetchTickets() {
 
 function toggleNotif() {
   isNotifOpen.value = !isNotifOpen.value
-  if (isNotifOpen.value) markAllNotificationsRead()
+  if (isNotifOpen.value) {
+    notifFilter.value = 'ALL'
+    markAllNotificationsRead()
+  }
   isProfileOpen.value = false
 }
 
@@ -274,8 +316,8 @@ onMounted(() => {
   if (!hasPermission('tickets')) return
   loadNotifications()
   fetchTickets()
-  // Polling 30 detik dipertahankan sebagai safety net bila SSE putus / gagal reconnect.
-  pollTimer = setInterval(fetchTickets, 30000)
+  // Polling 15 detik sebagai safety net bila SSE putus atau self-action exclusion.
+  pollTimer = setInterval(fetchTickets, 15000)
 
   // Realtime push via SSE: bell update & toast instan saat ada tiket baru / perubahan.
   connectSSE()
@@ -460,6 +502,28 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="max-h-[360px] overflow-y-auto divide-y divide-[#F8FAFC]">
+              <!-- Filter Bar -->
+              <div class="flex items-center gap-1.5 px-4 py-2 border-b border-[#F1F5F9] bg-[#FAFBFC]">
+                <button
+                  v-for="opt in [
+                    { key: 'ALL', label: 'Semua', icon: 'mail' },
+                    { key: 'CREATED', label: 'Baru', icon: 'add_circle' },
+                    { key: 'UPDATED', label: 'Update', icon: 'update' },
+                    { key: 'COMMENT', label: 'Komentar', icon: 'chat' },
+                  ]"
+                  :key="opt.key"
+                  type="button"
+                  @click="notifFilter = opt.key"
+                  class="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-bold transition-all"
+                  :class="notifFilter === opt.key
+                    ? 'bg-[#5D87FF] text-white shadow-sm'
+                    : 'text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF]'"
+                >
+                  <span class="material-symbols-outlined text-[13px]">{{ opt.icon }}</span>
+                  {{ opt.label }}
+                </button>
+              </div>
+
               <div v-if="isFetchingNotif && latestNotifications.length === 0" class="flex items-center justify-center gap-2 py-8 text-[12px] text-[#9CA3AF]">
                 <div class="w-4 h-4 border-2 border-[#E5E7EB] border-t-[#5D87FF] rounded-full animate-spin"></div>
                 Memuat notifikasi...
