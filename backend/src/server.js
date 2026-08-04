@@ -44,7 +44,9 @@ function closeServer(signal) {
   server.closeIdleConnections?.();
 
   const forceTimer = setTimeout(() => {
-    console.error("Graceful shutdown melewati batas 10 detik; koneksi tersisa ditutup paksa.");
+    console.error(
+      "Graceful shutdown melewati batas 10 detik; koneksi tersisa ditutup paksa.",
+    );
     server.closeAllConnections?.();
     void finalizeShutdown(1, forceTimer);
   }, 10_000);
