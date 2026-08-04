@@ -1,9 +1,9 @@
 import { onUnmounted, ref } from 'vue'
+import { clearAuthSession, getAuthToken } from '../utils/authStorage.js'
 
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 const INITIAL_RECONNECT_DELAY_MS = 1000
 const MAX_RECONNECT_DELAY_MS = 30_000
-const MAX_RECONNECT_ATTEMPTS = 8
 const MAX_SSE_BUFFER_LENGTH = 256 * 1024
 const SSE_BOUNDARY_PATTERN = /(?:\r\n|\r|\n)(?:\r\n|\r|\n)/
 
@@ -139,8 +139,7 @@ async function consumeResponse(response, generation) {
 }
 
 function expireLocalSession() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
+  clearAuthSession()
   if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
     window.location.assign('/login')
   }
@@ -162,7 +161,7 @@ function scheduleReconnect(generation) {
 async function openStream(generation) {
   if (stopped || generation !== connectionGeneration || activeController) return
 
-  const token = localStorage.getItem('token')
+  const token = getAuthToken()
   if (!token) {
     if (generation === connectionGeneration) stopped = true
     return
@@ -213,13 +212,59 @@ async function openStream(generation) {
 
 function connect() {
   if (activeController || reconnectTimer || isConnected.value) return
-  if (!localStorage.getItem('token')) return
+  if (!getAuthToken()) return
 
   stopped = false
   reconnectAttempts = 0
   reconnectBaseDelay = INITIAL_RECONNECT_DELAY_MS
   connectionGeneration += 1
+  bindLifecycleListeners()
   void openStream(connectionGeneration)
+}
+
+function forceReconnect() {
+  if (stopped || !getAuthToken()) return
+  if (isConnected.value) return
+
+  // Reset backoff agar reconnect cepat saat tab kembali visible / online.
+  reconnectAttempts = 0
+  reconnectBaseDelay = INITIAL_RECONNECT_DELAY_MS
+  connectionGeneration += 1
+
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+  if (activeController) {
+    activeController.abort()
+    activeController = null
+  }
+
+  void openStream(connectionGeneration)
+}
+
+function handleVisibilityChange() {
+  if (typeof document === 'undefined') return
+  if (document.visibilityState === 'visible') forceReconnect()
+}
+
+function handleOnline() {
+  forceReconnect()
+}
+
+let lifecycleListenersBound = false
+function bindLifecycleListeners() {
+  if (lifecycleListenersBound || typeof window === 'undefined') return
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('online', handleOnline)
+  lifecycleListenersBound = true
+}
+
+function unbindLifecycleListeners() {
+  if (!lifecycleListenersBound || typeof window === 'undefined') return
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('online', handleOnline)
+  lifecycleListenersBound = false
 }
 
 function disconnect() {
@@ -235,6 +280,7 @@ function disconnect() {
     activeController.abort()
     activeController = null
   }
+  unbindLifecycleListeners()
 }
 
 function on(eventType, handler) {
@@ -247,5 +293,5 @@ function off(eventType, handler) {
 }
 
 export function useTicketEvents() {
-  return { isConnected, connect, disconnect, on, off }
+  return { isConnected, connect, disconnect, on, off, forceReconnect }
 }

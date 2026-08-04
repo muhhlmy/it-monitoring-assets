@@ -1535,6 +1535,12 @@ export async function submitTicketCasp(req, res) {
     )
 
     await client.query('COMMIT')
+
+    await broadcastTicketEvent('TICKET_UPDATED', ticket, {
+      actorUserId: identity.id,
+      changes: [`CASP rating ${numericRating}/5 diterima`],
+    })
+
     res.status(201).json(insertRes.rows[0])
   } catch (err) {
     await client.query('ROLLBACK')

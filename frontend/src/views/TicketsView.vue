@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '@/composables/useAuth'
-import { useTicketEvents } from '../composables/useTicketEvents.js'
+import { onTicketEvent } from '../composables/useTicketRealtime.js'
 import { validateAttachmentFile } from '../utils/attachmentPolicy.js'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppModal from '../components/ui/AppModal.vue'
@@ -11,47 +11,110 @@ import TicketCaspRating from '../components/tickets/TicketCaspRating.vue'
 
 const { get, post, put, del } = useApi()
 const { user, isSuperAdmin, isAdmin, isUser, hasWritePermission } = useAuth()
-const { connect: connectSSE, disconnect: disconnectSSE, on: onSSE, off: offSSE } = useTicketEvents()
 const route  = useRoute()
 const router = useRouter()
 
 const nowTick = ref(Date.now())
 let tickerInterval = null
-let ticketPollInterval = null
 
+// ── Realtime SSE Handlers (optimistic patch, bukan full refetch) ──
 const handleTicketCreated = (data) => {
-  if (isAdmin.value && data) {
+  if (!data) return
+  if (isAdmin.value || isSuperAdmin.value) {
     toast(`🔔 Tiket Baru! ${data.nomor_tiket || ''}: ${data.judul || 'Tanpa Judul'} — oleh ${data.pelapor || 'User'}`, 'info')
   }
+  // Tiket baru mungkin di luar filter aktif; refetch untuk konsistensi.
+  // Tapi hanya list, bukan stats (stats di-patch terpisah).
   fetchTickets(true)
+  // Update stats secara optimistic (total +1, open +1 jika status Open)
+  if (data.status_tiket === 'Open') {
+    stats.value = {
+      ...stats.value,
+      totalTickets: (stats.value.totalTickets || 0) + 1,
+      openTickets: (stats.value.openTickets || 0) + 1,
+    }
+  }
 }
 
 const handleTicketUpdated = (data) => {
-  fetchTickets(true)
-  if (data && selectedTicket.value && data.id === selectedTicket.value.id) {
-    if (data.status_tiket) selectedTicket.value.status_tiket = data.status_tiket
+  if (!data) return
+
+  // Patch tiket di list secara optimistic dari payload event
+  const idx = tickets.value.findIndex((t) => t.id === data.id)
+  if (idx >= 0) {
+    tickets.value[idx] = {
+      ...tickets.value[idx],
+      ...data,
+      // Pertahankan field yang tidak ada di payload event
+      deskripsi: tickets.value[idx].deskripsi,
+      kategori: tickets.value[idx].kategori,
+      assigned_to: tickets.value[idx].assigned_to,
+      pelapor: tickets.value[idx].pelapor,
+      queue_id: tickets.value[idx].queue_id,
+      pelapor_user_id: tickets.value[idx].pelapor_user_id,
+      has_attachment: tickets.value[idx].has_attachment,
+      queue_kode: tickets.value[idx].queue_kode,
+      queue_nama: tickets.value[idx].queue_nama,
+      assigned_to_nama: tickets.value[idx].assigned_to_nama,
+      pelapor_nama: tickets.value[idx].pelapor_nama,
+      pelapor_nik: tickets.value[idx].pelapor_nik,
+      pelapor_jabatan: tickets.value[idx].pelapor_jabatan,
+      total_komentar: tickets.value[idx].total_komentar,
+    }
+  } else {
+    // Tiket belum ada di list (mungkin di luar filter) → refetch
+    fetchTickets(true)
+  }
+
+  // Update selectedTicket jika sedang dibuka di detail modal
+  if (selectedTicket.value && data.id === selectedTicket.value.id) {
+    selectedTicket.value = { ...selectedTicket.value, ...data }
     fetchTicketHistory(selectedTicket.value.id)
+    fetchTicketComments(selectedTicket.value.id, true)
+  }
+
+  // Refetch stats untuk update counter (debounced via timeout)
+  scheduleStatsRefresh()
+}
+
+const handleCommentCreated = (data) => {
+  if (!data) return
+  // Update total_komentar di list secara optimistic
+  const ticketId = data.ticketId || data.id
+  if (ticketId) {
+    const idx = tickets.value.findIndex((t) => t.id === ticketId)
+    if (idx >= 0) {
+      tickets.value[idx] = {
+        ...tickets.value[idx],
+        total_komentar: (tickets.value[idx].total_komentar || 0) + 1,
+      }
+    }
+  }
+  // Refresh comments jika detail modal terbuka untuk tiket ini
+  if (selectedTicket.value && (ticketId === selectedTicket.value.id)) {
     fetchTicketComments(selectedTicket.value.id, true)
   }
 }
 
-const handleCommentCreated = (data) => {
-  fetchTickets(true)
-  if (data && selectedTicket.value && (data.ticketId === selectedTicket.value.id || data.id === selectedTicket.value.id)) {
-    fetchTicketComments(selectedTicket.value.id, true)
-  }
+// Debounced stats refresh untuk menghindari burst request saat banyak event
+let statsRefreshTimer = null
+function scheduleStatsRefresh() {
+  if (statsRefreshTimer) clearTimeout(statsRefreshTimer)
+  statsRefreshTimer = setTimeout(async () => {
+    statsRefreshTimer = null
+    try {
+      const statsData = await get('/api/tickets/stats')
+      if (statsData) stats.value = statsData
+    } catch {
+      // Silent fail; stats akan update di fetchTickets berikutnya
+    }
+  }, 500)
 }
 
 onMounted(async () => {
   tickerInterval = setInterval(() => {
     nowTick.value = Date.now()
   }, 30000)
-
-  // Polling 15 detik sebagai safety net untuk self-action exclusion:
-  // SSE tidak mengirim event ke user yang melakukan aksi sendiri.
-  ticketPollInterval = setInterval(() => {
-    fetchTickets(true)
-  }, 15000)
 
   if (!isAdmin.value) {
     activeTab.value = 'all'
@@ -60,20 +123,23 @@ onMounted(async () => {
   await fetchQueues()
   await fetchTickets()
 
-  connectSSE()
-
-  onSSE('TICKET_CREATED', handleTicketCreated)
-  onSSE('TICKET_UPDATED', handleTicketUpdated)
-  onSSE('COMMENT_CREATED', handleCommentCreated)
+  // Subscribe ke SSE events (koneksi global dikelola di App.vue)
+  unsubTicketCreated = onTicketEvent('TICKET_CREATED', handleTicketCreated)
+  unsubTicketUpdated = onTicketEvent('TICKET_UPDATED', handleTicketUpdated)
+  unsubCommentCreated = onTicketEvent('COMMENT_CREATED', handleCommentCreated)
 })
+
+let unsubTicketCreated = null
+let unsubTicketUpdated = null
+let unsubCommentCreated = null
 
 onUnmounted(() => {
   if (tickerInterval) clearInterval(tickerInterval)
-  if (ticketPollInterval) clearInterval(ticketPollInterval)
+  if (statsRefreshTimer) clearTimeout(statsRefreshTimer)
   stopChatPoll()
-  offSSE('TICKET_CREATED', handleTicketCreated)
-  offSSE('TICKET_UPDATED', handleTicketUpdated)
-  offSSE('COMMENT_CREATED', handleCommentCreated)
+  unsubTicketCreated?.()
+  unsubTicketUpdated?.()
+  unsubCommentCreated?.()
 })
 
 // ── Queue / Tab state ─────────────────────────────────────────
@@ -414,14 +480,36 @@ async function sendComment() {
   }
 }
 
-// ── Claim & Assign Ticket ──────────────────────────────────────
+// ── Claim & Assign Ticket (dengan optimistic update) ──────────
 async function claimTicket(ticket) {
   isClaiming.value = ticket.id
+  // Optimistic: update UI segera, jangan tunggu SSE/polling
+  const idx = tickets.value.findIndex((t) => t.id === ticket.id)
+  if (idx >= 0) {
+    tickets.value[idx] = {
+      ...tickets.value[idx],
+      assigned_to_user_id: user.value?.id,
+      assigned_to: user.value?.nama,
+      assigned_to_nama: user.value?.nama,
+      status_tiket: 'In Progress',
+    }
+  }
   try {
     await post(`/api/tickets/${ticket.id}/claim`, {})
     toast(`Tiket '${ticket.judul}' berhasil diambil!`)
-    await fetchTickets()
+    // Refetch stats untuk update counter (unassigned -1, dll)
+    scheduleStatsRefresh()
   } catch (err) {
+    // Rollback optimistic update
+    if (idx >= 0) {
+      tickets.value[idx] = {
+        ...tickets.value[idx],
+        assigned_to_user_id: ticket.assigned_to_user_id,
+        assigned_to: ticket.assigned_to,
+        assigned_to_nama: ticket.assigned_to_nama,
+        status_tiket: ticket.status_tiket,
+      }
+    }
     toast(err.message || 'Gagal mengambil tiket.', 'error')
   } finally {
     isClaiming.value = null
@@ -432,6 +520,21 @@ async function assignTicketToUser(ticket, targetUserId) {
   if (!targetUserId) return
   const targetId = Number(targetUserId)
   isReassigning.value = ticket.id
+
+  // Cari nama admin target dari queueAdmins untuk optimistic update
+  const targetAdmin = getAdminsForQueue(ticket.queue_id)?.find((a) => a.id === targetId)
+  const targetName = targetAdmin?.nama || ''
+
+  // Optimistic update
+  const idx = tickets.value.findIndex((t) => t.id === ticket.id)
+  if (idx >= 0 && targetName) {
+    tickets.value[idx] = {
+      ...tickets.value[idx],
+      assigned_to_user_id: targetId,
+      assigned_to: targetName,
+      assigned_to_nama: targetName,
+    }
+  }
   try {
     if (targetId === user.value?.id && !ticket.assigned_to_user_id) {
       await post(`/api/tickets/${ticket.id}/claim`, {})
@@ -440,8 +543,17 @@ async function assignTicketToUser(ticket, targetUserId) {
       await post(`/api/tickets/${ticket.id}/reassign`, { target_user_id: targetId })
       toast(`Tiket '${ticket.judul}' berhasil ditugaskan!`)
     }
-    await fetchTickets()
+    scheduleStatsRefresh()
   } catch (err) {
+    // Rollback
+    if (idx >= 0) {
+      tickets.value[idx] = {
+        ...tickets.value[idx],
+        assigned_to_user_id: ticket.assigned_to_user_id,
+        assigned_to: ticket.assigned_to,
+        assigned_to_nama: ticket.assigned_to_nama,
+      }
+    }
     toast(err.message || 'Gagal menugaskan tiket.', 'error')
   } finally {
     isReassigning.value = null
@@ -563,16 +675,37 @@ async function saveTicket() {
       payload.attachment = form.value.attachment || null
       await post('/api/tickets', payload)
       toast('Tiket baru berhasil dibuat.')
+      // Refetch untuk mendapatkan tiket baru dengan nomor_tiket final
+      await fetchTickets()
     } else {
       if (attachmentChanged.value) payload.attachment = form.value.attachment || null
-      await put(`/api/tickets/${selectedTicket.value.id}`, {
-        ...payload,
-        status_tiket: form.value.status_tiket,
-      })
-      toast('Tiket berhasil diperbarui.')
+      // Optimistic update untuk edit mode
+      const ticketId = selectedTicket.value.id
+      const idx = tickets.value.findIndex((t) => t.id === ticketId)
+      const oldTicket = idx >= 0 ? { ...tickets.value[idx] } : null
+      if (idx >= 0) {
+        tickets.value[idx] = {
+          ...tickets.value[idx],
+          judul: payload.judul,
+          deskripsi: payload.deskripsi,
+          prioritas: payload.prioritas,
+          status_tiket: form.value.status_tiket,
+        }
+      }
+      try {
+        await put(`/api/tickets/${ticketId}`, {
+          ...payload,
+          status_tiket: form.value.status_tiket,
+        })
+        toast('Tiket berhasil diperbarui.')
+        scheduleStatsRefresh()
+      } catch (err) {
+        // Rollback
+        if (idx >= 0 && oldTicket) tickets.value[idx] = oldTicket
+        throw err
+      }
     }
     closeModal()
-    await fetchTickets()
   } catch (err) {
     modalError.value = err.message || 'Gagal menyimpan tiket.'
   } finally {

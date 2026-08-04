@@ -3,10 +3,11 @@
 // DashboardView.vue — Dashboard monitoring bergaya Fynix
 // Data real dari endpoint /api/assets/stats
 // ============================================================
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
+import { onTicketEvent } from '../composables/useTicketRealtime.js'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AssetTrendLineChart from '../components/charts/AssetTrendLineChart.vue'
 import AssetTypeBarChart from '../components/charts/AssetTypeBarChart.vue'
@@ -172,7 +173,61 @@ function formatDate(iso) {
   return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-onMounted(fetchStats)
+// ── Realtime SSE: update recent tickets tanpa full refresh ───
+let unsubTicketCreated = null
+let unsubTicketUpdated = null
+
+// Debounced refetch ticket stats untuk dashboard
+let ticketStatsRefreshTimer = null
+function scheduleTicketStatsRefresh() {
+  if (ticketStatsRefreshTimer) clearTimeout(ticketStatsRefreshTimer)
+  ticketStatsRefreshTimer = setTimeout(async () => {
+    ticketStatsRefreshTimer = null
+    if (!canReadTickets.value) return
+    try {
+      const ticketStatsRes = await get('/api/tickets/stats')
+      if (ticketStatsRes && Array.isArray(ticketStatsRes.recentTickets)) {
+        recentTickets.value = ticketStatsRes.recentTickets
+      }
+    } catch {
+      // Silent fail; akan di-refresh di fetchStats berikutnya
+    }
+  }, 800)
+}
+
+onMounted(() => {
+  fetchStats()
+
+  // Subscribe ke SSE events (koneksi global dikelola di App.vue)
+  if (canReadTickets.value) {
+    unsubTicketCreated = onTicketEvent('TICKET_CREATED', () => {
+      // Tiket baru → refetch recent tickets list
+      scheduleTicketStatsRefresh()
+    })
+    unsubTicketUpdated = onTicketEvent('TICKET_UPDATED', (data) => {
+      if (!data) return
+      // Patch tiket di recentTickets jika ada
+      const idx = recentTickets.value.findIndex((t) => t.id === data.id)
+      if (idx >= 0) {
+        recentTickets.value[idx] = {
+          ...recentTickets.value[idx],
+          ...data,
+          // Pertahankan field yang tidak ada di payload
+          pelapor: recentTickets.value[idx].pelapor,
+          assigned_to: recentTickets.value[idx].assigned_to,
+        }
+      }
+      // Tetap refetch untuk konsistensi (debounced)
+      scheduleTicketStatsRefresh()
+    })
+  }
+})
+
+onUnmounted(() => {
+  if (ticketStatsRefreshTimer) clearTimeout(ticketStatsRefreshTimer)
+  unsubTicketCreated?.()
+  unsubTicketUpdated?.()
+})
 </script>
 
 <template>

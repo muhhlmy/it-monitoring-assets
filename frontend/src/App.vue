@@ -1,10 +1,11 @@
 <script setup>
 // App.vue — Layout utama: sidebar kiri + konten kanan
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from './components/layout/AppSidebar.vue'
 import AppHeader  from './components/layout/AppHeader.vue'
 import { getAuthToken } from './utils/authStorage.js'
+import { initTicketRealtime, stopTicketRealtime } from './composables/useTicketRealtime.js'
 
 const route = useRoute()
 
@@ -36,6 +37,28 @@ watch(
     isMobileNavigationOpen.value = false
   },
 )
+
+// ── Global SSE Lifecycle ──────────────────────────────────────
+// Koneksi SSE di-init sekali saat app mount (jika sudah login),
+// tetap hidup selama navigasi antar view, dan disconnect saat unmount.
+onMounted(() => {
+  if (!isLoginPage.value) {
+    initTicketRealtime()
+  }
+})
+
+onUnmounted(() => {
+  stopTicketRealtime()
+})
+
+// Saat user login/logout, connect/disconnect SSE sesuai status auth.
+watch(isLoginPage, (loginPage) => {
+  if (loginPage) {
+    stopTicketRealtime()
+  } else {
+    initTicketRealtime()
+  }
+})
 </script>
 
 <template>
