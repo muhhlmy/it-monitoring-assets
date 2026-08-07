@@ -188,27 +188,6 @@ export async function handleTicketEventNotification(eventType, ticket, options =
           console.log(`[emailNotificationService] TICKET_UPDATED skipped for Reporter. reporterUser: ${reporterUser?.email || 'None'}, reporterId: ${reporterId}, actorUserId: ${actorUserId}`)
         }
       }
-
-      // 2B. Notify Assignee (if ticket is assigned to an admin, and actor is not assignee)
-      if (assigneeUser && assigneeUser.email && assigneeId !== actorUserId && assigneeId !== reporterId) {
-        if (process.env.NODE_ENV !== 'test') {
-          console.log(`[emailNotificationService] Dispatching TICKET_UPDATED email to Assignee <${assigneeUser.email}>`)
-        }
-        const html = renderTicketEmailHtml({
-          recipientName: assigneeUser.nama,
-          title: `[${nomorTiket}] Pembaruan pada Tiket Tugas Anda`,
-          subtitle: `Tiket yang ditugaskan kepada Anda telah diperbarui.`,
-          ticket,
-          changes,
-          actionText: 'Buka aplikasi untuk meninjau tiket tugas ini.',
-        })
-        await sendEmail({
-          to: assigneeUser.email,
-          subject: `[${nomorTiket}] Update Tiket Tugas: ${ticket.judul || ''}`,
-          html,
-          text: `Tiket tugas Anda (${nomorTiket}) mengalami pembaruan.`,
-        })
-      }
     }
 
     // ──────────────────────────────────────────────────────────

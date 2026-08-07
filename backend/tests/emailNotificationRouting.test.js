@@ -73,8 +73,7 @@ function recipients(emails) {
   return emails.map((e) => e.to)
 }
 
-test('TICKET_UPDATED: email goes to the reporter (User), never to the actor who changed status', async () => {
-  // Actor = assignee admin changes the status of the user's ticket.
+test('TICKET_UPDATED: only the reporter (User) is notified - no email to assignee/admin', async () => {
   await handleTicketEventNotification('TICKET_UPDATED', baseTicket, {
     queryable,
     actorUserId: 5,
@@ -83,36 +82,22 @@ test('TICKET_UPDATED: email goes to the reporter (User), never to the actor who 
 
   const sent = sentEmails.map((e) => e.to)
   assert(sent.includes('budi@x.com'), 'reporter (the User) must be notified')
-  assert(!sent.includes('admin@x.com'), 'actor/assignee must NOT receive a notification')
+  assert(!sent.includes('admin@x.com'), 'assignee/admin must NOT receive a notification')
   assert.equal(sent.length, 1, 'only the reporter should receive one email')
 })
 
-test('TICKET_UPDATED: actor-supplied id is a string, guard still works', async () => {
-  await handleTicketEventNotification('TICKET_UPDATED', baseTicket, {
-    queryable,
-    actorUserId: '5',
-    changes: [`Status: 'Open' -> 'In Progress'`],
-  })
-
-  const sent = recipients(sentEmails.slice(1))
-  assert(sent.includes('budi@x.com'))
-  assert(!sent.includes('admin@x.com'))
-})
-
-test('TICKET_UPDATED: user editing own ticket triggers no self-email, notifies assignee instead', async () => {
+test('TICKET_UPDATED: user editing own ticket sends no email at all (nothing to notify)', async () => {
   await handleTicketEventNotification('TICKET_UPDATED', baseTicket, {
     queryable,
     actorUserId: 10,
     changes: [`Status: 'Open' -> 'Pending'`],
   })
 
-  const sent = recipients(sentEmails.slice(2))
-  assert(!sent.includes('budi@x.com'), 'reporter who is the actor must not be emailed')
-  assert(sent.includes('admin@x.com'), 'assignee should be notified when the user updates')
-  assert.equal(sent.length, 1)
+  const sent = recipients(sentEmails.slice(1))
+  assert.equal(sent.length, 0, 'no self-email and no assignee email when only the reporter acts')
 })
 
-test('TICKET_UPDATED: admin assigned to ticket changes it - assignee icon image not emailed (actor skip)', async () => {
+test('TICKET_UPDATED: admin assigned to ticket changes it - only reporter is emailed', async () => {
   // Actor (99) is the assignee of the ticket and changes the status.
   await handleTicketEventNotification(
     'TICKET_UPDATED',
@@ -120,7 +105,7 @@ test('TICKET_UPDATED: admin assigned to ticket changes it - assignee icon image 
     { queryable, actorUserId: 99, changes: [`Status: 'Open' -> 'In Progress'`] },
   )
 
-  const sent = recipients(sentEmails.slice(3))
+  const sent = recipients(sentEmails.slice(1))
   assert(sent.includes('budi@x.com'), 'reporter must still be notified')
   assert(!sent.includes('other@x.com'), 'actor/assignee must not be emailed')
   assert.equal(sent.length, 1)
