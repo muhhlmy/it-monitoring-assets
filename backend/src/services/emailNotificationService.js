@@ -14,6 +14,16 @@ function toNumericId(value) {
 }
 
 /**
+ * Status-change notifications are meant for the end User (a reporter), not for
+ * IT staff. Treat admin/superadmin accounts that happen to be the reporter as
+ * staff too, so they are never emailed for these events.
+ */
+function isAdminRole(role) {
+  const normalized = String(role || '').trim().toLowerCase()
+  return normalized === 'admin' || normalized === 'superadmin' || normalized === 'super admin'
+}
+
+/**
  * Fetch recipient details from database safely
  */
 async function fetchUserById(queryable, userId) {
@@ -164,8 +174,13 @@ export async function handleTicketEventNotification(eventType, ticket, options =
     // EVENT 2: TICKET_UPDATED
     // ──────────────────────────────────────────────────────────
     else if (eventType === 'TICKET_UPDATED') {
-      // 2A. Notify Reporter
-      if (reporterUser && reporterUser.email && reporterId !== actorUserId) {
+      // 2A. Notify Reporter - only for the end User, never for an admin/superadmin
+      if (
+        reporterUser &&
+        reporterUser.email &&
+        reporterId !== actorUserId &&
+        !isAdminRole(reporterUser.role)
+      ) {
         if (process.env.NODE_ENV !== 'test') {
           console.log(`[emailNotificationService] Dispatching TICKET_UPDATED email to Reporter <${reporterUser.email}>`)
         }

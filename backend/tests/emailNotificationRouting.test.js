@@ -110,3 +110,15 @@ test('TICKET_UPDATED: admin assigned to ticket changes it - only reporter is ema
   assert(!sent.includes('other@x.com'), 'actor/assignee must not be emailed')
   assert.equal(sent.length, 1)
 })
+
+test('TICKET_UPDATED: never emails an admin/superadmin, even if they are the reporter', async () => {
+  // Reporter is another admin (88); an admin (5) changes the status.
+  await handleTicketEventNotification(
+    'TICKET_UPDATED',
+    { ...baseTicket, pelapor_user_id: '88', pelapor: 'Other Admin' },
+    { queryable, actorUserId: 5, changes: [`Status: 'Open' -> 'In Progress'`] },
+  )
+
+  const sent = recipients(sentEmails.slice(2))
+  assert.equal(sent.length, 0, 'no status-change email should be sent to an admin/superadmin')
+})
