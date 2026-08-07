@@ -4,6 +4,7 @@ import {
   createTicketIdentity,
   isCanonicalTicketIdentity,
 } from './ticketAccessService.js'
+import { handleTicketEventNotification } from './emailNotificationService.js'
 
 export const realtimeEmitter = new EventEmitter()
 
@@ -320,7 +321,12 @@ async function resolveLiveClientContexts(ticket, queryable) {
   }
 }
 
-export async function broadcastTicketEvent(eventType, ticket, { queryable, actorUserId, changes } = {}) {
+export async function broadcastTicketEvent(eventType, ticket, { queryable, actorUserId, changes, comment } = {}) {
+  // Trigger email notification asynchronously in background (non-blocking)
+  setImmediate(() => {
+    handleTicketEventNotification(eventType, ticket, { queryable, actorUserId, changes, comment })
+  })
+
   // Attach actor info and change descriptions to the ticket object for delivery/DTO
   const extra = {}
   if (actorUserId != null) extra._actor_user_id = actorUserId

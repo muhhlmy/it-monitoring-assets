@@ -827,7 +827,7 @@ export async function createTicketComment(req, res) {
     client.release()
   }
 
-  await broadcastTicketEvent('COMMENT_CREATED', ticket, { actorUserId: identity.id })
+  await broadcastTicketEvent('COMMENT_CREATED', ticket, { actorUserId: identity.id, comment: newComment })
   res.status(201).json(withoutInlineAttachment(newComment))
 }
 
