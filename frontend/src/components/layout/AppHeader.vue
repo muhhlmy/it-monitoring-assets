@@ -13,7 +13,7 @@ defineEmits(['toggle-mobile', 'toggle-collapse'])
 
 const route  = useRoute()
 const router = useRouter()
-const { user, logout, isAdmin, isUser, isSuperAdmin, hasPermission } = useAuth()
+const { user, logout, hasPermission } = useAuth()
 const { get } = useApi()
 const { connect: connectSSE, disconnect: disconnectSSE, on: onSSE, off: offSSE } = useTicketEvents()
 
@@ -52,9 +52,8 @@ function loadNotifications() {
     if (stored) notificationsList.value = JSON.parse(stored)
     const storedStates = localStorage.getItem('known_ticket_states')
     if (storedStates) knownTicketStates.value = JSON.parse(storedStates)
-  } catch (_) {
-    notificationsList.value = []
-    knownTicketStates.value = {}
+  } catch (e) {
+    // Silently fail for localStorage access - not critical for functionality
   }
 }
 
@@ -62,7 +61,9 @@ function persistNotifications() {
   try {
     localStorage.setItem('app_notifications', JSON.stringify(notificationsList.value))
     localStorage.setItem('known_ticket_states', JSON.stringify(knownTicketStates.value))
-  } catch (_) {}
+  } catch (e) {
+    // Silently fail for localStorage access - not critical for functionality
+  }
 }
 
 function addNotificationItem({ ticketId, type, title, message, nomor_tiket, judul_tiket, status_tiket, prioritas, pelapor, timestamp }) {
@@ -218,8 +219,8 @@ async function fetchTickets() {
       seedNotificationsFromTickets(data)
       syncTicketStatusChanges(data)
     }
-  } catch (_) {
-    // silently fail
+  } catch (e) {
+    // Silently fail for API errors - notifications will retry on next poll
   } finally {
     isFetchingNotif.value = false
   }

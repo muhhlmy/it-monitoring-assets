@@ -42,15 +42,15 @@ function showToast(message, type = 'success') {
   }, 4000)
 }
 
-// Formatters
-function formatDate(dateStr) {
-  if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString('id-ID', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-}
+// Formatters (for future use in exports)
+// function formatDate(dateStr) {
+//   if (!dateStr) return '-'
+//   return new Date(dateStr).toLocaleDateString('id-ID', {
+//     day: '2-digit',
+//     month: 'short',
+//     year: 'numeric',
+//   })
+// }
 
 // Selected Table Object
 const currentTableSchema = computed(() => {

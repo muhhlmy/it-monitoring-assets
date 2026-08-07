@@ -118,17 +118,7 @@ function formatDateTime(dateStr) {
   })
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-}
 
-function formatTime(dateStr) {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-}
 
 function displayValue(val) {
   if (!val || val === '(kosong)') return '—'
