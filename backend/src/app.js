@@ -65,13 +65,35 @@ function handleError(err, req, res, next) {
 
   // Kode 23505 dari PostgreSQL berarti nilai unique sudah digunakan.
   if (err.code === "23505") {
-    let field = "Label aset";
+    let field = "Data";
+    const constraint = String(err.constraint || "").toLowerCase();
+    const detail = String(err.detail || "").toLowerCase();
 
-    if (err.constraint && err.constraint.indexOf("nomor_seri") !== -1) {
+    if (constraint.includes("email") || detail.includes("email")) {
+      field = "Email";
+    } else if (constraint.includes("nik") || detail.includes("nik")) {
+      field = "NIK";
+    } else if (constraint.includes("nomor_seri") || detail.includes("nomor_seri")) {
       field = "Nomor seri";
+    } else if (constraint.includes("label") || detail.includes("label")) {
+      field = "Label aset";
+    } else if (constraint.includes("kode") || detail.includes("kode")) {
+      field = "Kode unit";
     }
 
-    res.status(409).json({ message: field + " sudah digunakan." });
+    res.status(409).json({ message: `${field} sudah digunakan.` });
+    return;
+  }
+
+  // Kode 23514 dari PostgreSQL berarti check constraint terlanggar.
+  if (err.code === "23514") {
+    res.status(400).json({ message: "Data tidak memenuhi validasi aturan sistem (check constraint)." });
+    return;
+  }
+
+  // Error dari trigger DB yang melarang hard-delete
+  if (err.message && err.message.includes("Hard delete is prohibited")) {
+    res.status(400).json({ message: "Penghapusan data secara permanen (hard delete) dilarang oleh sistem. Gunakan metode soft-delete." });
     return;
   }
 

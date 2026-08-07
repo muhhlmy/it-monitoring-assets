@@ -2,6 +2,18 @@ import { pool } from '../config/database.js'
 import { sendEmail, renderTicketEmailHtml } from './emailService.js'
 
 /**
+ * PostgreSQL BIGINT columns return string values in node-postgres (e.g. "5").
+ * actorUserId is converted to Number. Strict equality ("5" !== 5) would always
+ * be true, silently breaking every "don't email the actor" guard.
+ * This helper normalises any ID to a Number for safe comparison.
+ */
+function toNumericId(value) {
+  if (value == null) return null
+  const n = Number(value)
+  return Number.isSafeInteger(n) && n > 0 ? n : null
+}
+
+/**
  * Fetch recipient details from database safely
  */
 async function fetchUserById(queryable, userId) {
@@ -41,6 +53,35 @@ async function fetchQueueAdmins(queryable, queueId) {
   }
 }
 
+async function fetchReporterUser(queryable, ticket) {
+  if (ticket.pelapor_user_id) {
+    const user = await fetchUserById(queryable, ticket.pelapor_user_id)
+    if (user && user.email) return user
+  }
+  if (ticket.pelapor) {
+    try {
+      const resUser = await queryable.query(
+        `SELECT id, nama, email, role FROM users WHERE LOWER(TRIM(nama)) = LOWER(TRIM($1)) AND is_active = true AND deleted_at IS NULL LIMIT 1`,
+        [ticket.pelapor],
+      )
+      if (resUser.rows[0] && resUser.rows[0].email) return resUser.rows[0]
+
+      const resKaryawan = await queryable.query(
+        `SELECT id_karyawan AS id, nama_karyawan AS nama, email_kantor AS email, 'user' AS role
+         FROM karyawan
+         WHERE LOWER(TRIM(nama_karyawan)) = LOWER(TRIM($1)) AND email_kantor IS NOT NULL AND BTRIM(email_kantor) <> '' LIMIT 1`,
+        [ticket.pelapor],
+      )
+      if (resKaryawan.rows[0]) return resKaryawan.rows[0]
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'test') {
+        console.error('[emailNotificationService] Error searching reporter by name:', err.message)
+      }
+    }
+  }
+  return null
+}
+
 /**
  * Handle dispatching email notifications for ticket events asynchronously.
  * NEVER throw errors to caller — log failures silently.
@@ -58,19 +99,28 @@ export async function handleTicketEventNotification(eventType, ticket, options =
     const nomorTiket = ticket.nomor_tiket || `TIKET-#${ticketId}`
 
     // Fetch Reporter and Assignee users if available
-    const reporterUser = ticket.pelapor_user_id
-      ? await fetchUserById(queryable, ticket.pelapor_user_id)
-      : null
+    const reporterUser = await fetchReporterUser(queryable, ticket)
     const assigneeUser = ticket.assigned_to_user_id
       ? await fetchUserById(queryable, ticket.assigned_to_user_id)
       : null
+
+    // Normalise all IDs to Number for safe comparison (BIGINT → string fix)
+    const reporterId = toNumericId(reporterUser?.id)
+    const assigneeId = toNumericId(assigneeUser?.id)
+
+    if (process.env.NODE_ENV !== 'test') {
+      console.log(`[emailNotificationService] Event: ${eventType} | Ticket: ${nomorTiket} | Actor ID: ${actorUserId} | Reporter: ${reporterUser?.email || 'N/A'} (ID: ${reporterId}) | Assignee: ${assigneeUser?.email || 'N/A'} (ID: ${assigneeId})`)
+    }
 
     // ──────────────────────────────────────────────────────────
     // EVENT 1: TICKET_CREATED
     // ──────────────────────────────────────────────────────────
     if (eventType === 'TICKET_CREATED') {
       // 1A. Confirm to Reporter
-      if (reporterUser && reporterUser.email && reporterUser.id !== actorUserId) {
+      if (reporterUser && reporterUser.email && reporterId !== actorUserId) {
+        if (process.env.NODE_ENV !== 'test') {
+          console.log(`[emailNotificationService] Dispatching TICKET_CREATED email to Reporter <${reporterUser.email}>`)
+        }
         const html = renderTicketEmailHtml({
           recipientName: reporterUser.nama,
           title: `[${nomorTiket}] Tiket Baru Berhasil Dibuat`,
@@ -89,8 +139,11 @@ export async function handleTicketEventNotification(eventType, ticket, options =
       // 1B. Notify Queue Admins & Superadmins
       const queueAdmins = await fetchQueueAdmins(queryable, ticket.queue_id)
       for (const admin of queueAdmins) {
-        if (!admin.email || admin.id === actorUserId) continue
+        if (!admin.email || toNumericId(admin.id) === actorUserId) continue
 
+        if (process.env.NODE_ENV !== 'test') {
+          console.log(`[emailNotificationService] Dispatching TICKET_CREATED email to Admin <${admin.email}>`)
+        }
         const html = renderTicketEmailHtml({
           recipientName: admin.nama,
           title: `[${nomorTiket}] Tiket Baru Masuk Antrean`,
@@ -112,7 +165,10 @@ export async function handleTicketEventNotification(eventType, ticket, options =
     // ──────────────────────────────────────────────────────────
     else if (eventType === 'TICKET_UPDATED') {
       // 2A. Notify Reporter
-      if (reporterUser && reporterUser.email && reporterUser.id !== actorUserId) {
+      if (reporterUser && reporterUser.email && reporterId !== actorUserId) {
+        if (process.env.NODE_ENV !== 'test') {
+          console.log(`[emailNotificationService] Dispatching TICKET_UPDATED email to Reporter <${reporterUser.email}>`)
+        }
         const html = renderTicketEmailHtml({
           recipientName: reporterUser.nama,
           title: `[${nomorTiket}] Tiket Anda Mengalami Perubahan`,
@@ -127,10 +183,17 @@ export async function handleTicketEventNotification(eventType, ticket, options =
           html,
           text: `Tiket Anda (${nomorTiket}) mengalami perubahan status atau informasi.`,
         })
+      } else {
+        if (process.env.NODE_ENV !== 'test') {
+          console.log(`[emailNotificationService] TICKET_UPDATED skipped for Reporter. reporterUser: ${reporterUser?.email || 'None'}, reporterId: ${reporterId}, actorUserId: ${actorUserId}`)
+        }
       }
 
       // 2B. Notify Assignee (if ticket is assigned to an admin, and actor is not assignee)
-      if (assigneeUser && assigneeUser.email && assigneeUser.id !== actorUserId && assigneeUser.id !== reporterUser?.id) {
+      if (assigneeUser && assigneeUser.email && assigneeId !== actorUserId && assigneeId !== reporterId) {
+        if (process.env.NODE_ENV !== 'test') {
+          console.log(`[emailNotificationService] Dispatching TICKET_UPDATED email to Assignee <${assigneeUser.email}>`)
+        }
         const html = renderTicketEmailHtml({
           recipientName: assigneeUser.nama,
           title: `[${nomorTiket}] Pembaruan pada Tiket Tugas Anda`,
@@ -156,7 +219,7 @@ export async function handleTicketEventNotification(eventType, ticket, options =
       const commentAuthor = comment?.nama_pengguna || 'Seseorang'
 
       // 3A. If comment made by Admin/Assignee -> Notify Reporter
-      if (reporterUser && reporterUser.email && reporterUser.id !== actorUserId) {
+      if (reporterUser && reporterUser.email && reporterId !== actorUserId) {
         const html = renderTicketEmailHtml({
           recipientName: reporterUser.nama,
           title: `[${nomorTiket}] Komentar Baru pada Tiket Anda`,
@@ -175,14 +238,14 @@ export async function handleTicketEventNotification(eventType, ticket, options =
       }
 
       // 3B. If comment made by Reporter -> Notify Assignee or Queue Admins
-      if (reporterUser && actorUserId === reporterUser.id) {
+      if (reporterUser && actorUserId === reporterId) {
         // Send to assigned admin if exists, otherwise queue admins
         const targetAdmins = assigneeUser
           ? [assigneeUser]
           : await fetchQueueAdmins(queryable, ticket.queue_id)
 
         for (const admin of targetAdmins) {
-          if (!admin.email || admin.id === actorUserId) continue
+          if (!admin.email || toNumericId(admin.id) === actorUserId) continue
 
           const html = renderTicketEmailHtml({
             recipientName: admin.nama,
