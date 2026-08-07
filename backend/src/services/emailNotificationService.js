@@ -5,7 +5,7 @@ import { sendEmail, renderTicketEmailHtml } from './emailService.js'
  * PostgreSQL BIGINT columns return string values in node-postgres (e.g. "5").
  * actorUserId is converted to Number. Strict equality ("5" !== 5) would always
  * be true, silently breaking every "don't email the actor" guard.
- * This helper normalises any ID to a Number for safe comparison.
+ * This hel1per normalises any ID to a Number for safe comparison.
  */
 function toNumericId(value) {
   if (value == null) return null
@@ -70,8 +70,11 @@ async function fetchReporterUser(queryable, ticket) {
   }
   if (ticket.pelapor) {
     try {
+      // Fallback berbasis nama: lewati akun admin/superadmin agar tabrakan nama
+      // tidak pernah menyelesaikan staf IT sebagai pelapor. Dengan begitu tiket
+      // legacy (tanpa pelapor_user_id) tetap jatuh ke karyawan yang benar.
       const resUser = await queryable.query(
-        `SELECT id, nama, email, role FROM users WHERE LOWER(TRIM(nama)) = LOWER(TRIM($1)) AND is_active = true AND deleted_at IS NULL LIMIT 1`,
+        `SELECT id, nama, email, role FROM users WHERE LOWER(TRIM(nama)) = LOWER(TRIM($1)) AND LOWER(TRIM(COALESCE(role, ''))) NOT IN ('admin', 'superadmin', 'super admin') AND is_active = true AND deleted_at IS NULL LIMIT 1`,
         [ticket.pelapor],
       )
       if (resUser.rows[0] && resUser.rows[0].email) return resUser.rows[0]

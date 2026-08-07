@@ -32,7 +32,7 @@ const { handleTicketEventNotification } = await import(
   '../src/services/emailNotificationService.js'
 )
 
-function dbWith(rows) {
+function dbWith(rows, karyawanRows = []) {
   return {
     async query(sql, params) {
       if (sql.includes('FROM users WHERE id = $1')) {
@@ -41,8 +41,26 @@ function dbWith(rows) {
       }
       if (sql.includes('FROM users WHERE LOWER(TRIM(nama))')) {
         const name = String(params[0]).toLowerCase().trim()
-        const row = rows.find((u) => String(u.nama).toLowerCase().trim() === name)
+        // Cermin SQL produksi: hanya akun non-admin yang bisa jadi pelapor
+        const row = rows.find(
+          (u) =>
+            String(u.nama).toLowerCase().trim() === name &&
+            !['admin', 'superadmin', 'super admin'].includes(
+              String(u.role || '').toLowerCase().trim(),
+            ),
+        )
         return { rows: row ? [row] : [] }
+      }
+      if (sql.includes('FROM karyawan')) {
+        const name = String(params[0]).toLowerCase().trim()
+        const row = karyawanRows.find(
+          (k) => String(k.nama_karyawan).toLowerCase().trim() === name,
+        )
+        return {
+          rows: row
+            ? [{ id: row.id_karyawan, nama: row.nama_karyawan, email: row.email_kantor, role: 'user' }]
+            : [],
+        }
       }
       if (sql.includes('user_ticket_queues')) return { rows: [] }
       return { rows: [] }
@@ -121,4 +139,33 @@ test('TICKET_UPDATED: never emails an admin/superadmin, even if they are the rep
 
   const sent = recipients(sentEmails.slice(2))
   assert.equal(sent.length, 0, 'no status-change email should be sent to an admin/superadmin')
+})
+
+test('TICKET_UPDATED legacy ticket (no pelapor_user_id): name fallback skips the admin with the same name and emails the karyawan', async () => {
+  // Tiket legacy tanpa pelapor_user_id. Nama pelapor 'Siti' kebetulan sama
+  // persis dengan nama akun admin di tabel users. Kode lama menyelesaikan
+  // admin itu sebagai pelapor lalu memblokir emailnya (isAdminRole), sehingga
+  // karyawan yang sebenarnya tidak mendapat notifikasi apa pun. Dengan
+  // perbaikan SQL, lookup nama melompati akun admin dan jatuh ke tabel
+  // karyawan, sehingga karyawanlah yang menerima email.
+  const adminWithSameName = { id: '42', nama: 'Siti', email: 'siti.admin@x.com', role: 'admin' }
+  const karyawanRow = { id_karyawan: 777, nama_karyawan: 'Siti', email_kantor: 'siti.karyawan@x.com' }
+  const legacyQueryable = dbWith(
+    [reporter, assigneeAdmin, otherAdmin, adminWithSameName],
+    [karyawanRow],
+  )
+  const before = sentEmails.length
+
+  await handleTicketEventNotification(
+    'TICKET_UPDATED',
+    { ...baseTicket, pelapor_user_id: null, pelapor: 'Siti' },
+    { queryable: legacyQueryable, actorUserId: 5, changes: [`Status: 'Open' -> 'In Progress'`] },
+  )
+
+  const sent = recipients(sentEmails.slice(before))
+  assert(sent.includes('siti.karyawan@x.com'), 'karyawan (end user) must receive the notification')
+  assert(!sent.includes('siti.admin@x.com'), 'admin with the same name must NOT be emailed')
+  assert(!sent.includes('admin@x.com'), 'assignee/admin must NOT be emailed')
+  assert(!sent.includes('other@x.com'), 'other admins must NOT be emailed')
+  assert.equal(sent.length, 1, 'exactly one email: to the karyawan reporter')
 })
