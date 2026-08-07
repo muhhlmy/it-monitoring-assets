@@ -15,7 +15,7 @@ const route  = useRoute()
 const router = useRouter()
 const { user, logout, isAdmin, isUser, isSuperAdmin, hasPermission } = useAuth()
 const { get } = useApi()
-const { connect: connectSSE, disconnect: disconnectSSE, on: onSSE } = useTicketEvents()
+const { connect: connectSSE, disconnect: disconnectSSE, on: onSSE, off: offSSE } = useTicketEvents()
 
 const searchQuery     = ref('')
 const isProfileOpen   = ref(false)
@@ -312,6 +312,78 @@ watch(
 )
 
 let pollTimer
+
+function handleSseTicketCreated(data) {
+  if (data && typeof data === 'object') {
+    const title = 'Tiket Baru Masuk'
+    const msg = `${data.nomor_tiket ? data.nomor_tiket + ': ' : ''}${data.judul || 'Tanpa Judul'}${data.pelapor ? ' — oleh ' + data.pelapor : ''}`
+    addNotificationItem({
+      ticketId: data.id,
+      type: 'CREATED',
+      title,
+      message: data.judul || 'Tiket baru telah dibuat',
+      nomor_tiket: data.nomor_tiket,
+      judul_tiket: data.judul,
+      status_tiket: data.status_tiket,
+      prioritas: data.prioritas,
+      pelapor: data.pelapor,
+    })
+    showRealtimeToast(title, msg, data.nomor_tiket, 'CREATED')
+    if (!allTickets.value.some(t => t.id === data.id)) {
+      allTickets.value = [data, ...allTickets.value]
+    }
+  }
+  fetchTickets()
+}
+
+function handleSseTicketUpdated(data) {
+  if (data && data.id != null) {
+    const changesText = Array.isArray(data.changes) && data.changes.length > 0
+      ? data.changes.join('. ')
+      : 'Detail tiket diperbarui'
+    const title = data.nomor_tiket ? `Perubahan Tiket ${data.nomor_tiket}` : 'Perubahan Tiket'
+    const msg = `${data.judul ? data.judul + ' — ' : ''}${changesText}`
+
+    addNotificationItem({
+      ticketId: data.id,
+      type: 'UPDATED',
+      title: data.judul ? `Perubahan Tiket: ${data.judul}` : 'Perubahan Tiket',
+      message: changesText,
+      nomor_tiket: data.nomor_tiket,
+      judul_tiket: data.judul,
+      status_tiket: data.status_tiket,
+      prioritas: data.prioritas,
+      pelapor: data.pelapor,
+    })
+    showRealtimeToast(title, msg, data.nomor_tiket, 'UPDATED')
+  }
+  fetchTickets()
+}
+
+function handleSseCommentCreated(data) {
+  if (data && (data.ticketId != null || data.id != null)) {
+    const ticketId = data.ticketId || data.id
+    const targetTicket = allTickets.value.find(t => t.id === ticketId)
+    const nomorTiket = targetTicket?.nomor_tiket || `#${ticketId}`
+    const title = `Komentar Baru (${nomorTiket})`
+    const msg = targetTicket ? `Pada tiket '${targetTicket.judul}'` : 'Komentar baru ditambahkan pada tiket'
+
+    addNotificationItem({
+      ticketId,
+      type: 'COMMENT',
+      title: targetTicket ? `Komentar: ${targetTicket.judul}` : 'Komentar Baru',
+      message: 'Komentar baru ditambahkan pada tiket',
+      nomor_tiket: targetTicket?.nomor_tiket,
+      judul_tiket: targetTicket?.judul,
+      status_tiket: targetTicket?.status_tiket,
+      prioritas: targetTicket?.prioritas,
+      pelapor: targetTicket?.pelapor,
+    })
+    showRealtimeToast(title, msg, nomorTiket, 'COMMENT')
+  }
+  fetchTickets()
+}
+
 onMounted(() => {
   if (!hasPermission('tickets')) return
   loadNotifications()
@@ -322,79 +394,17 @@ onMounted(() => {
   // Realtime push via SSE: bell update & toast instan saat ada tiket baru / perubahan.
   connectSSE()
 
-  onSSE('TICKET_CREATED', (data) => {
-    if (data && typeof data === 'object') {
-      const title = 'Tiket Baru Masuk'
-      const msg = `${data.nomor_tiket ? data.nomor_tiket + ': ' : ''}${data.judul || 'Tanpa Judul'}${data.pelapor ? ' — oleh ' + data.pelapor : ''}`
-      addNotificationItem({
-        ticketId: data.id,
-        type: 'CREATED',
-        title,
-        message: data.judul || 'Tiket baru telah dibuat',
-        nomor_tiket: data.nomor_tiket,
-        judul_tiket: data.judul,
-        status_tiket: data.status_tiket,
-        prioritas: data.prioritas,
-        pelapor: data.pelapor,
-      })
-      showRealtimeToast(title, msg, data.nomor_tiket, 'CREATED')
-      if (!allTickets.value.some(t => t.id === data.id)) {
-        allTickets.value = [data, ...allTickets.value]
-      }
-    }
-    fetchTickets()
-  })
-
-  onSSE('TICKET_UPDATED', (data) => {
-    if (data && data.id != null) {
-      const changesText = Array.isArray(data.changes) && data.changes.length > 0
-        ? data.changes.join('. ')
-        : 'Detail tiket diperbarui'
-      const title = data.nomor_tiket ? `Perubahan Tiket ${data.nomor_tiket}` : 'Perubahan Tiket'
-      const msg = `${data.judul ? data.judul + ' — ' : ''}${changesText}`
-
-      addNotificationItem({
-        ticketId: data.id,
-        type: 'UPDATED',
-        title: data.judul ? `Perubahan Tiket: ${data.judul}` : 'Perubahan Tiket',
-        message: changesText,
-        nomor_tiket: data.nomor_tiket,
-        judul_tiket: data.judul,
-        status_tiket: data.status_tiket,
-        prioritas: data.prioritas,
-        pelapor: data.pelapor,
-      })
-      showRealtimeToast(title, msg, data.nomor_tiket, 'UPDATED')
-    }
-    fetchTickets()
-  })
-
-  onSSE('COMMENT_CREATED', (data) => {
-    if (data && (data.ticketId != null || data.id != null)) {
-      const ticketId = data.ticketId || data.id
-      const targetTicket = allTickets.value.find(t => t.id === ticketId)
-      const nomorTiket = targetTicket?.nomor_tiket || `#${ticketId}`
-      const title = `Komentar Baru (${nomorTiket})`
-      const msg = targetTicket ? `Pada tiket '${targetTicket.judul}'` : 'Komentar baru ditambahkan pada tiket'
-
-      addNotificationItem({
-        ticketId,
-        type: 'COMMENT',
-        title: targetTicket ? `Komentar: ${targetTicket.judul}` : 'Komentar Baru',
-        message: 'Komentar baru ditambahkan pada tiket',
-        nomor_tiket: targetTicket?.nomor_tiket,
-        judul_tiket: targetTicket?.judul,
-        status_tiket: targetTicket?.status_tiket,
-        prioritas: targetTicket?.prioritas,
-        pelapor: targetTicket?.pelapor,
-      })
-      showRealtimeToast(title, msg, nomorTiket, 'COMMENT')
-    }
-    fetchTickets()
-  })
+  onSSE('TICKET_CREATED', handleSseTicketCreated)
+  onSSE('TICKET_UPDATED', handleSseTicketUpdated)
+  onSSE('COMMENT_CREATED', handleSseCommentCreated)
 })
 onBeforeUnmount(() => {
   clearInterval(pollTimer)
+  // Lepas handler SSE agar tidak menumpuk saat header di-mount ulang
+  // (mis. setelah siklus logout/login).
+  offSSE('TICKET_CREATED', handleSseTicketCreated)
+  offSSE('TICKET_UPDATED', handleSseTicketUpdated)
+  offSSE('COMMENT_CREATED', handleSseCommentCreated)
   disconnectSSE()
 })
 </script>

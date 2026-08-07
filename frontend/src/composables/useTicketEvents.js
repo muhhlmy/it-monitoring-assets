@@ -1,8 +1,9 @@
-import { onUnmounted, ref } from 'vue'
+import { ref } from 'vue'
 import { clearAuthSession, getAuthToken } from '../utils/authStorage.js'
 
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 const INITIAL_RECONNECT_DELAY_MS = 1000
+const MAX_RECONNECT_ATTEMPTS = 8
 const MAX_RECONNECT_DELAY_MS = 30_000
 const MAX_SSE_BUFFER_LENGTH = 256 * 1024
 const SSE_BOUNDARY_PATTERN = /(?:\r\n|\r|\n)(?:\r\n|\r|\n)/
@@ -147,6 +148,10 @@ function expireLocalSession() {
 
 function scheduleReconnect(generation) {
   if (stopped || generation !== connectionGeneration || reconnectTimer) return
+  // Batasi jumlah retry beruntun agar tidak terjadi reconnect storm di
+  // background. Koneksi tetap bisa pulih via forceReconnect() (tab visible /
+  // jaringan kembali) atau connect() ulang, karena keduanya mereset counter.
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return
 
   const delay = Math.min(reconnectBaseDelay * 2 ** reconnectAttempts, MAX_RECONNECT_DELAY_MS)
   reconnectAttempts += 1

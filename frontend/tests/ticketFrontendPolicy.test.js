@@ -262,8 +262,8 @@ test('frontend ticket event handlers do not depend on attachment payloads', asyn
   ])
   const ticketsEventSection = sourceSection(
     ticketsSource,
-    "onSSE('TICKET_CREATED'",
-    'onUnmounted(() => {',
+    'const handleTicketCreated = (data) => {',
+    '// Debounced stats refresh',
   )
   const headerEventSection = sourceSection(
     appHeaderSource,

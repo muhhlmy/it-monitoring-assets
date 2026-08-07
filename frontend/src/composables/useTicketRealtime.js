@@ -6,7 +6,6 @@
  * Koneksi SSE di-connect sekali di App.vue setelah login, tetap hidup
  * selama navigasi antar view, dan disconnect saat logout.
  */
-import { ref } from 'vue'
 import { useTicketEvents } from './useTicketEvents.js'
 
 const { isConnected, connect, disconnect, on, off, forceReconnect } = useTicketEvents()

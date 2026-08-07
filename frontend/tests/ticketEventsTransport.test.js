@@ -43,7 +43,7 @@ test('ticket realtime transport sends Bearer header and never places token in UR
   assert.match(source, /MAX_RECONNECT_DELAY_MS/)
   assert.match(source, /MAX_RECONNECT_ATTEMPTS/)
   const connectSection = source.slice(source.indexOf('function connect()'))
-  const tokenGuard = connectSection.indexOf("if (!localStorage.getItem('token')) return")
+  const tokenGuard = connectSection.indexOf('if (!getAuthToken()) return')
   const stateTransition = connectSection.indexOf('stopped = false')
   assert.notEqual(tokenGuard, -1)
   assert.ok(tokenGuard < stateTransition)

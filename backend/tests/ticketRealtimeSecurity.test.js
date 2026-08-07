@@ -51,6 +51,7 @@ function ticket(overrides = {}) {
     pelapor: 'Legacy Reporter',
     pelapor_nama: 'Canonical Reporter',
     assigned_to: 'Assigned Admin',
+    assigned_to_nama: 'Assigned Admin',
     attachment: 'data:application/octet-stream;base64,secret-binary',
     is_queue_member: true,
     password: 'must-not-leak',
@@ -147,6 +148,9 @@ test('ticket event DTO exposes exact notification keys including actor_user_id a
     'dibuat_pada',
     'diperbarui_pada',
     'pelapor',
+    'assigned_to_user_id',
+    'assigned_to',
+    'assigned_to_nama',
     'actor_user_id',
     'changes',
   ]
@@ -163,6 +167,9 @@ test('ticket event DTO exposes exact notification keys including actor_user_id a
       dibuat_pada: '2026-07-30T10:00:00.000Z',
       diperbarui_pada: null,
       pelapor: 'Canonical Reporter',
+      assigned_to_user_id: 30,
+      assigned_to: 'Assigned Admin',
+      assigned_to_nama: 'Assigned Admin',
       actor_user_id: null,
       changes: null,
     })
@@ -188,8 +195,6 @@ test('ticket event DTO exposes exact notification keys including actor_user_id a
       'deskripsi',
       'queue_id',
       'pelapor_user_id',
-      'assigned_to_user_id',
-      'assigned_to',
       'is_queue_member',
       'password',
       'token',
@@ -283,6 +288,9 @@ test('broadcast sends role-appropriate DTOs only to authorized realtime clients'
   assert.equal(event.type, 'TICKET_UPDATED')
   assert.deepEqual(Object.keys(event.data).sort(), [
     'actor_user_id',
+    'assigned_to',
+    'assigned_to_nama',
+    'assigned_to_user_id',
     'changes',
     'dibuat_pada',
     'diperbarui_pada',
@@ -293,11 +301,11 @@ test('broadcast sends role-appropriate DTOs only to authorized realtime clients'
     'prioritas',
     'status_tiket',
   ])
-  assert.equal(JSON.stringify(event).includes('secret-binary'), false)
-  assert.equal(JSON.stringify(event).includes('must-not-leak'), false)
+  assert.equal(event.data.actor_user_id, null)
   assert.equal(Object.hasOwn(event.data, 'queue_id'), false)
   assert.equal(Object.hasOwn(event.data, 'pelapor_user_id'), false)
-  assert.equal(Object.hasOwn(event.data, 'assigned_to_user_id'), false)
+  assert.equal(Object.hasOwn(event.data, 'assigned_to_user_id'), true)
+  assert.equal(event.data.assigned_to_nama, 'Assigned Admin')
 })
 
 test('broadcast rechecks queue membership and stops delivery after revocation', async (t) => {

@@ -48,14 +48,12 @@ const handleTicketUpdated = (data) => {
       // Pertahankan field yang tidak ada di payload event
       deskripsi: tickets.value[idx].deskripsi,
       kategori: tickets.value[idx].kategori,
-      assigned_to: tickets.value[idx].assigned_to,
       pelapor: tickets.value[idx].pelapor,
       queue_id: tickets.value[idx].queue_id,
       pelapor_user_id: tickets.value[idx].pelapor_user_id,
       has_attachment: tickets.value[idx].has_attachment,
       queue_kode: tickets.value[idx].queue_kode,
       queue_nama: tickets.value[idx].queue_nama,
-      assigned_to_nama: tickets.value[idx].assigned_to_nama,
       pelapor_nama: tickets.value[idx].pelapor_nama,
       pelapor_nik: tickets.value[idx].pelapor_nik,
       pelapor_jabatan: tickets.value[idx].pelapor_jabatan,
@@ -521,8 +519,9 @@ async function assignTicketToUser(ticket, targetUserId) {
   const targetId = Number(targetUserId)
   isReassigning.value = ticket.id
 
-  // Cari nama admin target dari queueAdmins untuk optimistic update
-  const targetAdmin = getAdminsForQueue(ticket.queue_id)?.find((a) => a.id === targetId)
+  // Cari nama admin target dari queueAdmins untuk optimistic update.
+  // Koersi ke Number: id dari API bisa berupa string (bigint PostgreSQL).
+  const targetAdmin = getAdminsForQueue(ticket.queue_id)?.find((a) => Number(a.id) === targetId)
   const targetName = targetAdmin?.nama || ''
 
   // Optimistic update

@@ -99,7 +99,7 @@ export async function listQueueAdmins(req, res) {
      ORDER BY u.nama ASC`,
     [queueId, identity.role === TICKET_ROLES.SUPERADMIN]
   )
-  res.json(result.rows.map((row) => ({ id: row.id, nama: row.nama })))
+  res.json(result.rows.map((row) => ({ id: Number(row.id), nama: row.nama })))
 }
 
 // POST /api/ticket-queues/:queueId/admins

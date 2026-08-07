@@ -241,6 +241,9 @@ export function buildTicketEventDto(eventType, ticket) {
     dibuat_pada: ticket.dibuat_pada ?? null,
     diperbarui_pada: ticket.diperbarui_pada ?? null,
     pelapor: ticket.pelapor_nama ?? ticket.pelapor ?? null,
+    assigned_to_user_id: ticket.assigned_to_user_id ?? null,
+    assigned_to: ticket.assigned_to ?? null,
+    assigned_to_nama: ticket.assigned_to_nama ?? null,
     actor_user_id: actorUserId,
     changes,
   }

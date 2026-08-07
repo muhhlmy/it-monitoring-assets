@@ -138,7 +138,7 @@ test('queue admin directory is queue-scoped, deny-by-default, and returns only i
         rowCount: includeSuperadmin ? 2 : 1,
         rows: [
           {
-            id: 12,
+            id: '12',
             nama: 'Admin Queue',
             email: 'admin@example.test',
             password: 'must-not-leak',
@@ -146,7 +146,7 @@ test('queue admin directory is queue-scoped, deny-by-default, and returns only i
             is_primary: true,
           },
           {
-            id: 13,
+            id: '13',
             nama: 'Super Admin',
             email: 'superadmin@example.test',
             password: 'must-not-leak',
