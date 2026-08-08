@@ -1137,151 +1137,104 @@ function toast(message, type = 'success') {
       </div>
 
       <div v-else class="overflow-x-auto">
-        <table class="w-full">
+        <table class="w-full border-collapse">
           <thead>
-            <tr>
-              <th>Id / No. Tiket</th>
-              <th>Detail Tiket</th>
-              <th>Unit / Queue</th>
-              <th>SLA & Countdown</th>
-              <th>Assigned To</th>
-              <th>Status</th>
-              <th>Tanggal</th>
-              <th class="text-right">Aksi</th>
+            <tr class="bg-[#F8FAFC]">
+              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Tiket</th>
+              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Judul</th>
+              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Unit</th>
+              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Prioritas</th>
+              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">SLA</th>
+              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Assignee</th>
+              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Status</th>
+              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Tanggal</th>
+              <th class="py-2 px-3 text-right text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Aksi</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="ticket in filteredTickets" :key="ticket.id" class="hover:bg-[#F8FAFC]">
-              <td>
-                <span class="font-mono text-[12px] font-extrabold text-[#5D87FF]">{{ ticket.nomor_tiket || `TCK-#${ticket.id}` }}</span>
+            <tr v-for="ticket in filteredTickets" :key="ticket.id" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <td class="py-2 px-3 align-top">
+                <span class="font-mono text-[11px] font-semibold text-[#5D87FF]">{{ ticket.nomor_tiket || `TCK-${ticket.id}` }}</span>
+                <span v-if="ticket.has_attachment" class="ml-1 material-symbols-outlined text-[14px] text-[#5D87FF]">attach_file</span>
               </td>
-              <td>
-                <div class="flex flex-col gap-0.5 max-w-md">
-                  <div class="flex items-center gap-2">
-                    <p class="text-[13px] font-bold text-[#2A3547] leading-tight">{{ ticket.judul }}</p>
-                    <span v-if="ticket.has_attachment" class="material-symbols-outlined text-[16px] text-[#5D87FF]" title="Ada Lampiran Gambar">attach_file</span>
-                    <span
-                      v-if="ticket.total_komentar > 0"
-                      class="inline-flex items-center gap-0.5 rounded-full bg-[#ECF2FF] px-1.5 py-0.5 text-[10px] font-bold text-[#5D87FF]"
-                      title="Jumlah Komentar Diskusi"
-                    >
-                      <span class="material-symbols-outlined text-[12px]">chat_bubble</span>
-                      {{ ticket.total_komentar }}
-                    </span>
-                  </div>
-                  <p class="text-[11px] text-[#7C8BAC] line-clamp-1">{{ ticket.deskripsi || 'Tidak ada deskripsi' }}</p>
-                  <p class="text-[10px] font-medium text-[#7C8BAC] mt-0.5">
-                    Pelapor: <span class="font-bold text-[#2A3547]">{{ ticket.pelapor_nama || ticket.pelapor || '—' }}</span>
-                    <span v-if="ticket.pelapor_jabatan || ticket.pelapor_nik" class="text-[10px] text-[#7C8BAC]">
-                      • {{ ticket.pelapor_jabatan || 'User' }} <template v-if="ticket.pelapor_nik">({{ ticket.pelapor_nik }})</template>
-                    </span>
-                  </p>
-                </div>
-              </td>
-              <td>
-                <AppBadge :type="getQueueBadgeType(ticket.queue_kode)" :text="ticket.queue_kode || ticket.kategori || 'IT'" />
-              </td>
-              <td>
-                <div class="flex flex-col gap-1 items-start">
-                  <AppBadge :type="getPriorityBadgeType(ticket.prioritas)" :text="ticket.prioritas || 'Medium (3d)'" />
-                  <span
-                    class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tracking-tight"
-                    :class="getSlaCountdownInfo(ticket).isClosed
-                      ? 'bg-[#E8F7FF] text-[#0284C7]'
-                      : getSlaCountdownInfo(ticket).isOverdue
-                        ? 'bg-[#FEF2F2] text-[#DC2626] animate-pulse border border-red-200'
-                        : 'bg-[#F0FDF4] text-[#166534] border border-green-200'"
-                  >
-                    {{ getSlaCountdownInfo(ticket).text }}
+              <td class="py-2 px-3 align-top">
+                <div class="flex items-start gap-2">
+                  <p class="text-[12px] font-medium text-[#2A3547]">{{ ticket.judul }}</p>
+                  <span v-if="ticket.total_komentar > 0" class="inline-flex items-center gap-0.5 rounded-md bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold text-blue-600 shrink-0">
+                    <span class="material-symbols-outlined text-[10px]">chat_bubble</span>
+                    {{ ticket.total_komentar }}
                   </span>
                 </div>
+                <p class="mt-0.5 text-[10px] text-slate-500 line-clamp-1">{{ ticket.deskripsi || '-' }}</p>
+                <p class="mt-0.5 text-[9px] text-slate-400">👤 {{ ticket.pelapor_nama || ticket.pelapor || '-' }}</p>
               </td>
-              <td>
-                <div class="flex flex-col gap-1 min-w-[155px]">
-                  <div class="flex items-center gap-2">
-                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                      :class="ticket.assigned_to_user_id ? 'bg-[#ECF2FF] text-[#5D87FF]' : 'bg-[#F3F4F6] text-[#9CA3AF]'"
-                    >
-                      {{ (ticket.assigned_to_nama || ticket.assigned_to || '?').charAt(0).toUpperCase() }}
-                    </div>
-                    <span class="text-[12px] font-bold" :class="ticket.assigned_to_user_id ? 'text-[#2A3547]' : 'text-[#9CA3AF] italic'">
-                      {{ ticket.assigned_to_nama || ticket.assigned_to || 'Belum diambil' }}
-                    </span>
+              <td class="py-2 px-3 align-top">
+                <AppBadge :type="getQueueBadgeType(ticket.queue_kode)" :text="ticket.queue_kode || 'IT'" />
+              </td>
+              <td class="py-2 px-3 align-top">
+                <AppBadge :type="getPriorityBadgeType(ticket.prioritas)" :text="ticket.prioritas || 'Medium (3d)'" small />
+              </td>
+              <td class="py-2 px-3 align-top">
+                <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold"
+                      :class="getSlaCountdownInfo(ticket).isClosed ? 'bg-emerald-50 text-emerald-700'
+                        : getSlaCountdownInfo(ticket).isOverdue ? 'bg-red-50 text-red-700 animate-pulse'
+                        : 'bg-green-50 text-green-700'">
+                  {{ getSlaCountdownInfo(ticket).text }}
+                </span>
+              </td>
+              <td class="py-2 px-3 align-top">
+                <div class="flex items-center gap-2">
+                  <div class="flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold"
+                       :class="ticket.assigned_to_user_id ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'">
+                    {{ (ticket.assigned_to_nama || ticket.assigned_to || '?').charAt(0).toUpperCase() }}
                   </div>
-
-                  <!-- Dropdown Penugasan HANYA untuk Superadmin -->
-                  <div
-                    v-if="isSuperAdmin && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
-                    class="mt-0.5 flex flex-col gap-1"
-                  >
-                    <select
-                      :value="ticket.assigned_to_user_id || ''"
-                      @change="assignTicketToUser(ticket, $event.target.value)"
-                      :disabled="isReassigning === ticket.id || isClaiming === ticket.id"
-                      class="h-10 w-full rounded-lg border border-[#D2E3FF] bg-[#F4F8FF] px-2 text-[10px] font-extrabold text-[#5D87FF] focus:border-[#5D87FF] focus:outline-none disabled:opacity-50 cursor-pointer"
-                    >
-                      <option value="" disabled>Assign to {{ ticket.queue_kode || 'Queue' }}</option>
-                      <option
-                        v-for="adm in getAdminsForQueue(ticket.queue_id)"
-                        :key="adm.id"
-                        :value="adm.id"
-                      >
-                        {{ adm.nama }}
-                      </option>
-                    </select>
-                  </div>
-
-                  <!-- Tombol Ambil Tiket untuk Admin biasa -->
-                  <button
-                    v-if="isAdmin && !isSuperAdmin && hasWritePermission('tickets') && !ticket.assigned_to_user_id && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
-                    type="button"
-                    @click.stop="claimTicket(ticket)"
-                    :disabled="isClaiming === ticket.id || isReassigning === ticket.id"
-                    class="mt-1 flex items-center justify-center gap-1 rounded-lg bg-[#5D87FF] px-2 py-1 text-[10px] font-extrabold text-white hover:bg-[#4570EA] transition-all disabled:opacity-60 cursor-pointer"
-                  >
-                    <span v-if="isClaiming === ticket.id" class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                    <span v-else class="material-symbols-outlined text-[13px]">person_add</span>
-                    {{ isClaiming === ticket.id ? 'Mengambil...' : 'Ambil Tiket' }}
-                  </button>
+                  <span class="text-[11px] font-medium" :class="ticket.assigned_to_user_id ? 'text-slate-700' : 'text-slate-400 italic'">
+                    {{ ticket.assigned_to_nama || ticket.assigned_to || 'Belum diambil' }}
+                  </span>
                 </div>
+                
+                <!-- Assign dropdown for Superadmin -->
+                <select v-if="isSuperAdmin && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
+                        :value="ticket.assigned_to_user_id || ''" @change="assignTicketToUser(ticket, $event.target.value)"
+                        :disabled="isReassigning === ticket.id || isClaiming === ticket.id"
+                        class="mt-1 w-full rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[9px] font-semibold text-blue-700 focus:border-blue-500 focus:outline-none disabled:opacity-50">
+                  <option value="" disabled>Assign to {{ ticket.queue_kode || 'Queue' }}</option>
+                  <option v-for="adm in getAdminsForQueue(ticket.queue_id)" :key="adm.id" :value="adm.id">{{ adm.nama }}</option>
+                </select>
+                
+                <!-- Claim button for Admin -->
+                <button v-if="isAdmin && !isSuperAdmin && hasWritePermission('tickets') && !ticket.assigned_to_user_id && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
+                        type="button" @click.stop="claimTicket(ticket)"
+                        :disabled="isClaiming === ticket.id || isReassigning === ticket.id"
+                        class="mt-1 flex items-center justify-center gap-1 rounded bg-blue-500 px-2 py-1 text-[9px] font-semibold text-white hover:bg-blue-600 disabled:opacity-50">
+                  <span v-if="isClaiming === ticket.id" class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                  <span v-else class="material-symbols-outlined text-[11px]">person_add</span>
+                  {{ isClaiming === ticket.id ? 'Mengambil...' : 'Ambil' }}
+                </button>
               </td>
-              <td>
-                <AppBadge :type="getStatusBadgeType(ticket.status_tiket)" :text="ticket.status_tiket" />
+              <td class="py-2 px-3 align-top">
+                <AppBadge :type="getStatusBadgeType(ticket.status_tiket)" :text="ticket.status_tiket" small />
               </td>
-              <td class="text-[12px] font-medium text-[#7C8BAC]">{{ formatDate(ticket.dibuat_pada) }}</td>
-              <td>
+              <td class="py-2 px-3 align-top text-[11px] text-slate-500">{{ formatDate(ticket.dibuat_pada) }}</td>
+              <td class="py-2 px-3 align-top">
                 <div class="flex justify-end gap-1.5">
-                  <button
-                    type="button"
-                    @click="openDetail(ticket)"
-                    title="Detail Tiket"
-                    class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ECF2FF] text-[#5D87FF] hover:bg-[#5D87FF] hover:text-white transition-all"
-                  >
-                    <span class="material-symbols-outlined text-[16px]">visibility</span>
+                  <button type="button" @click="openDetail(ticket)" title="Detail"
+                          class="flex h-7 w-7 items-center justify-center rounded bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-[14px]">visibility</span>
                   </button>
-                  <button
-                    v-if="isAdmin && hasWritePermission('tickets')"
-                    type="button"
-                    @click="openEdit(ticket)"
-                    title="Edit Tiket"
-                    class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#49BEFF] hover:bg-[#49BEFF] hover:text-white transition-all"
-                  >
-                    <span class="material-symbols-outlined text-[16px]">edit</span>
+                  <button v-if="isAdmin && hasWritePermission('tickets')" type="button" @click="openEdit(ticket)" title="Edit"
+                          class="flex h-7 w-7 items-center justify-center rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-[14px]">edit</span>
                   </button>
-                  <button
-                    v-if="isSuperAdmin"
-                    type="button"
-                    @click="openDelete(ticket)"
-                    title="Hapus Tiket"
-                    class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FDEDE8] text-[#FA896B] hover:bg-[#FA896B] hover:text-white transition-all"
-                  >
-                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                  <button v-if="isSuperAdmin" type="button" @click="openDelete(ticket)" title="Hapus"
+                          class="flex h-7 w-7 items-center justify-center rounded bg-red-50 text-red-600 hover:bg-red-500 hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-[14px]">delete</span>
                   </button>
                 </div>
               </td>
             </tr>
             <tr v-if="filteredTickets.length === 0">
-              <td colspan="8" class="py-12 text-center text-[13px] text-[#7C8BAC]">Tidak ada tiket yang ditemukan.</td>
+              <td colspan="9" class="py-8 text-center text-[11px] text-slate-500">Tidak ada tiket yang ditemukan.</td>
             </tr>
           </tbody>
         </table>
