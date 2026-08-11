@@ -101,12 +101,12 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to) => {
   const { token, user } = getAuthSnapshot()
 
   // Jika halaman butuh login (semua kecuali /login) dan belum login
   if (to.name !== 'login' && !token) {
-    return next({ name: 'login' })
+    return { name: 'login' }
   }
 
   const ticketEligibility = getTicketEligibility(user)
@@ -116,23 +116,21 @@ router.beforeEach((to, from, next) => {
 
   // Jika sudah login tapi akses ke /login, arahkan ke halaman utama yang punya izin
   if (to.name === 'login' && token) {
-    return next({ name: firstAllowed?.name || 'forbidden' })
+    return { name: firstAllowed?.name || 'forbidden' }
   }
 
   // Guard ini hanya untuk UX; otorisasi export tetap ditegakkan oleh backend.
   if (to.meta.superadminOnly && !isSuper) {
-    return next({ name: firstAllowed?.name || 'forbidden' })
+    return { name: firstAllowed?.name || 'forbidden' }
   }
 
   // Evaluasi Hak Akses Granular RBAC
   if (to.meta.permission && !canAccess(to.meta.permission)) {
     if (firstAllowed && firstAllowed.name !== to.name) {
-      return next({ name: firstAllowed.name })
+      return { name: firstAllowed.name }
     }
-    if (!firstAllowed) return next({ name: 'forbidden' })
+    if (!firstAllowed) return { name: 'forbidden' }
   }
-
-  next()
 })
 
 router.afterEach((to) => {

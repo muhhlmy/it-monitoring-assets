@@ -1,5 +1,5 @@
 <script setup>
-import { watch } from 'vue'
+import { ref, watch } from 'vue'
 import { useApi } from '@/composables/useApi'
 import CsatStars from './CsatStars.vue'
 

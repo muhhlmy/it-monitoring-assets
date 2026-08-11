@@ -1,6 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '@/composables/useAuth'
 import { onTicketEvent } from '../composables/useTicketRealtime.js'
@@ -10,9 +9,7 @@ import AppModal from '../components/ui/AppModal.vue'
 import TicketCaspRating from '../components/tickets/TicketCaspRating.vue'
 
 const { get, post, put, del } = useApi()
-const { user, isSuperAdmin, isAdmin, isUser, hasWritePermission } = useAuth()
-const route  = useRoute()
-const router = useRouter()
+const { user, isSuperAdmin, isAdmin, hasWritePermission } = useAuth()
 
 const nowTick = ref(Date.now())
 let tickerInterval = null
@@ -147,7 +144,6 @@ const filterQueue = ref('')       // queue_id filter
 
 // ── Ticket state ──────────────────────────────────────────────
 const tickets  = ref([])
-const employees = ref([])
 const stats = ref({
   totalTickets: 0,
   pendingTickets: 0,
@@ -184,8 +180,6 @@ const isTicketAttachmentLoading = ref(false)
 const ticketAttachmentError = ref('')
 const attachmentChanged = ref(false)
 let ticketAttachmentRequestVersion = 0
-
-const activeDetailTab2 = activeDetailTab // alias
 
 const emptyForm = () => ({
   judul: '',
@@ -297,7 +291,9 @@ async function fetchQueues() {
       queues.value = data
       await fetchQueueAdmins()
     }
-  } catch (_) {}
+  } catch (err) {
+    void err
+  }
 }
 
 async function fetchTickets(silent = false) {
@@ -756,13 +752,7 @@ function getPriorityBadgeType(prio) {
   return 'default'
 }
 
-function getKategoriBadgeType(kategori) {
-  const k = (kategori || '').toLowerCase()
-  if (k === 'it') return 'primary'
-  if (k === 'hr') return 'warning'
-  if (k === 'ga') return 'success'
-  return 'info'
-}
+
 
 function getSlaHours(prioritas) {
   const p = (prioritas || '').toLowerCase()
@@ -798,7 +788,7 @@ function getSlaCountdownInfo(ticket) {
   const remHours = diffHours % 24
   const remMin = diffMin % 60
 
-  let formatted = ''
+  let formatted
   if (diffDays > 0) {
     formatted = `${diffDays}h ${remHours}j`
   } else if (diffHours > 0) {

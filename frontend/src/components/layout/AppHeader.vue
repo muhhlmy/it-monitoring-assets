@@ -52,7 +52,7 @@ function loadNotifications() {
     if (stored) notificationsList.value = JSON.parse(stored)
     const storedStates = localStorage.getItem('known_ticket_states')
     if (storedStates) knownTicketStates.value = JSON.parse(storedStates)
-  } catch (e) {
+  } catch {
     // Silently fail for localStorage access - not critical for functionality
   }
 }
@@ -61,7 +61,7 @@ function persistNotifications() {
   try {
     localStorage.setItem('app_notifications', JSON.stringify(notificationsList.value))
     localStorage.setItem('known_ticket_states', JSON.stringify(knownTicketStates.value))
-  } catch (e) {
+  } catch {
     // Silently fail for localStorage access - not critical for functionality
   }
 }
@@ -219,7 +219,7 @@ async function fetchTickets() {
       seedNotificationsFromTickets(data)
       syncTicketStatusChanges(data)
     }
-  } catch (e) {
+  } catch {
     // Silently fail for API errors - notifications will retry on next poll
   } finally {
     isFetchingNotif.value = false

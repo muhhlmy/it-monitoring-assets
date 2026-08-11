@@ -92,9 +92,6 @@ const availableRoleOptions = computed(() => {
   if (!isSuperAdmin.value) return ['user']
   return [...new Set([form.value.role, ...roleOptions].filter(Boolean))]
 })
-const filterRoleOptions = computed(() =>
-  [...new Set([...roleOptions, ...users.value.map((listedUser) => listedUser.role)].filter(Boolean))],
-)
 
 function canManageUser(target) {
   if (!canWriteUsers.value || !target) return false
@@ -163,7 +160,9 @@ async function fetchQueues() {
   try {
     const data = await get('/api/ticket-queues')
     if (Array.isArray(data)) queues.value = data
-  } catch {}
+  } catch (err) {
+    void err
+  }
 }
 
 async function fetchUsers() {
