@@ -20,6 +20,7 @@ const allowedRouteMap = [
   { key: 'my_assets', name: 'my-assets' },
   { key: 'tickets', name: 'tickets' },
   { key: 'assets', name: 'assets' },
+  { key: 'karyawan', name: 'karyawan' },
   { key: 'submissions', name: 'submissions' },
   { key: 'logs', name: 'logs' },
   { key: 'users', name: 'users' },
@@ -51,6 +52,12 @@ const routes = [
     name: 'my-assets',
     component: () => import('../views/MyAssetsView.vue'),
     meta: { title: 'Aset Karyawan', permission: 'my_assets' },
+  },
+  {
+    path: '/karyawan',
+    name: 'karyawan',
+    component: () => import('../views/EmployeesView.vue'),
+    meta: { title: 'Master Karyawan', permission: 'karyawan' },
   },
   {
     path: '/tickets',

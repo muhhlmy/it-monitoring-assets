@@ -24,6 +24,7 @@ function checkCorsOrigin(origin, callback) {
     return;
   }
 
+  console.warn(`[CORS Blocked] Origin: "${origin}". Allowed origins:`, env.corsOrigins);
   const error = new Error("Origin tidak diizinkan oleh konfigurasi CORS.");
   error.statusCode = 403;
   callback(error);

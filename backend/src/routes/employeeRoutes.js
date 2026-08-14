@@ -9,6 +9,11 @@ const requireEmployeeReferenceRead = authorizeAnyPermission(
   'read',
 )
 
+const requireEmployeeWrite = authorizeAnyPermission(
+  ['karyawan', 'assets', 'users'],
+  'write',
+)
+
 // /with-assets dan /locations harus sebelum /:id
 employeeRouter.get(
   '/with-assets',
@@ -21,3 +26,6 @@ employeeRouter.get(
   employeeController.listLocations,
 )
 employeeRouter.get('/', requireEmployeeReferenceRead, employeeController.listEmployees)
+employeeRouter.post('/', requireEmployeeWrite, employeeController.storeEmployee)
+employeeRouter.put('/:id', requireEmployeeWrite, employeeController.updateEmployee)
+employeeRouter.delete('/:id', requireEmployeeWrite, employeeController.deleteEmployee)

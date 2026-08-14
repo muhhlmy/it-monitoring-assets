@@ -242,6 +242,15 @@ export async function replaceUser(req, res) {
     let { role, permissions } = req.body;
 
     role = requestedRole ?? oldRole;
+
+    const currentUserId = Number(req.user?.id);
+    if (currentUserId === id && requestedRole !== undefined && requestedRole !== oldRole) {
+      throw createHttpError(
+        403,
+        "Pengguna tidak dapat mengubah role akun miliknya sendiri.",
+      );
+    }
+
     const oldPermissions = normalizePermissions(oldUser.permissions, {
       defaults: DEFAULT_USER_PERMISSIONS,
     });

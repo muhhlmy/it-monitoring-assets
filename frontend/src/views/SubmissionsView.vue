@@ -529,7 +529,7 @@ onMounted(fetchData)
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
+  <div class="flex min-w-0 flex-col gap-5">
     <div v-if="isLoading" role="status" class="shadow-card flex items-center justify-center rounded-[20px] border border-[#E8EDF3] bg-white py-20 text-[13px] text-[#6B7280]">
       <span class="h-8 w-8 animate-spin rounded-full border-4 border-[#E5E7EB] border-t-brand"></span> Memuat data referensi...
     </div>

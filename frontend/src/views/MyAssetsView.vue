@@ -1,9 +1,11 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
 import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
+import AppRowActions from '../components/ui/AppRowActions.vue'
+import AppPagination from '../components/ui/AppPagination.vue'
 
 const { get } = useApi()
 const { isAdmin, isSuperAdmin, user } = useAuth()
@@ -48,6 +50,23 @@ const lokasiOptions = computed(() => {
   return locs.sort()
 })
 
+const currentPageEmployees = ref(1)
+const currentPageAssets    = ref(1)
+const itemsPerPage         = ref(10)
+
+watch([employeeSearch, filterDepartemen, filterLokasi], () => {
+  currentPageEmployees.value = 1
+})
+
+watch([assetSearch, filterTipe, selectedEmployee], () => {
+  currentPageAssets.value = 1
+})
+
+const paginatedEmployees = computed(() => {
+  const start = (currentPageEmployees.value - 1) * itemsPerPage.value
+  return filteredEmployees.value.slice(start, start + itemsPerPage.value)
+})
+
 const filteredEmployees = computed(() => {
   const q = employeeSearch.value.trim().toLocaleLowerCase('id-ID')
   return employees.value.filter(e => {
@@ -77,13 +96,18 @@ const filteredAssets = computed(() => {
   })
 })
 
+const paginatedAssets = computed(() => {
+  const start = (currentPageAssets.value - 1) * itemsPerPage.value
+  return filteredAssets.value.slice(start, start + itemsPerPage.value)
+})
+
 const availableTipeOptions = computed(() =>
   [...new Set(myAssets.value.map(a => a.tipe_perangkat).filter(Boolean))]
 )
 
 const assetStats = computed(() => ({
-  digunakan: myAssets.value.filter(a => (a.status_aset || '').toLowerCase() === 'digunakan').length,
-  maintenance: myAssets.value.filter(a => (a.status_aset || '').toLowerCase() === 'maintenance').length,
+  digunakan: myAssets.value.filter(a => ['digunakan', 'in use'].includes((a.status_aset || '').toLowerCase())).length,
+  maintenance: myAssets.value.filter(a => ['maintenance', 'need service', 'rusak', 'damaged'].includes((a.status_aset || '').toLowerCase())).length,
   types: availableTipeOptions.value.length,
 }))
 
@@ -107,7 +131,7 @@ async function loadMyOwnAssets() {
   isLoadingAssets.value = true
   assetError.value = ''
   try {
-    const assetData = await get('/api/assets/my')
+    const assetData = await get('/api/assets/my-assets')
     myAssets.value = Array.isArray(assetData) ? assetData : []
   } catch (err) {
     assetError.value = err.message || 'Gagal memuat data aset Anda.'
@@ -203,10 +227,13 @@ function closeModal() {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getStatusBadgeType(status) {
-  return {
-    digunakan: 'success', tersedia: 'info', maintenance: 'warning',
-    rusak: 'danger', disposal: 'default',
-  }[(status || '').toLowerCase()] || 'default'
+  const s = (status || '').toLowerCase()
+  if (['digunakan', 'in use'].includes(s)) return 'success'
+  if (['tersedia', 'stock'].includes(s)) return 'info'
+  if (['maintenance', 'need service'].includes(s)) return 'warning'
+  if (['rusak', 'damaged'].includes(s)) return 'danger'
+  if (['disposal'].includes(s)) return 'default'
+  return 'default'
 }
 
 function getDeviceIcon(type) {
@@ -253,11 +280,20 @@ function formatDurasi(mulai, selesai) {
   return remMonths > 0 ? `${years} thn ${remMonths} bln` : `${years} tahun`
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+function getMyAssetActions(asset) {
+  return [
+    {
+      label: 'Lihat Detail Aset',
+      icon: 'visibility',
+      onClick: () => openDetails(asset),
+    },
+    {
+      label: 'Lihat Spesifikasi',
+      icon: 'description',
+      onClick: () => openSpecification(asset),
+    },
+  ]
 }
-
 </script>
 
 <template>
@@ -332,7 +368,7 @@ function formatDate(dateStr) {
       <!-- Grid Karyawan -->
       <div v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         <button
-          v-for="(employee, idx) in filteredEmployees"
+          v-for="(employee, idx) in paginatedEmployees"
           :key="employee.id_karyawan"
           type="button"
           @click="selectEmployee(employee)"
@@ -394,11 +430,12 @@ function formatDate(dateStr) {
       </div>
 
       <!-- Footer Info -->
-      <div v-if="!isLoadingEmployees && !employeeError && employees.length > 0"
-        class="text-center text-[10px] text-[#CBD5E1]">
-        Menampilkan <strong class="text-[#94A3B8]">{{ filteredEmployees.length }}</strong>
-        dari <strong class="text-[#94A3B8]">{{ employees.length }}</strong> karyawan
-      </div>
+      <AppPagination
+        v-if="!isLoadingEmployees && !employeeError && employees.length > 0"
+        v-model:currentPage="currentPageEmployees"
+        :total-items="filteredEmployees.length"
+        :items-per-page="itemsPerPage"
+      />
 
     </template>
 
@@ -566,7 +603,7 @@ function formatDate(dateStr) {
                 <th class="px-4 py-3 text-right text-[10px] font-bold uppercase text-[#9CA3AF]">Aksi</th>
               </tr></thead>
               <tbody class="divide-y divide-[#F9FAFB]">
-                <tr v-for="asset in filteredAssets" :key="asset.id_aset" class="hover:bg-[#F7FAFD]">
+                <tr v-for="asset in paginatedAssets" :key="asset.id_aset" class="hover:bg-[#F7FAFD]">
                   <td class="px-4 py-3"><div class="flex items-center gap-3">
                     <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-light text-brand">
                       <span class="material-symbols-outlined text-[18px]">{{ getDeviceIcon(asset.tipe_perangkat) }}</span>
@@ -586,11 +623,9 @@ function formatDate(dateStr) {
                   <td class="px-4 py-3 text-[12px] text-[#374151]">{{ asset.lokasi_aset || asset.lokasi_kerja || '—' }}</td>
                   <td class="px-4 py-3"><AppBadge :type="getStatusBadgeType(asset.status_aset)" :text="asset.status_aset || '—'" /></td>
                   <td class="px-4 py-3 text-[12px] font-semibold text-[#374151]">{{ asset.kondisi_aset || '—' }}</td>
-                  <td class="px-4 py-3"><div class="flex justify-end">
-                    <button type="button" @click="openDetails(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F1F5F9] text-[#64748B] hover:bg-[#E8EEF5]" :aria-label="`Detail ${asset.label_aset}`">
-                      <span class="material-symbols-outlined text-[16px]">visibility</span>
-                    </button>
-                  </div></td>
+                  <td class="px-4 py-3 text-right">
+                    <AppRowActions :actions="getMyAssetActions(asset)" />
+                  </td>
                 </tr>
               <tr v-if="filteredAssets.length === 0 && myAssets.length > 0">
                 <td colspan="7" class="px-5 py-12 text-center text-[13px] text-[#9CA3AF]">Tidak ada aset yang sesuai filter.</td>
@@ -599,12 +634,13 @@ function formatDate(dateStr) {
           </table>
         </div>
 
-        <!-- Footer -->
-        <div v-if="!isLoadingAssets && !assetError && myAssets.length > 0"
-          class="border-t border-[#E8EDF3] bg-[#FAFCFE] px-5 py-3 text-[10px] text-[#94A3B8]">
-          Menampilkan <strong class="text-[#374151]">{{ filteredAssets.length }}</strong> dari
-          <strong class="text-[#374151]">{{ myAssets.length }}</strong> aset aktif
-        </div>
+        <!-- Footer Pagination -->
+        <AppPagination
+          v-if="!isLoadingAssets && !assetError && myAssets.length > 0"
+          v-model:currentPage="currentPageAssets"
+          :total-items="filteredAssets.length"
+          :items-per-page="itemsPerPage"
+        />
         </template>
 
         <!-- ══ TAB 2: RIWAYAT PERANGKAT ══ -->

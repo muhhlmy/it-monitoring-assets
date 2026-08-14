@@ -6,7 +6,7 @@ import {
   SUPERADMIN_PERMISSIONS,
   normalizePermissions,
 } from '../services/permissionService.js';
-import { verifyPassword } from '../security/passwordService.js';
+import { verifyPassword, hashPassword } from '../security/passwordService.js';
 import { parseRequiredEmail } from '../security/requestValidation.js';
 
 const UNKNOWN_LOGIN_ACTOR = 'Tidak Diketahui'
@@ -157,6 +157,55 @@ export async function getMe(req, res) {
     res.json(user);
   } catch (error) {
     console.error('Error getMe:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan pada server.' });
+  }
+}
+
+export async function changePassword(req, res) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Pengguna tidak terotentikasi.' });
+    }
+
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || typeof currentPassword !== 'string') {
+      return res.status(400).json({ message: 'Password saat ini wajib diisi.' });
+    }
+    if (!newPassword || typeof newPassword !== 'string' || Array.from(newPassword).length < 8) {
+      return res.status(400).json({ message: 'Password baru minimal harus 8 karakter.' });
+    }
+
+    const userResult = await pool.query(
+      `SELECT id, nama, email, password FROM users WHERE id = $1 AND deleted_at IS NULL`,
+      [userId],
+    );
+
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
+    }
+
+    const user = userResult.rows[0];
+    const isCurrentPasswordValid = await verifyPassword(currentPassword, user.password);
+
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({ message: 'Password saat ini salah.' });
+    }
+
+    const newHashedPassword = await hashPassword(newPassword);
+    await pool.query(
+      `UPDATE users SET password = $1, diperbarui_pada = CURRENT_TIMESTAMP WHERE id = $2`,
+      [newHashedPassword, userId],
+    );
+
+    await pool.query(
+      `INSERT INTO log_audit_login (nama_pengguna, email, aktifitas, ip_address, browser) VALUES ($1, $2, $3, $4, $5)`,
+      [user.nama, user.email, 'GANTI_PASSWORD', req.ip, req.headers['user-agent']],
+    );
+
+    res.json({ message: 'Password berhasil diperbarui.' });
+  } catch (error) {
+    console.error('Error changePassword:', error);
     res.status(500).json({ message: 'Terjadi kesalahan pada server.' });
   }
 }

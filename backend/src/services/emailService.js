@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer'
 let transporter = null
 
 export function getTransporter() {
-  const enabled = process.env.EMAIL_ENABLED !== 'false'
+  const enabled = process.env.EMAIL_ENABLED === 'true'
   const host = process.env.SMTP_HOST
   const user = process.env.SMTP_USER
   const pass = process.env.SMTP_PASS

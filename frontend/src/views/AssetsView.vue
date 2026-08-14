@@ -8,6 +8,9 @@ import { downloadAssetsPdf } from '../utils/exportAssetsPdf.js'
 import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 import SearchableSelect from '../components/ui/SearchableSelect.vue'
+import AppRowActions from '../components/ui/AppRowActions.vue'
+import AppImportModal from '../components/ui/AppImportModal.vue'
+import AppPagination from '../components/ui/AppPagination.vue'
 
 const { get, post, put, del } = useApi()
 const { isAdmin, isSuperAdmin, hasWritePermission } = useAuth()
@@ -18,6 +21,15 @@ const canWriteAssets = computed(() => hasWritePermission('assets'))
 const assets = ref([])
 const employees = ref([])
 const locations = ref([])
+const showImportModal = ref(false)
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
+
+function onImported() {
+  showImportModal.value = false
+  fetchData()
+  notification.value = { message: 'Data Excel berhasil diimpor ke database!', type: 'success' }
+}
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 const isExporting = ref(false)
@@ -56,7 +68,7 @@ const emptyForm = () => ({
 })
 
 const form = ref(emptyForm())
-const statusOptions = ['Tersedia', 'Digunakan', 'Maintenance', 'Rusak', 'Disposal']
+const statusOptions = ['In Use', 'Stock', 'Damaged', 'Need Service', 'Tersedia', 'Digunakan', 'Maintenance', 'Rusak', 'Disposal']
 const kondisiOptions = ['Baru', 'Baik', 'Cukup', 'Rusak Ringan', 'Rusak Berat', 'Perlu Servis']
 const tipeOptions = ['Laptop', 'Desktop', 'Server', 'Printer', 'Network Device', 'Monitor', 'Lainnya']
 const brandOptions = ['Lenovo', 'HP', 'Dell', 'Apple', 'Asus', 'Acer', 'Samsung', 'Cisco', 'APC', 'Lainnya']
@@ -95,12 +107,21 @@ const filteredAssets = computed(() => {
   })
 })
 
+watch([searchQuery, filterStatus, filterTipe], () => {
+  currentPage.value = 1
+})
+
+const paginatedAssets = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  return filteredAssets.value.slice(start, start + itemsPerPage.value)
+})
+
 const assignedAssetsCount = computed(() =>
   assets.value.filter((asset) => Boolean(asset.nik)).length,
 )
 
 const availableAssetsCount = computed(() =>
-  assets.value.filter((asset) => (asset.status_aset || '').toLowerCase() === 'tersedia').length,
+  assets.value.filter((asset) => ['stock', 'tersedia'].includes((asset.status_aset || '').toLowerCase())).length,
 )
 
 async function fetchData() {
@@ -291,10 +312,13 @@ async function executeExport() {
 }
 
 function getStatusBadgeType(status) {
-  return {
-    digunakan: 'success', tersedia: 'info', maintenance: 'warning',
-    rusak: 'danger', disposal: 'default',
-  }[(status || '').toLowerCase()] || 'default'
+  const s = (status || '').toLowerCase()
+  if (['digunakan', 'in use'].includes(s)) return 'success'
+  if (['tersedia', 'stock'].includes(s)) return 'info'
+  if (['maintenance', 'need service'].includes(s)) return 'warning'
+  if (['rusak', 'damaged'].includes(s)) return 'danger'
+  if (['disposal'].includes(s)) return 'default'
+  return 'default'
 }
 
 function getDeviceIcon(type) {
@@ -311,6 +335,30 @@ function formatLogDate(dateStr) {
   if (!dateStr) return '-'
   const date = new Date(dateStr)
   return date.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+function getAssetActions(asset) {
+  const actions = [
+    {
+      label: 'Lihat Detail',
+      icon: 'visibility',
+      onClick: () => openDetails(asset),
+    },
+  ]
+  if (canWriteAssets.value) {
+    actions.push({
+      label: 'Edit Aset',
+      icon: 'edit',
+      onClick: () => openEdit(asset),
+    })
+    actions.push({
+      label: 'Hapus Aset',
+      icon: 'delete',
+      danger: true,
+      onClick: () => openDelete(asset),
+    })
+  }
+  return actions
 }
 
 function parsePerubahan(perubahan, aksi) {
@@ -431,7 +479,10 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
       <button type="button" @click="openExport" class="h-10 rounded-xl border border-[#DFE5EF] bg-white px-4 text-[12px] font-bold text-[#2A3547] hover:bg-[#F8FAFC] transition-all">
         Ekspor Data
       </button>
-      <button v-if="canWriteAssets" type="button" @click="openAdd" class="col-span-2 flex h-10 items-center justify-center gap-2 rounded-xl bg-[#5D87FF] px-5 text-[12px] font-bold text-white shadow-md shadow-blue-500/20 hover:bg-[#4570EA] transition-all">
+      <button v-if="canWriteAssets" type="button" @click="showImportModal = true" class="h-10 rounded-xl border border-[#DFE5EF] bg-white px-4 text-[12px] font-bold text-[#2A3547] hover:bg-[#F8FAFC] transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+        <span class="material-symbols-outlined text-[18px]">file_upload</span> Import Excel
+      </button>
+      <button v-if="canWriteAssets" type="button" @click="openAdd" class="col-span-2 flex h-10 items-center justify-center gap-2 rounded-xl bg-[#5D87FF] px-5 text-[12px] font-bold text-white shadow-md shadow-blue-500/20 hover:bg-[#4570EA] transition-all cursor-pointer">
         <span class="material-symbols-outlined text-[18px]">add</span> Tambah Aset
       </button>
     </div>
@@ -445,59 +496,70 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
         <button type="button" class="font-bold underline" @click="fetchData">Coba lagi</button>
       </div>
       <div v-else class="overflow-x-auto" tabindex="0" aria-label="Tabel view daftar aset TI lengkap">
-        <table class="w-full min-w-[1450px]">
+        <table class="w-full text-left border-collapse">
           <caption class="sr-only">Isi view daftar_aset_ti_lengkap</caption>
-          <thead class="sticky top-0 z-10"><tr class="border-b border-[#E5EAEF] bg-[#F8FAFC]">
-            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Serial Number / Label</th>
-            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Spesifikasi</th>
-            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">NIK / Karyawan</th>
-            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Departemen</th>
-            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Lokasi Aset</th>
-            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Tipe Perangkat</th>
-            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Status</th>
-            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase text-[#7C8BAC]">Kondisi</th>
-            <th class="px-4 py-3 text-right text-[11px] font-bold uppercase text-[#7C8BAC]">Aksi</th>
-          </tr></thead>
+          <thead class="sticky top-0 z-10">
+            <tr class="border-b border-[#E5EAEF] bg-[#F8FAFC]">
+              <th class="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">Serial / Label</th>
+              <th class="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">Spesifikasi</th>
+              <th class="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">Pemegang / NIK</th>
+              <th class="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">Departemen / Lokasi</th>
+              <th class="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">Tipe</th>
+              <th class="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">Status</th>
+              <th class="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">Kondisi</th>
+              <th class="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">Aksi</th>
+            </tr>
+          </thead>
           <tbody class="divide-y divide-[#F1F5F9]">
-            <tr v-for="asset in filteredAssets" :key="asset.id_aset" class="hover:bg-[#F8FAFC]">
-              <td class="px-4 py-3"><div class="flex items-center gap-3">
-                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#ECF2FF] text-[#5D87FF]"><span class="material-symbols-outlined text-[18px]">{{ getDeviceIcon(asset.tipe_perangkat) }}</span></div>
-                <div><p class="font-mono text-[12px] font-bold text-[#2A3547]">{{ asset.nomor_seri || '—' }}</p><p class="mt-0.5 text-[10px] font-semibold text-[#7C8BAC]">{{ asset.label_aset }}</p></div>
-              </div></td>
-              <td class="px-4 py-3">
-                <div class="flex flex-col gap-1.5">
-                  <div v-if="asset.merek || asset.model" class="text-[12px] font-bold text-[#2A3547]">
-                    {{ [asset.merek, asset.model].filter(Boolean).join(' ') }}
-                  </div>
+            <tr v-for="asset in paginatedAssets" :key="asset.id_aset" class="hover:bg-[#F8FAFC]">
+              <td class="px-3 py-2.5">
+                <div>
+                  <p class="font-mono text-[11px] font-bold text-[#2A3547] truncate">{{ asset.nomor_seri || '—' }}</p>
+                  <p class="text-[10px] font-semibold text-[#7C8BAC] truncate">{{ asset.label_aset }}</p>
+                </div>
+              </td>
+              <td class="px-3 py-2.5">
+                <div class="flex items-center gap-1 min-w-0">
+                  <span class="text-[11px] font-bold text-[#2A3547] truncate">
+                    {{ [asset.merek, asset.model].filter(Boolean).join(' ') || asset.tipe_perangkat || '—' }}
+                  </span>
                   <button
                     type="button"
-                    class="inline-flex h-7 w-fit items-center gap-1 rounded-lg border border-[#D2E3FF] bg-[#ECF2FF] px-2.5 text-[11px] font-bold text-[#5D87FF] hover:bg-[#5D87FF] hover:text-white transition-all"
                     @click="openSpecification(asset)"
+                    title="Lihat Spesifikasi"
+                    class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[#5D87FF] hover:bg-[#ECF2FF] transition-all cursor-pointer"
                   >
-                    <span aria-hidden="true" class="material-symbols-outlined text-[14px]">description</span>
-                    Lihat Spesifikasi
+                    <span aria-hidden="true" class="material-symbols-outlined text-[14px]">visibility</span>
                   </button>
                 </div>
               </td>
-              <td class="px-4 py-3"><p class="text-[12px] font-bold text-[#2A3547]">{{ asset.nama_karyawan || 'Belum ditetapkan' }}</p><p class="font-mono text-[11px] text-[#7C8BAC]">{{ asset.nik || '—' }}</p></td>
-              <td class="px-4 py-3 text-[12px] text-[#2A3547]">{{ asset.departemen || '—' }}</td>
-              <td class="px-4 py-3 text-[12px] text-[#2A3547]">{{ asset.lokasi_kerja || '—' }}</td>
-              <td class="px-4 py-3 text-[12px] text-[#2A3547]">{{ asset.tipe_perangkat || '—' }}</td>
-              <td class="px-4 py-3"><AppBadge :type="getStatusBadgeType(asset.status_aset)" :text="asset.status_aset || '—'" /></td>
-              <td class="px-4 py-3 text-[12px] font-semibold text-[#2A3547]">{{ asset.kondisi_aset || '—' }}</td>
-              <td class="px-4 py-3"><div class="flex justify-end gap-1.5">
-                <button type="button" @click="openDetails(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ECF2FF] text-[#5D87FF] hover:bg-[#5D87FF] hover:text-white transition-all" :aria-label="`Detail ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">visibility</span></button>
-                <button v-if="canWriteAssets" type="button" @click="openEdit(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#49BEFF] hover:bg-[#49BEFF] hover:text-white transition-all" :aria-label="`Edit ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">edit</span></button>
-                <button v-if="canWriteAssets" type="button" @click="openDelete(asset)" class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FDEDE8] text-[#FA896B] hover:bg-[#FA896B] hover:text-white transition-all" :aria-label="`Hapus ${asset.label_aset}`"><span class="material-symbols-outlined text-[16px]">delete</span></button>
-              </div></td>
+              <td class="px-3 py-2.5">
+                <p class="text-[11px] font-bold text-[#2A3547] truncate">{{ asset.nama_karyawan || 'Belum ditetapkan' }}</p>
+                <p class="font-mono text-[10px] text-[#7C8BAC]">{{ asset.nik || '—' }}</p>
+              </td>
+              <td class="px-3 py-2.5">
+                <p class="text-[11px] font-bold text-[#2A3547] truncate">{{ asset.departemen || '—' }}</p>
+                <p class="text-[10px] font-medium text-[#7C8BAC] truncate">{{ asset.lokasi_kerja || asset.lokasi_aset || '—' }}</p>
+              </td>
+              <td class="px-3 py-2.5 text-[11px] font-semibold text-[#2A3547] truncate">{{ asset.tipe_perangkat || '—' }}</td>
+              <td class="px-3 py-2.5">
+                <AppBadge :type="getStatusBadgeType(asset.status_aset)" :text="asset.status_aset || '—'" small />
+              </td>
+              <td class="px-3 py-2.5 text-[11px] font-semibold text-[#2A3547] truncate">{{ asset.kondisi_aset || '—' }}</td>
+              <td class="px-3 py-2.5 text-right">
+                <AppRowActions :actions="getAssetActions(asset)" />
+              </td>
             </tr>
-            <tr v-if="filteredAssets.length === 0"><td colspan="9" class="px-5 py-12 text-center text-[13px] text-[#7C8BAC]">Tidak ada aset yang sesuai.</td></tr>
+            <tr v-if="filteredAssets.length === 0"><td colspan="8" class="px-5 py-12 text-center text-[12px] text-[#7C8BAC]">Tidak ada aset yang sesuai.</td></tr>
           </tbody>
         </table>
       </div>
-      <div v-if="!isLoading && !pageError" class="border-t border-[#E5EAEF] bg-[#F8FAFC] px-5 py-3 text-[11px] text-[#7C8BAC]">
-        Menampilkan <strong class="text-[#2A3547]">{{ filteredAssets.length }}</strong> dari <strong class="text-[#2A3547]">{{ assets.length }}</strong> aset — sumber: <code>daftar_aset_ti_lengkap</code>
-      </div>
+      <AppPagination
+        v-if="!isLoading && !pageError"
+        v-model:currentPage="currentPage"
+        :total-items="filteredAssets.length"
+        :items-per-page="itemsPerPage"
+      />
     </div>
 
     <AppModal :is-open="showFormModal" :title="modalMode === 'add' ? 'Tambah Aset IT' : 'Edit Aset IT'" size="lg" @close="closeModal">
@@ -785,6 +847,13 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
         </div>
       </form>
     </AppModal>
+
+    <!-- Modal Import Excel -->
+    <AppImportModal
+      :is-open="showImportModal"
+      @close="showImportModal = false"
+      @imported="onImported"
+    />
   </div>
 </template>
 

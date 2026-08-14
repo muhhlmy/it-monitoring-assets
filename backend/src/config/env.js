@@ -103,7 +103,7 @@ function readCorsOrigins() {
   const origins = [];
 
   for (let index = 0; index < originParts.length; index += 1) {
-    const origin = originParts[index].trim();
+    const origin = originParts[index].trim().replace(/\/+$/, "");
 
     if (origin) {
       if (origin === "*") {

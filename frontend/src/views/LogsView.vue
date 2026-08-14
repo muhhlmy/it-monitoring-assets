@@ -3,10 +3,11 @@
 // LogsView.vue — Menampilkan Log Riwayat Aset & Audit Log Login
 // Fitur: Dua tab navigasi, pencarian, filter aksi, gaya glassmorphism
 // ============================================================
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
 import AppBadge from '../components/ui/AppBadge.vue'
+import AppPagination from '../components/ui/AppPagination.vue'
 
 const { get } = useApi()
 const { isSuperAdmin } = useAuth()
@@ -17,6 +18,10 @@ const auditLogs    = ref([])
 const isLoading    = ref(true)
 const pageError    = ref('')
 const activeTab    = ref('assets') // 'assets' | 'audit'
+
+const currentPageAssets = ref(1)
+const currentPageAudit  = ref(1)
+const itemsPerPage      = ref(10)
 
 // ── Filter State ─────────────────────────────────────────────
 const searchQuery  = ref('')
@@ -77,6 +82,21 @@ const filteredAuditLogs = computed(() => {
     const matchActivity = !filterActivity.value || log.aktifitas === filterActivity.value
     return matchSearch && matchActivity
   })
+})
+
+watch([searchQuery, filterAction, filterActivity, activeTab], () => {
+  currentPageAssets.value = 1
+  currentPageAudit.value = 1
+})
+
+const paginatedAssetLogs = computed(() => {
+  const start = (currentPageAssets.value - 1) * itemsPerPage.value
+  return filteredAssetLogs.value.slice(start, start + itemsPerPage.value)
+})
+
+const paginatedAuditLogs = computed(() => {
+  const start = (currentPageAudit.value - 1) * itemsPerPage.value
+  return filteredAuditLogs.value.slice(start, start + itemsPerPage.value)
 })
 
 // ── Helper Badge Aksi / Aktifitas ───────────────────────────
@@ -160,7 +180,7 @@ function parsePerubahan(perubahan, aksi) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
+  <div class="flex min-w-0 flex-col gap-5">
     <!-- Header deskripsi halaman -->
     <div class="flex flex-col gap-1.5">
       <p class="text-[11px] font-medium text-[#9CA3AF]">
@@ -277,7 +297,7 @@ function parsePerubahan(perubahan, aksi) {
         <!-- Timeline Log Cards -->
         <div v-else class="divide-y divide-[#F3F4F6]">
           <div
-            v-for="log in filteredAssetLogs"
+            v-for="log in paginatedAssetLogs"
             :key="log.id"
             class="group flex gap-4 px-5 py-4 hover:bg-[#FAFBFD] transition-colors"
           >
@@ -348,10 +368,13 @@ function parsePerubahan(perubahan, aksi) {
           </div>
         </div>
 
-        <!-- Footer -->
-        <div v-if="filteredAssetLogs.length > 0" class="border-t border-[#E8EDF3] bg-[#FAFCFE] px-5 py-3 text-[10px] text-[#94A3B8]">
-          Menampilkan <strong class="text-[#374151]">{{ filteredAssetLogs.length }}</strong> dari <strong class="text-[#374151]">{{ assetLogs.length }}</strong> log perubahan aset
-        </div>
+        <!-- Footer Pagination Assets -->
+        <AppPagination
+          v-if="filteredAssetLogs.length > 0"
+          v-model:currentPage="currentPageAssets"
+          :total-items="filteredAssetLogs.length"
+          :items-per-page="itemsPerPage"
+        />
       </div>
 
       <!-- ── TAB 2: Login Audit Log Table ────────────────────── -->
@@ -369,7 +392,7 @@ function parsePerubahan(perubahan, aksi) {
             </thead>
             <tbody class="divide-y divide-[#F9FAFB]">
               <tr
-                v-for="log in filteredAuditLogs"
+                v-for="log in paginatedAuditLogs"
                 :key="log.id"
                 class="hover:bg-[#F9FAFB]/50 transition-colors"
               >
@@ -398,10 +421,13 @@ function parsePerubahan(perubahan, aksi) {
           </table>
         </div>
 
-        <!-- Footer -->
-        <div v-if="filteredAuditLogs.length > 0" class="border-t border-[#E8EDF3] bg-[#FAFCFE] px-5 py-3 text-[10px] text-[#94A3B8]">
-          Menampilkan <strong class="text-[#374151]">{{ filteredAuditLogs.length }}</strong> dari <strong class="text-[#374151]">{{ auditLogs.length }}</strong> log audit login
-        </div>
+        <!-- Footer Pagination Audit -->
+        <AppPagination
+          v-if="filteredAuditLogs.length > 0"
+          v-model:currentPage="currentPageAudit"
+          :total-items="filteredAuditLogs.length"
+          :items-per-page="itemsPerPage"
+        />
       </div>
     </div>
   </div>

@@ -8,6 +8,7 @@ import { logRouter }      from './logRoutes.js'
 import { ticketRouter }   from './ticketRoutes.js'
 import { queueRouter }    from './queueRoutes.js'
 import { exportRouter }   from './exportRoutes.js'
+import importRouter       from './importRoutes.js'
 import authRoutes from './authRoutes.js'
 import { apiRateLimiter } from '../middleware/rateLimitMiddleware.js'
 
@@ -27,4 +28,4 @@ const requireAdmin = authorizeRoles('admin', 'super admin', 'superadmin')
 router.use('/api/karyawan', authenticateToken, requireAdmin, employeeRouter)
 router.use('/api/users',    authenticateToken, requireAdmin, userRouter)
 router.use('/api/logs',     authenticateToken, requireAdmin, logRouter)
-
+router.use('/api/import',   authenticateToken, requireAdmin, importRouter)

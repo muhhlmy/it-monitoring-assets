@@ -125,6 +125,7 @@ export async function handleTicketEventNotification(
   const changes = Array.isArray(options.changes) ? options.changes : [];
   const comment = options.comment || null;
 
+  if (process.env.EMAIL_ENABLED !== 'true') return;
   if (!ticket || !ticket.id) return;
 
   try {

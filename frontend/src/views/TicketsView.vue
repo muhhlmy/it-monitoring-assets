@@ -1,11 +1,13 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '@/composables/useAuth'
 import { onTicketEvent } from '../composables/useTicketRealtime.js'
 import { validateAttachmentFile } from '../utils/attachmentPolicy.js'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppModal from '../components/ui/AppModal.vue'
+import AppRowActions from '../components/ui/AppRowActions.vue'
+import AppPagination from '../components/ui/AppPagination.vue'
 import TicketCaspRating from '../components/tickets/TicketCaspRating.vue'
 
 const { get, post, put, del } = useApi()
@@ -253,6 +255,18 @@ const filteredTickets = computed(() => {
     const matchPrioritas = !filterPrioritas.value || t.prioritas    === filterPrioritas.value
     return matchQuery && matchStatus && matchPrioritas
   })
+})
+
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
+
+watch([searchQuery, filterStatus, filterPrioritas, activeTab], () => {
+  currentPage.value = 1
+})
+
+const paginatedTickets = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  return filteredTickets.value.slice(start, start + itemsPerPage.value)
 })
 
 const queueAdmins   = ref({})       // mapping queue_id => array of admin objects
@@ -881,6 +895,32 @@ function formatDateTime(iso) {
   })
 }
 
+function getTicketActions(ticket) {
+  const actions = [
+    {
+      label: 'Lihat Detail Tiket',
+      icon: 'visibility',
+      onClick: () => openDetail(ticket),
+    },
+  ]
+  if (isAdmin.value && hasWritePermission('tickets')) {
+    actions.push({
+      label: 'Edit Tiket',
+      icon: 'edit',
+      onClick: () => openEdit(ticket),
+    })
+  }
+  if (isSuperAdmin.value) {
+    actions.push({
+      label: 'Hapus Tiket',
+      icon: 'delete',
+      danger: true,
+      onClick: () => openDelete(ticket),
+    })
+  }
+  return actions
+}
+
 let toastTimer
 function toast(message, type = 'success') {
   window.clearTimeout(toastTimer)
@@ -892,7 +932,7 @@ function toast(message, type = 'success') {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
+  <div class="flex min-w-0 flex-col gap-5">
 
     <!-- Toast Notification -->
     <Transition name="slide-right">
@@ -1142,7 +1182,7 @@ function toast(message, type = 'success') {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="ticket in filteredTickets" :key="ticket.id" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+            <tr v-for="ticket in paginatedTickets" :key="ticket.id" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               <td class="py-2 px-3 align-top">
                 <span class="font-mono text-[11px] font-semibold text-[#5D87FF]">{{ ticket.nomor_tiket || `TCK-${ticket.id}` }}</span>
                 <span v-if="ticket.has_attachment" class="ml-1 material-symbols-outlined text-[14px] text-[#5D87FF]">attach_file</span>
@@ -1206,21 +1246,8 @@ function toast(message, type = 'success') {
                 <AppBadge :type="getStatusBadgeType(ticket.status_tiket)" :text="ticket.status_tiket" small />
               </td>
               <td class="py-2 px-3 align-top text-[11px] text-slate-500">{{ formatDate(ticket.dibuat_pada) }}</td>
-              <td class="py-2 px-3 align-top">
-                <div class="flex justify-end gap-1.5">
-                  <button type="button" @click="openDetail(ticket)" title="Detail"
-                          class="flex h-7 w-7 items-center justify-center rounded bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition-colors">
-                    <span class="material-symbols-outlined text-[14px]">visibility</span>
-                  </button>
-                  <button v-if="isAdmin && hasWritePermission('tickets')" type="button" @click="openEdit(ticket)" title="Edit"
-                          class="flex h-7 w-7 items-center justify-center rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white transition-colors">
-                    <span class="material-symbols-outlined text-[14px]">edit</span>
-                  </button>
-                  <button v-if="isSuperAdmin" type="button" @click="openDelete(ticket)" title="Hapus"
-                          class="flex h-7 w-7 items-center justify-center rounded bg-red-50 text-red-600 hover:bg-red-500 hover:text-white transition-colors">
-                    <span class="material-symbols-outlined text-[14px]">delete</span>
-                  </button>
-                </div>
+              <td class="py-2 px-3 align-top text-right">
+                <AppRowActions :actions="getTicketActions(ticket)" />
               </td>
             </tr>
             <tr v-if="filteredTickets.length === 0">
@@ -1229,6 +1256,13 @@ function toast(message, type = 'success') {
           </tbody>
         </table>
       </div>
+
+      <AppPagination
+        v-if="!isLoading && !pageError"
+        v-model:currentPage="currentPage"
+        :total-items="filteredTickets.length"
+        :items-per-page="itemsPerPage"
+      />
     </div>
 
     <!-- ── Create / Edit Ticket Modal ─────────────────────── -->

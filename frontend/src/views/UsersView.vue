@@ -3,12 +3,14 @@
 // UsersView.vue — Manajemen Pengguna Sistem, bergaya Fynix
 // Fitur: tampil, tambah, edit, hapus user dari tabel users
 // ============================================================
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
 import { isSuperAdminRole as isRoleSuperAdmin } from '../utils/permissionAccess.js'
 import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
+import AppRowActions from '../components/ui/AppRowActions.vue'
+import AppPagination from '../components/ui/AppPagination.vue'
 
 const { get, post, put, del } = useApi()
 const { isSuperAdmin, hasWritePermission } = useAuth()
@@ -16,12 +18,17 @@ const { user: currentUser } = useAuth()
 const canWriteUsers = computed(() => hasWritePermission('users'))
 
 // ── State Utama ──────────────────────────────────────────────
-const users        = ref([])
-const queues       = ref([])      // Master ticket queues (HR, IT, GA, OPS)
-const isLoading    = ref(true)
-const pageError    = ref('')
-const modalError   = ref('')
-const notification = ref(null)
+const users              = ref([])
+const queues             = ref([])      // Master ticket queues (HR, IT, GA, OPS)
+const employees          = ref([])      // Master data karyawan
+const selectedEmployeeId = ref('')
+const isLoading          = ref(true)
+const pageError          = ref('')
+const modalError         = ref('')
+const notification       = ref(null)
+
+const currentPage        = ref(1)
+const itemsPerPage       = ref(10)
 
 // ── Filter & Search ──────────────────────────────────────────
 const searchQuery  = ref('')
@@ -79,7 +86,7 @@ const emptyForm = () => ({
   nama: '',
   email: '',
   password: '',
-  role: 'user',
+  role: 'admin',
   permissions: defaultPermissions(),
   queue_ids: [],
   is_active: true,
@@ -87,10 +94,10 @@ const emptyForm = () => ({
 const form = ref(emptyForm())
 
 // ── Options ──────────────────────────────────────────────────
-const roleOptions = ['superadmin', 'admin', 'user']
+const roleOptions = ['admin', 'superadmin']
 const availableRoleOptions = computed(() => {
-  if (!isSuperAdmin.value) return ['user']
-  return [...new Set([form.value.role, ...roleOptions].filter(Boolean))]
+  if (isSuperAdmin.value) return ['admin', 'superadmin']
+  return ['admin']
 })
 
 function canManageUser(target) {
@@ -155,6 +162,15 @@ const filteredUsers = computed(() => {
   })
 })
 
+watch([searchQuery, filterRole], () => {
+  currentPage.value = 1
+})
+
+const paginatedUsers = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  return filteredUsers.value.slice(start, start + itemsPerPage.value)
+})
+
 // ── CRUD Functions ───────────────────────────────────────────
 async function fetchQueues() {
   try {
@@ -180,10 +196,28 @@ async function fetchUsers() {
   }
 }
 
+async function fetchEmployees() {
+  try {
+    const data = await get('/api/karyawan')
+    if (Array.isArray(data)) employees.value = data
+  } catch (err) {
+    void err
+  }
+}
+
+function handleEmployeeSelect() {
+  const emp = employees.value.find((e) => Number(e.id_karyawan) === Number(selectedEmployeeId.value))
+  if (emp) {
+    form.value.nama = emp.nama_karyawan || ''
+    form.value.email = emp.email_kantor || `${(emp.nik || '').toLowerCase()}@esb.co.id`
+  }
+}
+
 function openAdd() {
   if (!canWriteUsers.value) return
   modalMode.value     = 'add'
   form.value          = emptyForm()
+  selectedEmployeeId.value = ''
   modalError.value    = ''
   showFormModal.value = true
 }
@@ -365,6 +399,26 @@ function getAvatarColor(nama) {
   return colors[idx]
 }
 
+function getUserActions(u) {
+  const actions = []
+  if (canWriteUsers.value && (isSuperAdmin.value || !isRoleSuperAdmin(u.role))) {
+    actions.push({
+      label: 'Edit Hak Akses',
+      icon: 'edit',
+      onClick: () => openEdit(u),
+    })
+  }
+  if (isSuperAdmin.value && !isRoleSuperAdmin(u.role)) {
+    actions.push({
+      label: 'Hapus Pengguna',
+      icon: 'delete',
+      danger: true,
+      onClick: () => openDelete(u),
+    })
+  }
+  return actions
+}
+
 function resetFilters() {
   searchQuery.value = ''
   filterRole.value  = ''
@@ -373,6 +427,7 @@ function resetFilters() {
 onMounted(async () => {
   await fetchQueues()
   await fetchUsers()
+  await fetchEmployees()
 })
 onBeforeUnmount(() => window.clearTimeout(toastTimer))
 </script>
@@ -420,7 +475,9 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
         class="h-10 min-w-0 w-full rounded-xl border border-[#DCE3EC] bg-white px-3 text-[11px] font-semibold text-[#475569] focus:outline-none sm:w-auto"
       >
         <option value="">Semua Role</option>
-        <option v-for="r in availableRoleOptions" :key="r" :value="r">{{ r.toUpperCase() }}</option>
+        <option value="admin">ADMIN</option>
+        <option value="superadmin">SUPERADMIN</option>
+        <option value="user">USER</option>
       </select>
 
       <!-- Reset -->
@@ -434,14 +491,14 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
 
       <div class="hidden flex-1 sm:block"></div>
 
-      <!-- Tambah Pengguna -->
+      <!-- Tambah Admin / Akses -->
       <button
         v-if="canWriteUsers"
         @click="openAdd"
-        class="col-span-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-[11px] font-bold text-white shadow-md shadow-blue-200/70 hover:-translate-y-0.5 hover:bg-brand-dark sm:w-auto"
+        class="col-span-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-[11px] font-bold text-white shadow-md shadow-blue-200/70 hover:-translate-y-0.5 hover:bg-brand-dark sm:w-auto cursor-pointer"
       >
         <span aria-hidden="true" class="material-symbols-outlined text-[17px]">person_add</span>
-        Tambah Pengguna
+        Tambah Admin / Promosikan Akses
       </button>
     </div>
 
@@ -470,7 +527,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Pengguna</th>
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Email</th>
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Role Akses</th>
-              <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Unit Tiket (Queue)</th>
+              <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Sub Role / Unit Ditangani</th>
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Hak Akses Fitur</th>
               <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Status</th>
               <th class="px-5 py-3 text-right text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Aksi</th>
@@ -478,20 +535,13 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
           </thead>
           <tbody class="divide-y divide-[#F9FAFB]">
             <tr
-              v-for="user in filteredUsers"
+              v-for="user in paginatedUsers"
               :key="user.id"
               class="group hover:bg-[#F7FAFD]"
             >
               <!-- Kolom Pengguna (avatar + nama) -->
               <td class="px-5 py-3">
                 <div class="flex items-center gap-3">
-                  <!-- Avatar Inisial -->
-                  <div
-                    class="w-9 h-9 rounded-full flex items-center justify-center text-[14px] font-black shrink-0"
-                    :class="getAvatarColor(user.nama)"
-                  >
-                    {{ getInitial(user.nama) }}
-                  </div>
                   <div>
                     <p class="text-[13px] font-bold text-[#111827]">{{ user.nama }}</p>
                     <p class="text-[10px] text-[#9CA3AF]">ID #{{ user.id }}</p>
@@ -536,33 +586,14 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               </td>
 
               <!-- Aksi -->
-              <td class="px-5 py-3">
-                <div class="flex items-center justify-end gap-1.5">
-                  <button
-                    v-if="canWriteUsers && (isSuperAdmin || !isRoleSuperAdmin(user.role))"
-                    @click="openEdit(user)"
-                    :aria-label="`Edit ${user.nama || 'pengguna'}`"
-                    class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#E8F7FF] text-[#49BEFF] hover:bg-[#49BEFF] hover:text-white transition-all"
-                    title="Edit Hak Akses"
-                  >
-                    <span aria-hidden="true" class="material-symbols-outlined text-[16px]">edit</span>
-                  </button>
-                  <button
-                    v-if="isSuperAdmin && !isRoleSuperAdmin(user.role)"
-                    @click="openDelete(user)"
-                    :aria-label="`Hapus ${user.nama || 'pengguna'}`"
-                    class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FDEDE8] text-[#FA896B] hover:bg-[#FA896B] hover:text-white transition-all"
-                    title="Hapus"
-                  >
-                    <span aria-hidden="true" class="material-symbols-outlined text-[16px]">delete</span>
-                  </button>
-                </div>
+              <td class="px-5 py-3 text-right">
+                <AppRowActions :actions="getUserActions(user)" />
               </td>
             </tr>
 
             <!-- Empty state -->
             <tr v-if="filteredUsers.length === 0">
-              <td colspan="6" class="px-5 py-12 text-center">
+              <td colspan="7" class="px-5 py-12 text-center">
                 <div class="flex flex-col items-center gap-2">
                   <span aria-hidden="true" class="material-symbols-outlined text-[40px] text-[#D1D5DB]">group</span>
                   <p class="text-[13px] text-[#9CA3AF]">Tidak ada pengguna yang sesuai pencarian.</p>
@@ -574,12 +605,13 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
         </table>
       </div>
 
-      <!-- Footer -->
-      <div v-if="!isLoading && !pageError" class="px-5 py-3 border-t border-[#F3F4F6] bg-[#F9FAFB]">
-        <span class="text-[11px] text-[#9CA3AF]">
-          Menampilkan <span class="font-bold text-[#374151]">{{ filteredUsers.length }}</span> dari <span class="font-bold text-[#374151]">{{ users.length }}</span> pengguna
-        </span>
-      </div>
+      <!-- Footer Pagination -->
+      <AppPagination
+        v-if="!isLoading && !pageError"
+        v-model:currentPage="currentPage"
+        :total-items="filteredUsers.length"
+        :items-per-page="itemsPerPage"
+      />
     </div>
 
 
@@ -588,16 +620,29 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
          ═══════════════════════════════════════════════════════ -->
     <AppModal
       :is-open="showFormModal"
-      :title="modalMode === 'add' ? 'Tambah Pengguna Baru' : 'Edit Pengguna & Hak Akses'"
+      :title="modalMode === 'add' ? 'Tambah Admin / Akses Pengguna' : 'Edit Pengguna & Hak Akses'"
       size="lg"
       @close="requestCloseModal"
     >
       <form @submit.prevent="saveUser" class="flex flex-col gap-4">
 
-        <!-- Error dalam modal -->
-        <div v-if="modalError" role="alert" class="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-lg text-[12px]">
-          <span aria-hidden="true" class="material-symbols-outlined text-[16px]">error</span>
-          {{ modalError }}
+        <!-- Pilih dari Data Karyawan (Opsi cepat untuk mempromosikan karyawan) -->
+        <div v-if="modalMode === 'add' && employees.length > 0" class="flex flex-col gap-1.5 rounded-xl border border-[#5D87FF]/30 bg-[#ECF2FF]/50 p-3">
+          <label for="select-employee" class="text-[11px] font-bold text-[#5D87FF] uppercase tracking-wide flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px]">person_search</span>
+            <span>Pilih dari Data Karyawan (Otomatis Isi Nama &amp; Email)</span>
+          </label>
+          <select
+            id="select-employee"
+            v-model="selectedEmployeeId"
+            @change="handleEmployeeSelect"
+            class="h-9 bg-white border border-[#5D87FF]/40 rounded-lg px-3 text-[13px] text-[#2A3547] focus:outline-none focus:border-brand"
+          >
+            <option value="">-- Pilih Karyawan untuk Dipromosikan / Diberikan Akses --</option>
+            <option v-for="emp in employees" :key="emp.id_karyawan" :value="emp.id_karyawan">
+              {{ emp.nama_karyawan }} (NIK: {{ emp.nik }}) - {{ emp.jabatan || emp.departemen || 'Karyawan' }}
+            </option>
+          </select>
         </div>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -631,10 +676,13 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
           <div class="flex flex-col gap-1.5">
             <label for="user-role" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">Role Akses *</label>
             <select id="user-role" v-model="form.role" @change="handleRoleChange" required
-              :disabled="modalMode === 'edit' && !isSuperAdmin"
+              :disabled="modalMode === 'edit' && (!isSuperAdmin || Number(selectedUser?.id) === Number(currentUser?.id))"
               class="h-9 bg-[#F9FAFC] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand transition-all disabled:opacity-60 disabled:cursor-not-allowed">
               <option v-for="r in availableRoleOptions" :key="r" :value="r">{{ r.toUpperCase() }}</option>
             </select>
+            <p v-if="modalMode === 'edit' && Number(selectedUser?.id) === Number(currentUser?.id)" class="text-[10px] font-medium text-amber-600">
+              Role tidak dapat diubah untuk akun milik sendiri.
+            </p>
           </div>
         </div>
 
