@@ -54,6 +54,7 @@ const deviceLogs = ref([])
 const isLoadingLogs = ref(false)
 
 const emptyForm = () => ({
+  hostname: '',
   nomor_seri: '',
   label_aset: '',
   spesifikasi: '',
@@ -63,16 +64,16 @@ const emptyForm = () => ({
   merek: '',
   model: '',
   status_aset: 'Stock',
-  kondisi_aset: 'Baru',
+  kondisi_aset: 'Normal',
   catatan_aset: '',
 })
 
 const form = ref(emptyForm())
-const statusOptions = [ 'Stock','In Use', 'Damaged', 'Disposal']
-const kondisiOptions = ['Baru', 'Baik', 'Rusak Ringan', 'Rusak Sedang', 'Rusak Berat']
-const tipeOptions = ['Laptop', 'Desktop', 'Server', 'Printer', 'Network Device', 'Monitor', 'Lainnya']
+const statusOptions = ['In Use', 'Stock', 'Damaged', 'In Service', 'Disposal']
+const kondisiOptions = ['Baru', 'Normal', 'Rusak Ringan', 'Rusak Sedang', 'Rusak Berat']
+const tipeOptions = ['Laptop', 'Desktop', 'Server', 'Printer', 'Network Device', 'Monitor', 'Smartphone', 'Tablet', 'Lainnya']
 const brandOptions = ['Lenovo', 'HP', 'Dell', 'Apple', 'Asus', 'Acer', 'Samsung', 'Cisco', 'APC', 'Lainnya']
-const defaultLocations = ['GS', 'PL', 'JKT', 'BKS', 'DPK', 'BGR', 'TGR', 'GS / PL']
+const defaultLocations = ['Solo', 'Pluit', 'Gading Serpong', 'Surabaya', 'Bandung', 'Medan', 'Semarang', 'Malang', 'Bali', 'Yogyakarta', 'Makassar', 'Balikpapan', 'Pontianak', 'Palembang', 'Batam', 'Bekasi']
 
 function mergeOptions(defaults, values) {
   return [...new Set([...defaults, ...values.filter(Boolean)])]

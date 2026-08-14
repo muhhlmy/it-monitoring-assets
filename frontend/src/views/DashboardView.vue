@@ -29,7 +29,13 @@ const isLoading = ref(true)
 const error     = ref('')
 
 // ── Computed: status breakdown ───────────────────────────────
-const knownStatusKeys = new Set(['digunakan', 'tersedia', 'maintenance', 'rusak', 'disposal'])
+const knownStatusKeys = new Set([
+  'digunakan', 'in use',
+  'tersedia', 'stock',
+  'maintenance', 'in service',
+  'rusak', 'damaged',
+  'disposal',
+])
 
 function toCount(value) {
   const count = Number(value)
@@ -53,10 +59,10 @@ const statusMap = computed(() => {
   return map
 })
 
-const countDipakai = computed(() => statusMap.value['digunakan'] || 0)
-const countTersedia = computed(() => statusMap.value['tersedia'] || 0)
-const countMaintenance = computed(() => statusMap.value['maintenance'] || 0)
-const countRusak = computed(() => statusMap.value['rusak'] || 0)
+const countDipakai = computed(() => (statusMap.value['in use'] || 0) + (statusMap.value['digunakan'] || 0))
+const countTersedia = computed(() => (statusMap.value['stock'] || 0) + (statusMap.value['tersedia'] || 0))
+const countMaintenance = computed(() => (statusMap.value['in service'] || 0) + (statusMap.value['maintenance'] || 0))
+const countRusak = computed(() => (statusMap.value['damaged'] || 0) + (statusMap.value['rusak'] || 0))
 const countDisposal = computed(() => statusMap.value['disposal'] || 0)
 const countKnownStatuses = computed(() =>
   countDipakai.value +

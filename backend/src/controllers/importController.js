@@ -167,10 +167,15 @@ export async function importExcelData(req, res) {
         if (!row || typeof row !== 'object') continue
 
         // Extract field values using broadened field aliases
+        const hostnameRaw = String(
+          row.Hostname || row.hostname || row['Host Name'] || row['Name'] || ''
+        ).trim()
+
         const labelRaw = String(
           row['Label Aset'] || row.label_aset || row['Label Asset'] || row.ID || row.id ||
           row['Kode Aset'] || row.kode_aset || row['Asset Tag'] || row.asset_tag ||
-          row['Tag Aset'] || row['Nama Asset'] || row['Nama Aset'] || row.Label || row.label || ''
+          row['Tag Aset'] || row['Nama Asset'] || row['Nama Aset'] || row.Label || row.label ||
+          hostnameRaw
         ).trim()
 
         const serialRaw = String(
@@ -179,17 +184,17 @@ export async function importExcelData(req, res) {
           row.Serial || row.serial || ''
         ).trim()
 
-        const isLabelValid = !isPlaceholderIdentifier(labelRaw)
+        const isLabelValid = !isPlaceholderIdentifier(labelRaw) || !isPlaceholderIdentifier(hostnameRaw)
         const isSerialValid = !isPlaceholderIdentifier(serialRaw)
 
         const spesifikasi = String(row.Spesifikasi || row.spesifikasi || row.Spec || row.specs || row.Specification || '').trim()
-        const nikAssigned = String(row.NIK || row.nik || row['NIK Pemegang'] || row['NIK Karyawan'] || '').trim()
-        const lokasi = truncate(normalizeLocation(row.Lokasi || row.lokasi_aset || row['Lokasi Aset'] || row['Lokasi Kerja'] || row.Location || ''), 100)
+        const nikAssigned = String(row.NIK || row.nik || row['NIK Pemegang Asset'] || row['NIK Pemegang'] || row['NIK Karyawan'] || '').trim()
+        const lokasi = truncate(normalizeLocation(row['Lokasi Asset'] || row.Lokasi || row.lokasi_aset || row['Lokasi Aset'] || row['Lokasi Kerja'] || row.Location || ''), 100)
         const tipe = truncate(String(row['Tipe Perangkat'] || row.tipe_perangkat || row.Tipe || row.tipe || row.Kategori || row.Category || 'Laptop').trim(), 50)
         const merek = truncate(String(row['Brand/Merek'] || row.merek || row.Brand || row.brand || row.Merk || row.Manufacturer || '').trim(), 100)
         const model = truncate(String(row.Model || row.model || row['Tipe/Model'] || '').trim(), 100)
         const statusRaw = String(row.Status || row.status || row.status_aset || row['Status Aset'] || 'Stock').trim()
-        const rawKondisi = String(row.Kondisi || row.kondisi || row.kondisi_aset || row['Kondisi Aset'] || row.Condition || 'Baik').trim()
+        const rawKondisi = String(row.Kondisi || row.kondisi || row.kondisi_aset || row['Kondisi Aset'] || row.Condition || 'Normal').trim()
         let catatan = String(row['Note Asset'] || row.catatan_aset || row.Catatan || row.catatan || row.Note || row.Notes || row.Keterangan || row.Remark || '').trim()
 
         // If neither label nor serial is valid, check if row has any meaningful device details
@@ -206,15 +211,19 @@ export async function importExcelData(req, res) {
         }
 
         let labelFinal = null
+        let hostnameFinal = null
         if (isLabelValid) {
-          labelFinal = truncate(labelRaw, 100)
+          labelFinal = truncate(labelRaw || hostnameRaw, 100)
+          hostnameFinal = truncate(hostnameRaw || labelRaw, 100)
         } else if (serialFinal) {
           labelFinal = truncate(`ASET-${serialFinal}`, 100)
+          hostnameFinal = labelFinal
         } else {
           // Generate auto label if both label and serial are missing/placeholders but row has asset details
           const timestampSuffix = Date.now().toString().slice(-4)
           const randomSuffix = Math.floor(Math.random() * 100).toString().padStart(2, '0')
           labelFinal = truncate(`ASET-GEN-${assetRowIdx}-${timestampSuffix}${randomSuffix}`, 100)
+          hostnameFinal = labelFinal
         }
 
         // If condition text exceeds VARCHAR(30), store full text in catatan_aset and truncate kondisi_aset
@@ -226,14 +235,19 @@ export async function importExcelData(req, res) {
           kondisi = truncate(rawKondisi, 30)
         }
 
-        // Normalize status
+        // Normalize status: In Use / Stock / Damaged / In Service / Disposal
         let statusFinal = 'Stock'
-        if (statusRaw.toLowerCase().includes('use') || (!isPlaceholderIdentifier(nikAssigned) && nikAssigned !== '—' && nikAssigned !== '-')) {
+        const sLower = statusRaw.toLowerCase()
+        if (sLower.includes('use') || (!isPlaceholderIdentifier(nikAssigned) && nikAssigned !== '—' && nikAssigned !== '-')) {
           statusFinal = 'In Use'
-        } else if (statusRaw.toLowerCase().includes('damaged') || statusRaw.toLowerCase().includes('rusak')) {
+        } else if (sLower.includes('damaged') || sLower.includes('rusak')) {
           statusFinal = 'Damaged'
-        } else if (statusRaw.toLowerCase().includes('service')) {
-          statusFinal = 'Need Service'
+        } else if (sLower.includes('service')) {
+          statusFinal = 'In Service'
+        } else if (sLower.includes('disposal') || sLower.includes('afkir')) {
+          statusFinal = 'Disposal'
+        } else if (sLower.includes('stock') || sLower.includes('ready') || sLower.includes('tersedia')) {
+          statusFinal = 'Stock'
         }
         statusFinal = truncate(statusFinal, 30)
 
@@ -248,7 +262,7 @@ export async function importExcelData(req, res) {
 
           if (serialFinal && isLabelValid) {
             existingAssetRes = await client.query(
-              `SELECT id_aset, deleted_at FROM aset_ti WHERE nomor_seri = $1 OR label_aset = $2 ORDER BY id_aset ASC`,
+              `SELECT id_aset, deleted_at FROM aset_ti WHERE nomor_seri = $1 OR label_aset = $2 OR hostname = $2 ORDER BY id_aset ASC`,
               [serialFinal, labelFinal]
             )
           } else if (serialFinal) {
@@ -258,7 +272,7 @@ export async function importExcelData(req, res) {
             )
           } else if (isLabelValid) {
             existingAssetRes = await client.query(
-              `SELECT id_aset, deleted_at FROM aset_ti WHERE label_aset = $1 ORDER BY id_aset ASC`,
+              `SELECT id_aset, deleted_at FROM aset_ti WHERE label_aset = $1 OR hostname = $1 ORDER BY id_aset ASC`,
               [labelFinal]
             )
           }
@@ -270,13 +284,13 @@ export async function importExcelData(req, res) {
 
             await client.query(
               `UPDATE aset_ti
-                  SET label_aset = $1, nomor_seri = $2, spesifikasi = $3, lokasi_aset = $4,
-                      tipe_perangkat = $5, merek = $6, model = $7, status_aset = $8,
-                      kondisi_aset = $9, catatan_aset = $10, id_karyawan = $11,
+                  SET hostname = $1, label_aset = $2, nomor_seri = $3, spesifikasi = $4, lokasi_aset = $5,
+                      tipe_perangkat = $6, merek = $7, model = $8, status_aset = $9,
+                      kondisi_aset = $10, catatan_aset = $11, id_karyawan = $12,
                       deleted_at = NULL, deleted_by_user_id = NULL, deletion_reason = NULL,
                       diperbarui_pada = CURRENT_TIMESTAMP
-                WHERE id_aset = $12`,
-              [labelFinal, serialFinal, spesifikasi, lokasi, tipe, merek, model, statusFinal, kondisi, catatan, empId, assetId]
+                WHERE id_aset = $13`,
+              [hostnameFinal, labelFinal, serialFinal, spesifikasi, lokasi, tipe, merek, model, statusFinal, kondisi, catatan, empId, assetId]
             )
             if (wasSoftDeleted) {
               importedAssetCount++
@@ -286,10 +300,10 @@ export async function importExcelData(req, res) {
           } else {
             await client.query(
               `INSERT INTO aset_ti (
-                 label_aset, nomor_seri, spesifikasi, lokasi_aset, tipe_perangkat,
+                 hostname, label_aset, nomor_seri, spesifikasi, lokasi_aset, tipe_perangkat,
                  merek, model, status_aset, kondisi_aset, catatan_aset, id_karyawan
-               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-              [labelFinal, serialFinal, spesifikasi, lokasi, tipe, merek, model, statusFinal, kondisi, catatan, empId]
+               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+              [hostnameFinal, labelFinal, serialFinal, spesifikasi, lokasi, tipe, merek, model, statusFinal, kondisi, catatan, empId]
             )
             importedAssetCount++
           }

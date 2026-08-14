@@ -79,6 +79,7 @@ const TABLE_SCHEMAS = {
     orderField: 'id_aset',
     columns: [
       { name: 'id_aset', label: 'ID Aset', type: 'number', defaultSelected: true },
+      { name: 'hostname', label: 'Hostname', type: 'string', defaultSelected: true },
       { name: 'label_aset', label: 'Label Aset', type: 'string', defaultSelected: true },
       { name: 'nomor_seri', label: 'Nomor Seri', type: 'string', defaultSelected: true },
       { name: 'tipe_perangkat', label: 'Tipe Perangkat', type: 'string', defaultSelected: true },

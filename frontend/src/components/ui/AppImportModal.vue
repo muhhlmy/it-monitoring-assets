@@ -408,7 +408,7 @@ async function submitImport() {
             <table v-if="parsedAssetRows.length > 0" class="w-full text-left text-[11px]">
               <thead class="bg-[#F8FAFC] sticky top-0 border-b border-[#E5EAEF]">
                 <tr>
-                  <th class="p-2 font-bold text-[#7C8BAC]">Label Aset</th>
+                  <th class="p-2 font-bold text-[#7C8BAC]">Hostname / Label</th>
                   <th class="p-2 font-bold text-[#7C8BAC]">Serial Number</th>
                   <th class="p-2 font-bold text-[#7C8BAC]">Perangkat</th>
                   <th class="p-2 font-bold text-[#7C8BAC]">NIK Pemegang</th>
@@ -418,11 +418,11 @@ async function submitImport() {
               </thead>
               <tbody class="divide-y divide-[#F1F5F9]">
                 <tr v-for="(row, idx) in paginatedAssetRows" :key="idx" class="hover:bg-[#F8FAFC]">
-                  <td class="p-2 font-bold text-[#2A3547]">{{ row['Label Aset'] || row.label_aset || row['Label Asset'] || row.ID || row.id || row['Kode Aset'] || row['Asset Tag'] || '—' }}</td>
+                  <td class="p-2 font-bold text-[#2A3547]">{{ row.Hostname || row.hostname || row['Label Aset'] || row.label_aset || row['Label Asset'] || row.ID || row.id || row['Kode Aset'] || row['Asset Tag'] || '—' }}</td>
                   <td class="p-2 font-mono font-bold text-[#2A3547]">{{ row['Serial Number'] || row.nomor_seri || row['Nomor Seri'] || row.SN || row.sn || row['S/N'] || '—' }}</td>
                   <td class="p-2 text-[#2A3547]">{{ [row['Brand/Merek'] || row.merek || row.Brand || row.brand || row.Merk, row.Model || row.model].filter(Boolean).join(' ') || row['Tipe Perangkat'] || row.tipe_perangkat || row.Tipe || '—' }}</td>
-                  <td class="p-2 font-mono text-[#7C8BAC]">{{ row.NIK || row.nik || row['NIK Pemegang'] || 'Stock' }}</td>
-                  <td class="p-2 text-[#2A3547]">{{ row.Lokasi || row.lokasi_aset || row['Lokasi Aset'] || row['Lokasi Kerja'] || '—' }}</td>
+                  <td class="p-2 font-mono text-[#7C8BAC]">{{ row['NIK Pemegang Asset'] || row.NIK || row.nik || row['NIK Pemegang'] || 'Stock' }}</td>
+                  <td class="p-2 text-[#2A3547]">{{ row['Lokasi Asset'] || row.Lokasi || row.lokasi_aset || row['Lokasi Aset'] || row['Lokasi Kerja'] || '—' }}</td>
                   <td class="p-2 font-semibold text-[#5D87FF]">{{ row.Status || row.status || row.status_aset || '—' }}</td>
                 </tr>
               </tbody>

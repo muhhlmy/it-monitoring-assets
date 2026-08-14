@@ -1,5 +1,6 @@
 const columns = [
   ['ID Aset', 'id_aset'],
+  ['Hostname', 'hostname'],
   ['Nomor Seri', 'nomor_seri'],
   ['Label Aset', 'label_aset'],
   ['Spesifikasi', 'spesifikasi'],

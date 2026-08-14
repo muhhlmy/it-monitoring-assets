@@ -65,7 +65,7 @@ const directorateOptions = [
   'Operations', 'People Experience', 'Research', 'Technology'
 ]
 
-const statusKaryawanOptions = ['Active', 'Outsource']
+const statusKaryawanOptions = ['Active', 'Outsource', 'Resigned']
 const statusKepegawaianOptions = ['Permanent', 'Contract']
 
 const locationCodeOptions = [

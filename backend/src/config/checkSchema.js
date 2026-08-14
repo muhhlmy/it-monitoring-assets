@@ -3,6 +3,7 @@ import { verifyRuntimeSchema } from './runtimeSchema.js'
 
 const expectedColumns = [
   'id_aset',
+  'hostname',
   'nomor_seri',
   'label_aset',
   'spesifikasi',

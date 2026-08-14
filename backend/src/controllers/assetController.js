@@ -2,7 +2,7 @@ import { pool, withTransaction } from "../config/database.js";
 
 // Daftar kolom ini sama dengan view daftar_aset_ti_lengkap di Schema.sql.
 const assetColumns = `
-  id_aset, nomor_seri, label_aset, spesifikasi, nik, nama_karyawan,
+  id_aset, hostname, nomor_seri, label_aset, spesifikasi, nik, nama_karyawan,
   departemen, lokasi_kerja, tipe_perangkat, merek, model, status_aset,
   kondisi_aset, catatan_aset, lokasi_aset
 `;
@@ -54,10 +54,14 @@ export function validateAssetPayload(body) {
     throw createHttpError(400, "Payload aset harus berupa object JSON.");
   }
 
+  const hostnameClean = cleanText(body.hostname);
+  const labelClean = cleanText(body.label_aset);
+
   // Ambil hanya field yang diperbolehkan.
   const asset = {
+    hostname: hostnameClean || labelClean,
     nomor_seri: cleanText(body.nomor_seri),
-    label_aset: cleanText(body.label_aset),
+    label_aset: labelClean || hostnameClean,
     spesifikasi: cleanText(body.spesifikasi),
     nik: cleanText(body.nik),
     lokasi_aset: cleanText(body.lokasi_aset),
@@ -77,6 +81,7 @@ export function validateAssetPayload(body) {
     throw createHttpError(400, "Label aset wajib diisi.");
   }
 
+  checkMaximumLength("hostname", asset.hostname, 100);
   checkMaximumLength("nomor_seri", asset.nomor_seri, 100);
   checkMaximumLength("label_aset", asset.label_aset, 100);
   checkMaximumLength("nik", asset.nik, 30);
@@ -391,7 +396,7 @@ async function logAssetChange(databaseClient, idAset, labelAset, aksi, oldAsset,
   let perubahan = '';
 
   if (aksi === 'TAMBAH') {
-    perubahan = `Aset baru didaftarkan dengan nomor seri ${newAsset.nomor_seri || '(kosong)'}, tipe: ${newAsset.tipe_perangkat || '(kosong)'}, merek: ${newAsset.merek || '(kosong)'}, status: ${newAsset.status_aset || 'Tersedia'}, kondisi: ${newAsset.kondisi_aset || 'Baik'}.`;
+    perubahan = `Aset baru didaftarkan dengan nomor seri ${newAsset.nomor_seri || '(kosong)'}, tipe: ${newAsset.tipe_perangkat || '(kosong)'}, merek: ${newAsset.merek || '(kosong)'}, status: ${newAsset.status_aset || 'Stock'}, kondisi: ${newAsset.kondisi_aset || 'Normal'}.`;
   } else if (aksi === 'HAPUS') {
     perubahan = `Aset dengan label ${labelAset} (Nomor Seri: ${oldAsset?.nomor_seri || '(kosong)'}) dihapus dari sistem.`;
   } else if (aksi === 'UBAH') {
@@ -440,13 +445,14 @@ export async function storeAsset(req, res) {
 
     const sql = `
       INSERT INTO aset_ti (
-        nomor_seri, label_aset, spesifikasi, id_karyawan, lokasi_aset,
+        hostname, nomor_seri, label_aset, spesifikasi, id_karyawan, lokasi_aset,
         tipe_perangkat, merek, model, status_aset, kondisi_aset, catatan_aset
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
       RETURNING id_aset
     `;
 
     const values = [
+      asset.hostname,
       asset.nomor_seri,
       asset.label_aset,
       asset.spesifikasi,
@@ -506,23 +512,25 @@ export async function replaceAsset(req, res) {
 
     const sql = `
       UPDATE aset_ti SET
-        nomor_seri = $1,
-        label_aset = $2,
-        spesifikasi = $3,
-        id_karyawan = $4,
-        lokasi_aset = $5,
-        tipe_perangkat = $6,
-        merek = $7,
-        model = $8,
-        status_aset = $9,
-        kondisi_aset = $10,
-        catatan_aset = $11,
+        hostname = $1,
+        nomor_seri = $2,
+        label_aset = $3,
+        spesifikasi = $4,
+        id_karyawan = $5,
+        lokasi_aset = $6,
+        tipe_perangkat = $7,
+        merek = $8,
+        model = $9,
+        status_aset = $10,
+        kondisi_aset = $11,
+        catatan_aset = $12,
         diperbarui_pada = CURRENT_TIMESTAMP
-      WHERE id_aset = $12
+      WHERE id_aset = $13
         AND deleted_at IS NULL
     `;
 
     const values = [
+      asset.hostname,
       asset.nomor_seri,
       asset.label_aset,
       asset.spesifikasi,

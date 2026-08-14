@@ -16,6 +16,7 @@ const REQUIRED_RUNTIME_SCHEMA = Object.freeze({
   },
   aset_ti: {
     id_aset: nn('int8'),
+    hostname: optional('varchar'),
     nomor_seri: optional('varchar'),
     label_aset: nn('varchar'),
     spesifikasi: optional('text'),
@@ -44,6 +45,7 @@ const REQUIRED_RUNTIME_SCHEMA = Object.freeze({
   },
   daftar_aset_ti_lengkap: {
     id_aset: optional('int8'),
+    hostname: optional('varchar'),
     nomor_seri: optional('varchar'),
     label_aset: optional('varchar'),
     spesifikasi: optional('text'),
