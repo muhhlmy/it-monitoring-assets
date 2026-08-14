@@ -62,35 +62,36 @@ const emptyForm = () => ({
   tipe_perangkat: '',
   merek: '',
   model: '',
-  status_aset: 'Tersedia',
-  kondisi_aset: 'Baik',
+  status_aset: 'Stock',
+  kondisi_aset: 'Baru',
   catatan_aset: '',
 })
 
 const form = ref(emptyForm())
-const statusOptions = ['In Use', 'Stock', 'Damaged', 'Need Service', 'Tersedia', 'Digunakan', 'Maintenance', 'Rusak', 'Disposal']
-const kondisiOptions = ['Baru', 'Baik', 'Cukup', 'Rusak Ringan', 'Rusak Berat', 'Perlu Servis']
+const statusOptions = [ 'Stock','In Use', 'Damaged', 'Disposal']
+const kondisiOptions = ['Baru', 'Baik', 'Rusak Ringan', 'Rusak Sedang', 'Rusak Berat']
 const tipeOptions = ['Laptop', 'Desktop', 'Server', 'Printer', 'Network Device', 'Monitor', 'Lainnya']
 const brandOptions = ['Lenovo', 'HP', 'Dell', 'Apple', 'Asus', 'Acer', 'Samsung', 'Cisco', 'APC', 'Lainnya']
+const defaultLocations = ['GS', 'PL', 'JKT', 'BKS', 'DPK', 'BGR', 'TGR', 'GS / PL']
 
 function mergeOptions(defaults, values) {
   return [...new Set([...defaults, ...values.filter(Boolean)])]
 }
 
 const availableStatusOptions = computed(() =>
-  mergeOptions(statusOptions, [form.value.status_aset, ...assets.value.map((asset) => asset.status_aset)]),
+  mergeOptions(statusOptions, [form.value.status_aset]),
 )
 const availableKondisiOptions = computed(() =>
-  mergeOptions(kondisiOptions, [form.value.kondisi_aset, ...assets.value.map((asset) => asset.kondisi_aset)]),
+  mergeOptions(kondisiOptions, [form.value.kondisi_aset]),
 )
 const availableTipeOptions = computed(() =>
-  mergeOptions(tipeOptions, [form.value.tipe_perangkat, ...assets.value.map((asset) => asset.tipe_perangkat)]),
+  mergeOptions(tipeOptions, [form.value.tipe_perangkat]),
 )
 const availableBrandOptions = computed(() =>
-  mergeOptions(brandOptions, [form.value.merek, ...assets.value.map((asset) => asset.merek)]),
+  mergeOptions(brandOptions, [form.value.merek]),
 )
 const locationOptions = computed(() =>
-  locations.value.map((loc) => ({ value: loc, label: loc })),
+  mergeOptions(defaultLocations, [form.value.lokasi_aset]).map((loc) => ({ value: loc, label: loc })),
 )
 
 const filteredAssets = computed(() => {
@@ -523,14 +524,6 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
                   <span class="text-[11px] font-bold text-[#2A3547] truncate">
                     {{ [asset.merek, asset.model].filter(Boolean).join(' ') || asset.tipe_perangkat || '—' }}
                   </span>
-                  <button
-                    type="button"
-                    @click="openSpecification(asset)"
-                    title="Lihat Spesifikasi"
-                    class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[#5D87FF] hover:bg-[#ECF2FF] transition-all cursor-pointer"
-                  >
-                    <span aria-hidden="true" class="material-symbols-outlined text-[14px]">visibility</span>
-                  </button>
                 </div>
               </td>
               <td class="px-3 py-2.5">

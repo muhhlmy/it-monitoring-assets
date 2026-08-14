@@ -48,7 +48,10 @@ function updateDropdownPosition() {
   }
 }
 
+let isJustClosed = false
+
 async function toggleDropdown() {
+  if (isJustClosed) return
   if (!isOpen.value) {
     updateDropdownPosition()
     isOpen.value = true
@@ -65,7 +68,11 @@ function closeDropdown() {
 
 function handleAction(actionItem) {
   if (actionItem.disabled) return
+  isJustClosed = true
   closeDropdown()
+  setTimeout(() => {
+    isJustClosed = false
+  }, 200)
   if (typeof actionItem.onClick === 'function') {
     actionItem.onClick()
   }

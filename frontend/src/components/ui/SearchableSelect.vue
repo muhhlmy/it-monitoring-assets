@@ -45,6 +45,8 @@ const activeDescendant = computed(() =>
   activeIndex.value >= 0 ? optionId(activeIndex.value) : undefined,
 )
 
+let isJustClosed = false
+
 function optionId(index) {
   return `${componentId}-option-${index}`
 }
@@ -80,19 +82,28 @@ function closeDropdown({ restoreFocus = true } = {}) {
 }
 
 function toggleDropdown() {
+  if (isJustClosed) return
   if (isOpen.value) closeDropdown({ restoreFocus: false })
   else openDropdown()
 }
 
 function selectOption(option) {
   if (!option) return
+  isJustClosed = true
   emit('update:modelValue', option[props.valueKey])
-  closeDropdown()
+  closeDropdown({ restoreFocus: false })
+  setTimeout(() => {
+    isJustClosed = false
+  }, 200)
 }
 
 function clearSelection() {
+  isJustClosed = true
   emit('update:modelValue', '')
-  nextTick(() => triggerRef.value?.focus())
+  closeDropdown({ restoreFocus: false })
+  setTimeout(() => {
+    isJustClosed = false
+  }, 200)
 }
 
 function scrollActiveOptionIntoView() {
@@ -252,7 +263,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
           }"
           @mouseenter="activeIndex = index"
           @mousedown.prevent
-          @click="selectOption(option)"
+          @click.stop.prevent="selectOption(option)"
         >
           <span class="text-[12px] text-[#172033]" :class="{ 'font-bold text-brand': option[valueKey] === modelValue }">
             {{ option[labelKey] }}

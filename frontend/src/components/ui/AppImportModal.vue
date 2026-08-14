@@ -177,22 +177,38 @@ function processFile(file) {
       let karyawanData = []
       let assetData = []
 
-      // Check sheet names
+      // Check sheet names & header keys
       const sheetNames = workbook.SheetNames
 
       sheetNames.forEach(sheetName => {
         const lowerName = sheetName.toLowerCase()
         const sheetJson = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName])
+        if (!Array.isArray(sheetJson) || sheetJson.length === 0) return
 
-        if (lowerName.includes('karyawan') || lowerName.includes('employee')) {
+        const sampleKeys = Object.keys(sheetJson[0] || {}).map(k => String(k).toLowerCase())
+
+        const isEmpSheet = lowerName.includes('karyawan') || lowerName.includes('employee')
+        const isAssetSheet = lowerName.includes('asset') || lowerName.includes('aset')
+
+        const hasEmpKeys = sampleKeys.some(k => k.includes('nik') || k.includes('karyawan') || k.includes('email') || k.includes('jabatan') || k.includes('title') || k.includes('direktorat'))
+        const hasAssetKeys = sampleKeys.some(k => k.includes('label') || k.includes('serial') || k.includes('perangkat') || k.includes('merek') || k.includes('brand') || k.includes('model') || k.includes('sn'))
+
+        if (isEmpSheet) {
           karyawanData = karyawanData.concat(sheetJson)
-        } else if (lowerName.includes('asset') || lowerName.includes('aset')) {
+        } else if (isAssetSheet) {
           assetData = assetData.concat(sheetJson)
+        } else if (hasAssetKeys && !hasEmpKeys) {
+          assetData = assetData.concat(sheetJson)
+        } else if (hasEmpKeys && !hasAssetKeys) {
+          karyawanData = karyawanData.concat(sheetJson)
         } else {
-          // If 1 single sheet, attempt to classify or include
           if (sheetNames.length === 1) {
-            karyawanData = sheetJson
-            assetData = sheetJson
+            if (hasAssetKeys) assetData = sheetJson
+            if (hasEmpKeys) karyawanData = sheetJson
+            if (!hasAssetKeys && !hasEmpKeys) {
+              karyawanData = sheetJson
+              assetData = sheetJson
+            }
           }
         }
       })
@@ -402,12 +418,12 @@ async function submitImport() {
               </thead>
               <tbody class="divide-y divide-[#F1F5F9]">
                 <tr v-for="(row, idx) in paginatedAssetRows" :key="idx" class="hover:bg-[#F8FAFC]">
-                  <td class="p-2 font-bold text-[#2A3547]">{{ row['Label Aset'] || row.label_aset || '—' }}</td>
-                  <td class="p-2 font-mono font-bold text-[#2A3547]">{{ row['Serial Number'] || row.nomor_seri || '—' }}</td>
-                  <td class="p-2 text-[#2A3547]">{{ [row['Brand/Merek'], row.Model || row.model].filter(Boolean).join(' ') || row['Tipe Perangkat'] || '—' }}</td>
-                  <td class="p-2 font-mono text-[#7C8BAC]">{{ row.NIK || row.nik || 'Stock' }}</td>
-                  <td class="p-2 text-[#2A3547]">{{ row.Lokasi || row.lokasi_aset || '—' }}</td>
-                  <td class="p-2 font-semibold text-[#5D87FF]">{{ row.Status || row.status_aset || '—' }}</td>
+                  <td class="p-2 font-bold text-[#2A3547]">{{ row['Label Aset'] || row.label_aset || row['Label Asset'] || row.ID || row.id || row['Kode Aset'] || row['Asset Tag'] || '—' }}</td>
+                  <td class="p-2 font-mono font-bold text-[#2A3547]">{{ row['Serial Number'] || row.nomor_seri || row['Nomor Seri'] || row.SN || row.sn || row['S/N'] || '—' }}</td>
+                  <td class="p-2 text-[#2A3547]">{{ [row['Brand/Merek'] || row.merek || row.Brand || row.brand || row.Merk, row.Model || row.model].filter(Boolean).join(' ') || row['Tipe Perangkat'] || row.tipe_perangkat || row.Tipe || '—' }}</td>
+                  <td class="p-2 font-mono text-[#7C8BAC]">{{ row.NIK || row.nik || row['NIK Pemegang'] || 'Stock' }}</td>
+                  <td class="p-2 text-[#2A3547]">{{ row.Lokasi || row.lokasi_aset || row['Lokasi Aset'] || row['Lokasi Kerja'] || '—' }}</td>
+                  <td class="p-2 font-semibold text-[#5D87FF]">{{ row.Status || row.status || row.status_aset || '—' }}</td>
                 </tr>
               </tbody>
             </table>
