@@ -10,6 +10,8 @@ const props = defineProps({
   labelKey: { type: String, required: true },
   secondaryLabelKey: { type: String, default: '' },
   clearable: { type: Boolean, default: false },
+  allowCustom: { type: Boolean, default: false },
+  customLabelPrefix: { type: String, default: '+ Gunakan' },
   ariaLabel: { type: String, default: '' },
 })
 
@@ -24,21 +26,50 @@ const containerRef = ref(null)
 const triggerRef = ref(null)
 const searchInputRef = ref(null)
 
-const selectedOption = computed(() =>
-  props.options.find((option) => option[props.valueKey] === props.modelValue),
-)
+const selectedOption = computed(() => {
+  const found = props.options.find((option) => option[props.valueKey] === props.modelValue)
+  if (found) return found
+  if (props.allowCustom && props.modelValue) {
+    return {
+      [props.valueKey]: props.modelValue,
+      [props.labelKey]: String(props.modelValue),
+    }
+  }
+  return null
+})
 
 const filteredOptions = computed(() => {
   const query = searchQuery.value.trim().toLocaleLowerCase('id-ID')
-  if (!query) return props.options
+  let list = props.options
 
-  return props.options.filter((option) => {
-    const primary = String(option[props.labelKey] || '').toLocaleLowerCase('id-ID')
-    const secondary = props.secondaryLabelKey
-      ? String(option[props.secondaryLabelKey] || '').toLocaleLowerCase('id-ID')
-      : ''
-    return primary.includes(query) || secondary.includes(query)
-  })
+  if (query) {
+    list = props.options.filter((option) => {
+      const primary = String(option[props.labelKey] || '').toLocaleLowerCase('id-ID')
+      const secondary = props.secondaryLabelKey
+        ? String(option[props.secondaryLabelKey] || '').toLocaleLowerCase('id-ID')
+        : ''
+      return primary.includes(query) || secondary.includes(query)
+    })
+  }
+
+  if (props.allowCustom && searchQuery.value.trim()) {
+    const rawQuery = searchQuery.value.trim()
+    const exactMatch = list.some(
+      (opt) => String(opt[props.labelKey] || '').toLowerCase() === rawQuery.toLowerCase() ||
+               String(opt[props.valueKey] || '').toLowerCase() === rawQuery.toLowerCase()
+    )
+    if (!exactMatch) {
+      const customOpt = {
+        [props.valueKey]: rawQuery,
+        [props.labelKey]: `${props.customLabelPrefix} "${rawQuery}"`,
+        isCustomNew: true,
+        actualValue: rawQuery,
+      }
+      return [customOpt, ...list]
+    }
+  }
+
+  return list
 })
 
 const activeDescendant = computed(() =>
@@ -90,7 +121,8 @@ function toggleDropdown() {
 function selectOption(option) {
   if (!option) return
   isJustClosed = true
-  emit('update:modelValue', option[props.valueKey])
+  const val = option.isCustomNew ? option.actualValue : option[props.valueKey]
+  emit('update:modelValue', val)
   closeDropdown({ restoreFocus: false })
   setTimeout(() => {
     isJustClosed = false

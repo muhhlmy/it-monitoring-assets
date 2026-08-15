@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer'
 
 export const USER_NAME_MAX_LENGTH = 150
 export const USER_EMAIL_MAX_LENGTH = 150
-export const NEW_PASSWORD_MIN_LENGTH = 12
+export const NEW_PASSWORD_MIN_LENGTH = 8
 export const NEW_PASSWORD_MAX_BYTES = 72
 export const MAX_USER_QUEUE_IDS = 100
 

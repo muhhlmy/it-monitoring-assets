@@ -4,6 +4,7 @@
 // Fitur: tampil, tambah, edit, hapus user dari tabel users
 // ============================================================
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
 import { isSuperAdminRole as isRoleSuperAdmin } from '../utils/permissionAccess.js'
@@ -12,6 +13,7 @@ import AppBadge from '../components/ui/AppBadge.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
 
+const route = useRoute()
 const { get, post, put, del } = useApi()
 const { isSuperAdmin, hasWritePermission } = useAuth()
 const { user: currentUser } = useAuth()
@@ -86,7 +88,7 @@ const emptyForm = () => ({
   nama: '',
   email: '',
   password: '',
-  role: 'admin',
+  role: 'user',
   permissions: defaultPermissions(),
   queue_ids: [],
   is_active: true,
@@ -94,10 +96,10 @@ const emptyForm = () => ({
 const form = ref(emptyForm())
 
 // ── Options ──────────────────────────────────────────────────
-const roleOptions = ['admin', 'superadmin']
+const roleOptions = ['user', 'admin', 'superadmin']
 const availableRoleOptions = computed(() => {
-  if (isSuperAdmin.value) return ['admin', 'superadmin']
-  return ['admin']
+  if (isSuperAdmin.value) return ['user', 'admin', 'superadmin']
+  return ['user']
 })
 
 function canManageUser(target) {
@@ -165,6 +167,16 @@ const filteredUsers = computed(() => {
 watch([searchQuery, filterRole], () => {
   currentPage.value = 1
 })
+
+watch(
+  () => route.query.q,
+  (newQ) => {
+    if (typeof newQ === 'string') {
+      searchQuery.value = newQ
+    }
+  },
+  { immediate: true },
+)
 
 const paginatedUsers = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage.value
@@ -377,8 +389,9 @@ function toast(message, type = 'success') {
 // ── Helpers ──────────────────────────────────────────────────
 function getRoleBadgeType(role) {
   const r = (role || '').toLowerCase()
-  if (r === 'admin' || r === 'superadmin') return 'purple'
-  if (r === 'teknisi') return 'info'
+  if (r === 'superadmin') return 'purple'
+  if (r === 'admin') return 'primary'
+  if (r === 'user') return 'info'
   return 'default'
 }
 
@@ -669,7 +682,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
             <label for="user-password" class="text-[11px] font-bold text-[#374151] uppercase tracking-wide">{{ modalMode === 'add' ? 'Password *' : 'Password Baru' }}</label>
             <input id="user-password" v-model="form.password" :required="modalMode === 'add'" minlength="8" type="password" autocomplete="new-password"
               class="h-9 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 text-[13px] text-[#374151] focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-all"
-              :placeholder="modalMode === 'add' ? 'Password login' : 'Kosongkan jika tidak ingin mengubah'" />
+              :placeholder="modalMode === 'add' ? 'Minimal 8 karakter' : 'Kosongkan jika tidak ingin mengubah'" />
           </div>
 
           <!-- Role -->

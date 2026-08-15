@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '@/composables/useAuth'
 import { onTicketEvent } from '../composables/useTicketRealtime.js'
@@ -10,6 +11,7 @@ import AppRowActions from '../components/ui/AppRowActions.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
 import TicketCaspRating from '../components/tickets/TicketCaspRating.vue'
 
+const route = useRoute()
 const { get, post, put, del } = useApi()
 const { user, isSuperAdmin, isAdmin, hasWritePermission } = useAuth()
 
@@ -263,6 +265,17 @@ const itemsPerPage = ref(10)
 watch([searchQuery, filterStatus, filterPrioritas, activeTab], () => {
   currentPage.value = 1
 })
+
+watch(
+  () => [route.query.search, route.query.q],
+  ([newSearch, newQ]) => {
+    const term = newSearch || newQ
+    if (typeof term === 'string') {
+      searchQuery.value = term
+    }
+  },
+  { immediate: true },
+)
 
 const paginatedTickets = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage.value

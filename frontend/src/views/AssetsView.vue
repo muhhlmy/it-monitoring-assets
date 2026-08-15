@@ -72,7 +72,7 @@ const form = ref(emptyForm())
 const statusOptions = ['In Use', 'Stock', 'Damaged', 'In Service', 'Disposal']
 const kondisiOptions = ['Baru', 'Normal', 'Rusak Ringan', 'Rusak Sedang', 'Rusak Berat']
 const tipeOptions = ['Laptop', 'Desktop', 'Server', 'Printer', 'Network Device', 'Monitor', 'Smartphone', 'Tablet', 'Lainnya']
-const brandOptions = ['Lenovo', 'HP', 'Dell', 'Apple', 'Asus', 'Acer', 'Samsung', 'Cisco', 'APC', 'Lainnya']
+const brandOptions = ['Lenovo', 'HP', 'Dell', 'Apple', 'Asus', 'Acer', 'Samsung', 'Cisco', 'APC', 'Logitech', 'Epson', 'MikroTik', 'Ubiquiti', 'Lainnya']
 const defaultLocations = ['Solo', 'Pluit', 'Gading Serpong', 'Surabaya', 'Bandung', 'Medan', 'Semarang', 'Malang', 'Bali', 'Yogyakarta', 'Makassar', 'Balikpapan', 'Pontianak', 'Palembang', 'Batam', 'Bekasi']
 
 function mergeOptions(defaults, values) {
@@ -88,11 +88,17 @@ const availableKondisiOptions = computed(() =>
 const availableTipeOptions = computed(() =>
   mergeOptions(tipeOptions, [form.value.tipe_perangkat]),
 )
-const availableBrandOptions = computed(() =>
-  mergeOptions(brandOptions, [form.value.merek]),
+const brandSelectOptions = computed(() =>
+  mergeOptions(brandOptions, [
+    ...assets.value.map((a) => a.merek),
+    form.value.merek,
+  ]).map((b) => ({ value: b, label: b })),
 )
 const locationOptions = computed(() =>
-  mergeOptions(defaultLocations, [form.value.lokasi_aset]).map((loc) => ({ value: loc, label: loc })),
+  mergeOptions(defaultLocations, [
+    ...assets.value.map((a) => a.lokasi_aset),
+    form.value.lokasi_aset,
+  ]).map((loc) => ({ value: loc, label: loc })),
 )
 
 const filteredAssets = computed(() => {
@@ -570,8 +576,10 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               :options="locationOptions"
               value-key="value"
               label-key="label"
-              placeholder="Pilih lokasi penempatan aset"
-              search-placeholder="Cari lokasi..."
+              placeholder="Pilih atau ketik lokasi penempatan aset"
+              search-placeholder="Cari atau ketik lokasi baru..."
+              allow-custom
+              custom-label-prefix="+ Gunakan lokasi baru"
             />
           </label>
           <label class="flex flex-col gap-1.5 sm:col-span-2">
@@ -588,8 +596,21 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
             />
           </label>
           <label class="flex flex-col gap-1.5"><span class="text-[11px] font-bold uppercase text-[#374151]">Tipe Perangkat</span><select v-model="form.tipe_perangkat" class="form-control"><option value="">Pilih tipe</option><option v-for="type in availableTipeOptions" :key="type">{{ type }}</option></select></label>
-          <label class="flex flex-col gap-1.5"><span class="text-[11px] font-bold uppercase text-[#374151]">Merek</span><select v-model="form.merek" class="form-control"><option value="">Pilih merek</option><option v-for="brand in availableBrandOptions" :key="brand">{{ brand }}</option></select></label>
-          <label class="flex flex-col gap-1.5"><span class="text-[11px] font-bold uppercase text-[#374151]">Model</span><input v-model="form.model" maxlength="100" placeholder="Model perangkat" class="form-control" /></label>
+          <label class="flex flex-col gap-1.5 sm:col-span-2">
+            <span class="text-[11px] font-bold uppercase text-[#374151]">Merek Perangkat</span>
+            <SearchableSelect
+              v-model="form.merek"
+              :options="brandSelectOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="Pilih atau ketik merek perangkat"
+              search-placeholder="Cari atau ketik merek baru..."
+              allow-custom
+              custom-label-prefix="+ Gunakan merek baru"
+              clearable
+            />
+          </label>
+          <label class="flex flex-col gap-1.5 sm:col-span-2"><span class="text-[11px] font-bold uppercase text-[#374151]">Model</span><input v-model="form.model" maxlength="100" placeholder="Model perangkat" class="form-control" /></label>
           <label class="flex flex-col gap-1.5"><span class="text-[11px] font-bold uppercase text-[#374151]">Status Aset</span><select v-model="form.status_aset" class="form-control"><option v-for="status in availableStatusOptions" :key="status">{{ status }}</option></select></label>
           <label class="flex flex-col gap-1.5"><span class="text-[11px] font-bold uppercase text-[#374151]">Kondisi Aset</span><select v-model="form.kondisi_aset" class="form-control"><option v-for="condition in availableKondisiOptions" :key="condition">{{ condition }}</option></select></label>
           <label class="flex flex-col gap-1.5 sm:col-span-2"><span class="text-[11px] font-bold uppercase text-[#374151]">Catatan Aset</span><textarea v-model="form.catatan_aset" rows="2" placeholder="Catatan tambahan" class="form-control h-auto py-2"></textarea></label>
