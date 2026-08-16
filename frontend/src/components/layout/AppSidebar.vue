@@ -305,7 +305,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
     class="fixed inset-y-0 left-0 z-40 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-[#E5EAEF] bg-white text-[#2A3547] shadow-xl transition-all duration-300 ease-in-out lg:static lg:z-10 lg:shadow-none"
     :class="[
       isMobileOpen ? 'w-[250px] translate-x-0 visible opacity-100' : '-translate-x-full lg:translate-x-0',
-      isCollapsed ? 'lg:w-[72px]' : 'lg:w-[215px]'
+      isCollapsed ? 'lg:w-[72px]' : 'lg:w-[245px]'
     ]"
   >
     <!-- Brand Logo Top Header -->
@@ -369,12 +369,12 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
     </div>
 
     <!-- Sidebar Scrollable Menu -->
-    <div class="relative flex-1 overflow-y-auto py-2.5 space-y-3 px-2.5">
-      <div v-for="group in menuGroups" :key="group.title">
+    <div class="relative flex-1 overflow-y-auto py-3 space-y-4 px-2.5">
+      <div v-for="group in menuGroups" :key="group.title" class="space-y-1">
         <!-- Category Title -->
         <p
           v-if="!isCollapsed"
-          class="mb-1.5 px-2.5 text-[10px] font-extrabold uppercase tracking-wider text-[#7C8BAC] transition-all"
+          class="px-2 text-[10.5px] font-extrabold uppercase tracking-wider text-[#7C8BAC] transition-all"
         >
           {{ group.title }}
         </p>
@@ -388,7 +388,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
               :key="item.to"
               :to="item.to"
               :title="isCollapsed ? item.label : undefined"
-              class="group flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12px] transition-all duration-150 relative"
+              class="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] transition-all duration-150 relative"
               :class="[
                 route.path === item.to
                   ? 'bg-[#5D87FF] text-white shadow-xs font-semibold'
@@ -409,14 +409,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 
               <span
                 v-if="!isCollapsed"
-                class="min-w-0 flex-1 text-[12px] tracking-wide leading-none truncate"
+                class="min-w-0 flex-1 leading-none whitespace-nowrap"
               >
                 {{ item.label }}
               </span>
 
               <span
                 v-if="item.badge && !isCollapsed"
-                class="rounded-full px-1.5 py-0.2 text-[9px] font-bold"
+                class="rounded-full px-1.5 py-0.2 text-[9px] font-bold shrink-0"
                 :class="
                   route.path === item.to ? 'bg-white/20 text-white' : 'bg-[#ECF2FF] text-[#5D87FF]'
                 "
@@ -434,7 +434,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
               <button
                 type="button"
                 :title="isCollapsed ? parent.label : undefined"
-                class="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-all duration-150 cursor-pointer select-none"
+                class="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] font-semibold transition-all duration-150 cursor-pointer select-none"
                 :class="[
                   parent.items.some(child => route.path === child.to)
                     ? 'text-[#2A3547] bg-[#F8FAFC]'
@@ -456,7 +456,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
                     {{ parent.icon }}
                   </span>
 
-                  <span v-if="!isCollapsed" class="min-w-0 flex-1 text-[12px] tracking-wide leading-none truncate text-left">
+                  <span v-if="!isCollapsed" class="min-w-0 flex-1 leading-none whitespace-nowrap text-left">
                     {{ parent.label }}
                   </span>
                 </div>
@@ -464,28 +464,28 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
                 <span
                   v-if="!isCollapsed"
                   aria-hidden="true"
-                  class="material-symbols-outlined text-[16px] text-[#7C8BAC] transition-transform duration-200"
+                  class="material-symbols-outlined text-[16px] text-[#7C8BAC] transition-transform duration-200 shrink-0"
                   :class="{ 'rotate-180': isParentExpanded(parent.key) }"
                 >
                   keyboard_arrow_down
                 </span>
               </button>
 
-              <!-- Submenu Items -->
+              <!-- Submenu Items (Indented without vertical line) -->
               <div
                 v-show="isParentExpanded(parent.key) || isCollapsed"
-                class="pl-3 space-y-0.5 mt-0.5 border-l border-[#E5EAEF] ml-3.5 transition-all"
-                :class="isCollapsed ? 'pl-0 ml-0 border-l-0 space-y-1' : ''"
+                class="pl-5 space-y-0.5 mt-0.5 transition-all"
+                :class="isCollapsed ? 'pl-0 space-y-1' : ''"
               >
                 <RouterLink
                   v-for="sub in parent.items"
                   :key="sub.to"
                   :to="sub.to"
                   :title="isCollapsed ? sub.label : undefined"
-                  class="group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11.5px] transition-all duration-150 relative"
+                  class="group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] transition-all duration-150 relative"
                   :class="[
                     route.path === sub.to
-                      ? 'bg-[#ECF2FF] text-[#5D87FF] font-bold border-l-2 border-[#5D87FF] pl-2 rounded-r-lg shadow-2xs'
+                      ? 'bg-[#ECF2FF] text-[#5D87FF] font-bold shadow-2xs border-l-2 border-[#5D87FF] rounded-r-lg'
                       : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#5D87FF] font-medium',
                     isCollapsed ? 'justify-center px-0 py-1.5' : ''
                   ]"
@@ -503,14 +503,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 
                   <span
                     v-if="!isCollapsed"
-                    class="min-w-0 flex-1 leading-none truncate"
+                    class="min-w-0 flex-1 leading-none whitespace-nowrap"
                   >
                     {{ sub.label }}
                   </span>
 
                   <span
                     v-if="sub.badge && !isCollapsed"
-                    class="rounded-full px-1.5 py-0.2 text-[9px] font-bold"
+                    class="rounded-full px-1.5 py-0.2 text-[9px] font-bold shrink-0"
                     :class="
                       route.path === sub.to ? 'bg-[#5D87FF] text-white' : 'bg-[#ECF2FF] text-[#5D87FF]'
                     "
@@ -539,7 +539,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
             {{ user?.nama ? user.nama.charAt(0).toUpperCase() : 'U' }}
           </div>
           <div v-if="!isCollapsed" class="min-w-0">
-            <p class="truncate text-[11px] font-bold text-[#2A3547] leading-tight">
+            <p class="truncate text-[11.5px] font-bold text-[#2A3547] leading-tight">
               {{ user?.nama || 'Pengguna' }}
             </p>
             <p class="mt-0.5 truncate text-[9.5px] font-medium text-[#7C8BAC] capitalize">
