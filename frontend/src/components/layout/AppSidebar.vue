@@ -220,6 +220,20 @@ const menuGroups = computed(() => {
               permission: 'assets',
             },
             {
+              to: '/assets-ga',
+              label: 'Aset GA',
+              icon: 'domain',
+              permission: 'assets',
+              badge: 'Soon',
+            },
+            {
+              to: '/assets-ops',
+              label: 'Aset Ops',
+              icon: 'precision_manufacturing',
+              permission: 'assets',
+              badge: 'Soon',
+            },
+            {
               to: '/my-assets',
               label: 'Aset Karyawan',
               icon: 'badge',
@@ -270,7 +284,7 @@ const menuGroups = computed(() => {
             },
             {
               to: '/karyawan',
-              label: 'Master Karyawan',
+              label: 'Karyawan',
               icon: 'person_search',
               permission: 'karyawan',
             },

@@ -14,6 +14,7 @@ import AssetTypeBarChart from '../components/charts/AssetTypeBarChart.vue'
 import AssetConditionPieChart from '../components/charts/AssetConditionPieChart.vue'
 import AssetStatusDonutChart from '../components/charts/AssetStatusDonutChart.vue'
 import CsatDashboardSection from '../components/charts/CsatDashboardSection.vue'
+import { getAssetStatusLabel } from '../utils/assetStatus.js'
 
 const { get } = useApi()
 const { hasPermission, hasWritePermission } = useAuth()
@@ -161,22 +162,22 @@ function getStatusBadgeType(status) {
 function getSortedByStatus() {
   if (!Array.isArray(stats.value?.byStatus)) return []
   
-  // Define consistent order
-  const statusOrder = ['digunakan', 'in use', 'tersedia', 'stock', 'maintenance', 'in service', 'rusak', 'damaged', 'disposal']
+  const statusOrder = ['digunakan', 'in use', 'stok', 'stock', 'dalam perawatan', 'maintenance', 'in service', 'rusak', 'damaged', 'disposal']
   
   const combined = {}
   stats.value.byStatus.forEach(item => {
-    const status = (item?.status || '').toLowerCase()
-    if (!combined[status]) {
-      combined[status] = { status, count: 0 }
+    const rawStatus = (item?.status || '').trim()
+    const label = getAssetStatusLabel(rawStatus)
+    const key = label.toLowerCase()
+    if (!combined[key]) {
+      combined[key] = { status: label, rawStatus, count: 0 }
     }
-    combined[status].count += Number(item?.count || 0)
+    combined[key].count += Number(item?.count || 0)
   })
   
-  // Sort by defined order, then alphabetically
   const sorted = Object.values(combined).sort((a, b) => {
-    const aIdx = statusOrder.indexOf(a.status.toLowerCase())
-    const bIdx = statusOrder.indexOf(b.status.toLowerCase())
+    const aIdx = statusOrder.indexOf(a.rawStatus.toLowerCase())
+    const bIdx = statusOrder.indexOf(b.rawStatus.toLowerCase())
     if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx
     if (aIdx !== -1) return -1
     if (bIdx !== -1) return 1

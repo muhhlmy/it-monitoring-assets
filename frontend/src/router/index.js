@@ -45,7 +45,19 @@ const routes = [
     path: '/assets',
     name: 'assets',
     component: () => import('../views/AssetsView.vue'),
-    meta: { title: 'Manajemen Aset', permission: 'assets' },
+    meta: { title: 'Manajemen Aset IT', permission: 'assets' },
+  },
+  {
+    path: '/assets-ga',
+    name: 'assets-ga',
+    component: () => import('../views/ComingSoonView.vue'),
+    meta: { title: 'Aset GA (Coming Soon)', permission: 'assets' },
+  },
+  {
+    path: '/assets-ops',
+    name: 'assets-ops',
+    component: () => import('../views/ComingSoonView.vue'),
+    meta: { title: 'Aset Ops (Coming Soon)', permission: 'assets' },
   },
   {
     path: '/my-assets',
