@@ -98,7 +98,7 @@ async function lockActiveSuperadmins(queryable) {
 
 export async function listUsers(req, res) {
   const result = await pool.query(
-    `SELECT u.id, u.nama, u.email, u.role, u.permissions, u.is_active, u.dibuat_pada, u.diperbarui_pada,
+    `SELECT u.id, u.nama, u.email, u.role, u.permissions, u.is_active, u.created_at AS dibuat_pada, u.updated_at AS diperbarui_pada,
             COALESCE(
               JSON_AGG(
                 JSON_BUILD_OBJECT('id', q.id, 'kode', q.kode, 'nama', q.nama)
@@ -128,25 +128,34 @@ export async function storeUser(req, res) {
   assertAllowedFields(req.body, USER_CREATE_FIELDS, "Payload pengguna");
 
   const { role, permissions } = req.body;
+  const currentUserRole = normalizeUserManagementRole(req.user?.role);
   const nama = parseRequiredName(req.body.nama);
   const email = parseRequiredEmail(req.body.email);
-  const password = parseNewPassword(req.body.password);
-  const queueIds = parseQueueIds(req.body.queue_ids);
+  const password = parseNewPassword(req.body.password, { required: true });
   const requestedActive = parseOptionalBoolean(req.body.is_active, "is_active");
-  const currentUserRole = normalizeUserManagementRole(req.user?.role);
-  const newRole = parseRequestedRole(role, USER_MANAGEMENT_ROLES.USER);
+  const queueIds = parseQueueIds(req.body.queue_ids);
 
   assertValidPermissions(permissions);
   assertAdminHasNoQueueGrant(currentUserRole, queueIds);
 
+  const newRole = parseRequestedRole(
+    role,
+    currentUserRole === USER_MANAGEMENT_ROLES.SUPERADMIN
+      ? USER_MANAGEMENT_ROLES.USER
+      : undefined,
+  );
+
   const userPermissions =
     newRole === USER_MANAGEMENT_ROLES.SUPERADMIN
       ? { ...SUPERADMIN_PERMISSIONS }
-      : normalizePermissions(permissions, {
-          defaults: permissions === undefined ? DEFAULT_USER_PERMISSIONS : {},
-        });
+      : normalizePermissions(permissions, { defaults: DEFAULT_USER_PERMISSIONS });
 
-  if (!canCreateManagedUser(currentUserRole, newRole, userPermissions)) {
+  if (
+    currentUserRole === USER_MANAGEMENT_ROLES.ADMIN &&
+    (newRole === USER_MANAGEMENT_ROLES.ADMIN ||
+      newRole === USER_MANAGEMENT_ROLES.SUPERADMIN ||
+      hasSensitiveUserPermission(permissions))
+  ) {
     throw createHttpError(
       403,
       "Admin hanya dapat membuat akun user tanpa permission sensitif.",
@@ -158,9 +167,9 @@ export async function storeUser(req, res) {
 
   const newUser = await withTransaction(async (client) => {
     const result = await client.query(
-      `INSERT INTO users (nama, email, password, role, permissions, is_active)
+      `INSERT INTO users (nama, email, password_hash, role, permissions, is_active)
        VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, nama, email, role, permissions, is_active, dibuat_pada, diperbarui_pada`,
+       RETURNING id, nama, email, role, permissions, is_active, created_at AS dibuat_pada, updated_at AS diperbarui_pada`,
       [
         nama,
         email,
@@ -226,7 +235,7 @@ export async function replaceUser(req, res) {
   const updatedUser = await withTransaction(async (client) => {
     const activeSuperadminIds = await lockActiveSuperadmins(client);
     const oldUserResult = await client.query(
-      `SELECT id, nama, email, password, role, permissions, is_active
+      `SELECT id, nama, email, password_hash, role, permissions, is_active
          FROM users
         WHERE id = $1
           AND deleted_at IS NULL
@@ -290,10 +299,10 @@ export async function replaceUser(req, res) {
     if (passwordHash !== undefined) {
       result = await client.query(
         `UPDATE users
-            SET nama = $1, email = $2, password = $3, role = $4, permissions = $5, is_active = $6, diperbarui_pada = CURRENT_TIMESTAMP
+            SET nama = $1, email = $2, password_hash = $3, role = $4, permissions = $5, is_active = $6, updated_at = CURRENT_TIMESTAMP
           WHERE id = $7
             AND deleted_at IS NULL${roleGuard}
-          RETURNING id, nama, email, role, permissions, is_active, dibuat_pada, diperbarui_pada`,
+          RETURNING id, nama, email, role, permissions, is_active, created_at AS dibuat_pada, updated_at AS diperbarui_pada`,
         [
           nama,
           email,
@@ -307,10 +316,10 @@ export async function replaceUser(req, res) {
     } else {
       result = await client.query(
         `UPDATE users
-            SET nama = $1, email = $2, role = $3, permissions = $4, is_active = $5, diperbarui_pada = CURRENT_TIMESTAMP
+            SET nama = $1, email = $2, role = $3, permissions = $4, is_active = $5, updated_at = CURRENT_TIMESTAMP
           WHERE id = $6
             AND deleted_at IS NULL${roleGuard}
-          RETURNING id, nama, email, role, permissions, is_active, dibuat_pada, diperbarui_pada`,
+          RETURNING id, nama, email, role, permissions, is_active, created_at AS dibuat_pada, updated_at AS diperbarui_pada`,
         [
           nama,
           email,
@@ -390,9 +399,9 @@ export async function destroyUser(req, res) {
       `UPDATE users
           SET is_active = false,
               deleted_at = CURRENT_TIMESTAMP,
-              deleted_by_user_id = $2,
+              deleted_by_id = $2,
               deletion_reason = $3,
-              diperbarui_pada = CURRENT_TIMESTAMP
+              updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
           AND deleted_at IS NULL
           AND LOWER(TRIM(role)) NOT IN ('superadmin', 'super admin')

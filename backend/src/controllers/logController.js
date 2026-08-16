@@ -111,10 +111,22 @@ export async function listAssetLogsByDevice(req, res) {
 }
 
 export async function listLoginLogs(req, res) {
-  const result = await pool.query(
-    `SELECT id, nama_pengguna, email, aktifitas, ip_address, browser, dibuat_pada
-       FROM log_audit_login
-      ORDER BY id DESC`
-  )
-  res.json(result.rows)
+  try {
+    const result = await pool.query(
+      `SELECT l.id,
+              COALESCE(u.nama, l.email, 'Pengguna') AS nama_pengguna,
+              l.email,
+              'LOGIN' AS aktifitas,
+              COALESCE(l.ip_address, '—') AS ip_address,
+              COALESCE(l.user_agent, '—') AS browser,
+              COALESCE(l.login_time, l.created_at) AS dibuat_pada
+         FROM log_audit_login l
+         LEFT JOIN users u ON u.id = l.user_id
+        ORDER BY l.id DESC`
+    )
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Error fetching login logs:', error)
+    res.status(500).json({ error: 'Gagal mengambil log audit login.' })
+  }
 }

@@ -203,6 +203,32 @@ const unreadCount = computed(() =>
   notificationsList.value.filter(n => !n.isRead).length
 )
 
+const notifCounts = computed(() => {
+  const all = notificationsList.value || []
+  return {
+    ALL: all.length,
+    CREATED: all.filter((n) => n.type === 'CREATED').length,
+    UPDATED: all.filter((n) => n.type === 'UPDATED').length,
+    COMMENT: all.filter((n) => n.type === 'COMMENT').length,
+  }
+})
+
+const notifTabs = computed(() => [
+  { key: 'ALL', label: 'Semua', count: notifCounts.value.ALL },
+  { key: 'CREATED', label: 'Baru', count: notifCounts.value.CREATED },
+  { key: 'UPDATED', label: 'Update', count: notifCounts.value.UPDATED },
+  { key: 'COMMENT', label: 'Komentar', count: notifCounts.value.COMMENT },
+])
+
+function formatStatusDot(status) {
+  const s = (status || '').toLowerCase()
+  if (s === 'open' || s === 'baru') return 'bg-sky-500'
+  if (s === 'sedang ditangani' || s === 'in progress' || s === 'in_progress') return 'bg-blue-500'
+  if (s === 'pending' || s.includes('menunggu')) return 'bg-amber-500'
+  if (s === 'selesai' || s === 'resolved' || s === 'closed') return 'bg-emerald-500'
+  return 'bg-slate-400'
+}
+
 async function fetchTickets() {
   if (isFetchingNotif.value) return
   isFetchingNotif.value = true
@@ -819,126 +845,142 @@ onBeforeUnmount(() => {
         <button
           id="notif-bell-btn"
           type="button"
-          :title="unreadCount > 0 ? `Tiket baru (${unreadCount})` : 'Notifikasi Tiket'"
+          :title="unreadCount > 0 ? `Notifikasi (${unreadCount})` : 'Notifikasi'"
           @click="toggleNotif"
-          class="relative flex h-10 w-10 items-center justify-center rounded-full transition-all cursor-pointer"
-          :class="isNotifOpen ? 'bg-[#ECF2FF] text-[#5D87FF]' : 'text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF]'"
+          class="relative flex h-9 w-9 items-center justify-center rounded-xl text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-all cursor-pointer select-none"
+          :class="isNotifOpen ? 'bg-[#EFF6FF] text-[#2563EB]' : ''"
         >
-          <span aria-hidden="true" class="material-symbols-outlined text-[21px]">notifications</span>
+          <span aria-hidden="true" class="material-symbols-outlined text-[20px]">notifications</span>
           <Transition name="badge-pop">
             <span
               v-if="unreadCount > 0"
-              class="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#FA896B] px-1 text-[9px] font-black text-white shadow-xs"
+              class="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#2563EB] px-1 text-[9.5px] font-bold text-white shadow-2xs"
             >{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
           </Transition>
-          <span v-if="unreadCount > 0 && !isNotifOpen" class="pointer-events-none absolute top-1.5 right-1.5 flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FA896B] opacity-60"></span>
-          </span>
         </button>
 
-        <!-- Notification Dropdown Panel -->
+        <!-- Notification Popover Panel -->
         <Transition name="dropdown">
           <div
             v-if="isNotifOpen"
-            class="absolute right-0 mt-2 w-84 sm:w-90 rounded-2xl border border-[#E5EAEF] bg-white shadow-2xl z-50 overflow-hidden"
+            class="absolute right-0 mt-2 w-88 sm:w-96 rounded-2xl border border-[#E2E8F0] bg-white shadow-xl z-50 overflow-hidden outline-none"
             @click.stop
           >
-            <div class="flex items-center justify-between px-4 py-3 border-b border-[#F1F5F9]">
+            <!-- 1. Header -->
+            <div class="flex items-center justify-between px-4 py-3 border-b border-[#F1F5F9] bg-white">
               <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-[18px] text-[#5D87FF]">notifications</span>
-                <span class="text-[13px] font-extrabold text-[#2A3547]">Notifikasi Tiket</span>
+                <span class="material-symbols-outlined text-[18px] text-[#2563EB]">notifications</span>
+                <h3 class="text-xs font-bold text-[#0F172A]">Notifikasi</h3>
                 <span
                   v-if="unreadCount > 0"
-                  class="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#FA896B] px-1.5 text-[9px] font-black text-white"
+                  class="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#EFF6FF] px-1.5 text-[10px] font-bold text-[#2563EB] border border-[#BFDBFE]"
                 >{{ unreadCount }}</span>
               </div>
               <button
                 type="button"
                 @click="isNotifOpen = false"
-                class="flex h-6 w-6 items-center justify-center rounded-full hover:bg-[#F1F5F9] text-[#7C8BAC] transition-all cursor-pointer"
+                class="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-[#F8FAFC] text-[#64748B] transition-colors cursor-pointer"
+                aria-label="Tutup notifikasi"
               >
                 <span class="material-symbols-outlined text-[16px]">close</span>
               </button>
             </div>
 
-            <div class="max-h-[360px] overflow-y-auto divide-y divide-[#F8FAFC]">
-              <!-- Filter Bar -->
-              <div class="flex items-center gap-1.5 px-4 py-2 border-b border-[#F1F5F9] bg-[#FAFBFC]">
-                <button
-                  v-for="opt in [
-                    { key: 'ALL', label: 'Semua', icon: 'mail' },
-                    { key: 'CREATED', label: 'Baru', icon: 'add_circle' },
-                    { key: 'UPDATED', label: 'Update', icon: 'update' },
-                    { key: 'COMMENT', label: 'Komentar', icon: 'chat' },
-                  ]"
-                  :key="opt.key"
-                  type="button"
-                  @click="notifFilter = opt.key"
-                  class="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-bold transition-all cursor-pointer"
-                  :class="notifFilter === opt.key
-                    ? 'bg-[#5D87FF] text-white shadow-xs'
-                    : 'text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF]'"
-                >
-                  <span class="material-symbols-outlined text-[13px]">{{ opt.icon }}</span>
-                  {{ opt.label }}
-                </button>
-              </div>
+            <!-- 2. Segmented Tab Navigation -->
+            <div class="flex items-center gap-1 px-3 py-2 border-b border-[#F1F5F9] bg-[#F8FAFC]/60 overflow-x-auto custom-scrollbar">
+              <button
+                v-for="tab in notifTabs"
+                :key="tab.key"
+                type="button"
+                @click="notifFilter = tab.key"
+                class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition-all cursor-pointer select-none whitespace-nowrap"
+                :class="notifFilter === tab.key
+                  ? 'bg-[#EFF6FF] text-[#2563EB] font-semibold border border-[#BFDBFE]/60'
+                  : 'text-[#64748B] hover:text-[#0F172A] hover:bg-white font-medium'"
+              >
+                <span>{{ tab.label }}</span>
+                <span
+                  v-if="tab.count > 0"
+                  class="text-[10px] px-1 rounded-md"
+                  :class="notifFilter === tab.key ? 'text-[#2563EB] font-bold' : 'text-[#94A3B8]'"
+                >{{ tab.count }}</span>
+              </button>
+            </div>
 
-              <div v-if="isFetchingNotif && latestNotifications.length === 0" class="flex items-center justify-center gap-2 py-8 text-[12px] text-[#9CA3AF]">
-                <div class="w-4 h-4 border-2 border-[#E5E7EB] border-t-[#5D87FF] rounded-full animate-spin"></div>
+            <!-- 3. Notification List (Sole Scrollable Body) -->
+            <div class="max-h-[380px] overflow-y-auto custom-scrollbar divide-y divide-[#F1F5F9]">
+              <div v-if="isFetchingNotif && latestNotifications.length === 0" class="flex items-center justify-center gap-2 py-10 text-xs text-[#64748B]">
+                <div class="w-4 h-4 border-2 border-[#E2E8F0] border-t-[#2563EB] rounded-full animate-spin"></div>
                 Memuat notifikasi...
               </div>
 
-              <div v-else-if="latestNotifications.length === 0" class="flex flex-col items-center gap-2 py-10 text-center">
-                <span class="material-symbols-outlined text-[40px] text-[#D1D5DB]">inbox</span>
-                <p class="text-[12px] text-[#9CA3AF]">Belum ada notifikasi</p>
+              <!-- Polished Empty State -->
+              <div v-else-if="latestNotifications.length === 0" class="flex flex-col items-center justify-center gap-1.5 py-10 px-4 text-center">
+                <span class="material-symbols-outlined text-[32px] text-[#CBD5E1]">notifications_off</span>
+                <p class="text-xs font-semibold text-[#0F172A]">Tidak ada notifikasi</p>
+                <p class="text-[11px] text-[#64748B]">Belum ada aktivitas baru di kategori ini.</p>
               </div>
 
+              <!-- Compact Activity Item -->
               <button
                 v-for="notif in latestNotifications"
                 :key="notif.id"
                 type="button"
                 @click="goToNotif(notif)"
-                class="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-[#F8FAFC] transition-all group cursor-pointer"
-                :class="!notif.isRead ? 'bg-[#F0F5FF]' : ''"
+                class="w-full flex items-start gap-2.5 px-3.5 py-3 text-left transition-all group cursor-pointer hover:bg-[#F8FAFC]"
+                :class="!notif.isRead ? 'bg-[#F8FAFC]/80' : 'bg-white'"
               >
-                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" :class="priorityDot(notif.prioritas)"></span>
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-1.5 mb-0.5">
-                    <span v-if="!notif.isRead" class="h-1.5 w-1.5 rounded-full bg-[#5D87FF] shrink-0"></span>
-                    <p class="text-[12px] font-bold text-[#2A3547] truncate leading-tight group-hover:text-[#5D87FF] transition-colors">
-                      {{ notif.title }}
-                    </p>
-                  </div>
+                <!-- Unread indicator dot -->
+                <div class="mt-1.5 flex h-2 w-2 shrink-0 items-center justify-center">
+                  <span v-if="!notif.isRead" class="h-1.5 w-1.5 rounded-full bg-[#2563EB]"></span>
+                </div>
 
-                  <p class="text-[11px] font-semibold text-[#5D87FF] mt-0.5 truncate flex items-center gap-1 bg-[#ECF2FF] px-2 py-0.5 rounded-md w-fit max-w-full">
-                    <span class="material-symbols-outlined text-[12px] text-[#5D87FF] shrink-0">
-                      {{ notif.type === 'CREATED' ? 'add_circle' : notif.type === 'COMMENT' ? 'chat' : 'update' }}
-                    </span>
-                    <span class="truncate">{{ notif.message }}</span>
+                <!-- Content Block -->
+                <div class="min-w-0 flex-1">
+                  <!-- Primary Title / Event -->
+                  <p
+                    class="text-xs truncate leading-snug transition-colors group-hover:text-[#2563EB]"
+                    :class="!notif.isRead ? 'font-bold text-[#0F172A]' : 'font-semibold text-[#334155]'"
+                  >
+                    {{ notif.title }}
                   </p>
 
-                  <div class="flex items-center gap-1.5 flex-wrap mt-1">
-                    <span class="text-[10px] text-[#9CA3AF]">{{ notif.nomor_tiket }}</span>
-                    <span v-if="notif.status_tiket" class="text-[10px] text-[#CBD5E1]">·</span>
-                    <span v-if="notif.status_tiket" class="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" :class="statusColor(notif.status_tiket)">{{ notif.status_tiket }}</span>
-                    <span class="text-[10px] text-[#CBD5E1]">·</span>
-                    <span class="text-[10px] text-[#9CA3AF]">{{ relativeTime(notif.timestamp) }}</span>
+                  <!-- Secondary Detail / Description -->
+                  <p class="text-[11.5px] font-normal text-[#64748B] mt-0.5 line-clamp-2 leading-relaxed">
+                    {{ notif.message }}
+                  </p>
+
+                  <!-- Metadata -->
+                  <div class="flex items-center gap-1.5 text-[10.5px] font-normal text-[#94A3B8] mt-1 flex-wrap">
+                    <span>{{ notif.nomor_tiket }}</span>
+                    <template v-if="notif.status_tiket">
+                      <span>•</span>
+                      <span class="inline-flex items-center gap-1">
+                        <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="formatStatusDot(notif.status_tiket)"></span>
+                        <span class="capitalize text-[#475569] font-medium">{{ notif.status_tiket }}</span>
+                      </span>
+                    </template>
+                    <span>•</span>
+                    <span>{{ relativeTime(notif.timestamp) }}</span>
                   </div>
-                  <p v-if="notif.pelapor" class="text-[10px] text-[#B0BAC9] mt-0.5 truncate">Dari: {{ notif.pelapor }}</p>
                 </div>
-                <span class="material-symbols-outlined text-[15px] text-[#CBD5E1] group-hover:text-[#5D87FF] shrink-0 mt-1 transition-colors">chevron_right</span>
+
+                <!-- Action Chevron -->
+                <span class="material-symbols-outlined text-[16px] text-[#CBD5E1] group-hover:text-[#2563EB] shrink-0 mt-0.5 transition-colors">
+                  chevron_right
+                </span>
               </button>
             </div>
 
-            <div class="px-4 py-2.5 border-t border-[#F1F5F9] bg-[#F8FAFC]">
+            <!-- 4. Subtle Footer -->
+            <div class="px-4 py-2.5 border-t border-[#F1F5F9] bg-[#F8FAFC]/50 text-center">
               <button
                 type="button"
                 @click="goToAllTickets"
-                class="flex w-full items-center justify-center gap-1.5 rounded-xl py-1.5 text-[11px] font-bold text-[#5D87FF] hover:bg-[#ECF2FF] transition-all cursor-pointer"
+                class="inline-flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] hover:underline cursor-pointer transition-colors"
               >
-                <span class="material-symbols-outlined text-[15px]">open_in_new</span>
-                Lihat Semua Tiket
+                <span>Lihat semua aktivitas</span>
+                <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
               </button>
             </div>
           </div>

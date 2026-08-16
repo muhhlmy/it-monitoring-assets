@@ -17,35 +17,35 @@ const dropdownStyle = ref({})
 function updateDropdownPosition() {
   if (!buttonRef.value) return
   const rect = buttonRef.value.getBoundingClientRect()
-  const dropdownWidth = 160
-
-  // Align right edge of dropdown with right edge of button
-  let left = rect.right - dropdownWidth
-  if (left < 10) left = 10
-
-  const visibleActions = props.actions.filter(a => !a.hidden)
-  const estimatedHeight = (visibleActions.length * 36) + 16
+  const visibleActions = props.actions.filter((a) => !a.hidden)
+  const estimatedHeight = (visibleActions.length * 38) + 16
   const spaceBelow = window.innerHeight - rect.bottom
 
-  if (spaceBelow < estimatedHeight && rect.top > estimatedHeight) {
-    // Open upwards
-    dropdownStyle.value = {
-      position: 'fixed',
-      top: `${Math.max(10, rect.top - estimatedHeight - 4)}px`,
-      left: `${left}px`,
-      width: `${dropdownWidth}px`,
-      zIndex: 9999,
-    }
-  } else {
-    // Open downwards
-    dropdownStyle.value = {
-      position: 'fixed',
-      top: `${rect.bottom + 4}px`,
-      left: `${left}px`,
-      width: `${dropdownWidth}px`,
-      zIndex: 9999,
-    }
+  const rightDistance = window.innerWidth - rect.right
+
+  const styleObj = {
+    position: 'fixed',
+    minWidth: '175px',
+    maxWidth: '280px',
+    width: 'max-content',
+    zIndex: 9999,
   }
+
+  // Vertical placement (top vs bottom)
+  if (spaceBelow < estimatedHeight && rect.top > estimatedHeight) {
+    styleObj.top = `${Math.max(8, rect.top - estimatedHeight - 4)}px`
+  } else {
+    styleObj.top = `${rect.bottom + 4}px`
+  }
+
+  // Horizontal placement (align right edge of dropdown with right edge of action button)
+  if (rightDistance >= 0) {
+    styleObj.right = `${Math.max(8, rightDistance)}px`
+  } else {
+    styleObj.left = `${Math.max(8, rect.left)}px`
+  }
+
+  dropdownStyle.value = styleObj
 }
 
 let isJustClosed = false
@@ -58,7 +58,7 @@ async function toggleDropdown() {
     await nextTick()
     updateDropdownPosition()
   } else {
-    isOpen.value = false
+    closeDropdown()
   }
 }
 
@@ -134,7 +134,7 @@ onBeforeUnmount(() => {
           v-if="isOpen"
           ref="dropdownRef"
           :style="dropdownStyle"
-          class="rounded-xl border border-[#E5EAEF] bg-white p-1.5 shadow-2xl outline-none"
+          class="rounded-xl border border-[#E5EAEF] bg-white p-1.5 shadow-2xl outline-none select-none"
         >
           <template v-for="(act, idx) in actions" :key="idx">
             <button
@@ -142,7 +142,7 @@ onBeforeUnmount(() => {
               type="button"
               :disabled="act.disabled"
               @click.stop="handleAction(act)"
-              class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] font-bold transition-all cursor-pointer select-none text-left"
+              class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] font-bold transition-all cursor-pointer text-left whitespace-nowrap"
               :class="[
                 act.disabled ? 'opacity-40 cursor-not-allowed text-gray-400' :
                 act.danger ? 'text-rose-600 hover:bg-rose-50' : 'text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF]'
@@ -151,7 +151,7 @@ onBeforeUnmount(() => {
               <span v-if="act.icon" class="material-symbols-outlined text-[16px] shrink-0">
                 {{ act.icon }}
               </span>
-              <span class="truncate">{{ act.label }}</span>
+              <span class="whitespace-nowrap shrink-0">{{ act.label }}</span>
             </button>
           </template>
         </div>

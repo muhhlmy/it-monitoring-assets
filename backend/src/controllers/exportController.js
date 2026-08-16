@@ -185,16 +185,15 @@ const TABLE_SCHEMAS = {
     label: 'Log Audit Login & Sesi',
     description: 'Riwayat aktivitas login, logout, IP address, dan browser pengguna',
     icon: 'receipt_long',
-    dateField: 'dibuat_pada',
+    dateField: 'login_time',
     orderField: 'id',
     columns: [
       { name: 'id', label: 'ID Log', type: 'number', defaultSelected: true },
-      { name: 'nama_pengguna', label: 'Nama Pengguna', type: 'string', defaultSelected: true },
+      { name: 'user_id', label: 'ID User', type: 'number', defaultSelected: true },
       { name: 'email', label: 'Email', type: 'string', defaultSelected: true },
-      { name: 'aktifitas', label: 'Aktivitas Sesi', type: 'string', defaultSelected: true },
       { name: 'ip_address', label: 'IP Address', type: 'string', defaultSelected: true },
-      { name: 'browser', label: 'User Agent / Browser', type: 'string', defaultSelected: true },
-      { name: 'dibuat_pada', label: 'Waktu Kejadian', type: 'date', defaultSelected: true }
+      { name: 'user_agent', label: 'User Agent / Browser', type: 'string', defaultSelected: true },
+      { name: 'login_time', label: 'Waktu Login', type: 'date', defaultSelected: true }
     ]
   },
   riwayat_pemakaian_aset: {
