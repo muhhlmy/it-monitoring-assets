@@ -12,8 +12,12 @@ const requireAdmin = authorizeRoles('admin', 'super admin')
 const requireAssetsRead = authorizePermission('assets', 'read')
 const requireAssetsWrite = authorizePermission('assets', 'write')
 
-// /my bisa diakses semua role yang sudah login
+// /my dan /my-assets bisa diakses semua role yang sudah login
 assetRouter.get('/my', 
+  authorizePermission('my_assets', 'read'),
+  assetController.listMyAssets
+)
+assetRouter.get('/my-assets', 
   authorizePermission('my_assets', 'read'),
   assetController.listMyAssets
 )

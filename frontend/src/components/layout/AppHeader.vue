@@ -991,51 +991,68 @@ onBeforeUnmount(() => {
 
       <div class="h-6 w-px bg-[#E5EAEF] mx-1"></div>
 
-      <!-- User Profile -->
+      <!-- User Profile (Top-Right Primary User Identity) -->
       <div class="relative">
         <button
           type="button"
           @click="isProfileOpen = !isProfileOpen; isNotifOpen = false; isSearchOpen = false"
-          class="flex items-center gap-2.5 rounded-full p-1 transition-all focus:outline-none ring-2 ring-transparent hover:ring-[#5D87FF]/30 cursor-pointer"
+          class="flex items-center gap-2 rounded-xl p-1.5 transition-all hover:bg-[#F8FAFC] cursor-pointer select-none"
+          :class="isProfileOpen ? 'bg-[#F8FAFC]' : ''"
         >
-          <div class="flex h-9 w-9 items-center justify-center rounded-full bg-[#5D87FF] text-[13px] font-extrabold text-white shadow-xs">
-            {{ (user && user.nama ? user.nama.charAt(0) : 'P').toUpperCase() }}
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#2563EB] text-xs font-bold text-white shadow-2xs">
+            {{ (user && user.nama ? user.nama.charAt(0) : 'U').toUpperCase() }}
           </div>
-          <div class="hidden text-left lg:block">
-            <p class="text-[12px] font-bold leading-tight text-[#2A3547]">{{ user ? user.nama : 'Pengguna' }}</p>
-            <p class="text-[10px] font-medium leading-tight text-[#7C8BAC] capitalize">
-              {{ user?.jabatan || user?.role || 'Guest' }}
-              <span v-if="user?.nik" class="font-mono text-[#94A3B8]">({{ user.nik }})</span>
+          <div class="hidden text-left sm:block">
+            <p class="text-xs font-bold text-[#0F172A] leading-tight truncate max-w-[140px]">{{ user ? user.nama : 'Pengguna' }}</p>
+            <p class="text-[10.5px] font-normal text-[#64748B] leading-tight truncate max-w-[140px] capitalize">
+              {{ user?.role || 'Guest' }} {{ user?.nik ? '· ' + user.nik : '' }}
             </p>
           </div>
+          <span class="material-symbols-outlined text-[16px] text-[#94A3B8] hidden sm:block">expand_more</span>
         </button>
 
+        <!-- Profile Popover Menu -->
         <Transition name="dropdown">
           <div
             v-if="isProfileOpen"
-            class="absolute right-0 mt-2 w-60 rounded-2xl border border-[#E5EAEF] bg-white p-2 shadow-xl z-50"
-            @click="isProfileOpen = false"
+            class="absolute right-0 mt-2 w-56 rounded-2xl border border-[#E2E8F0] bg-white p-1.5 shadow-xl z-50 outline-none"
+            @click.stop
           >
+            <!-- Account Header -->
             <div class="px-3 py-2 border-b border-[#F1F5F9] mb-1">
-              <p class="text-[12px] font-bold text-[#2A3547]">{{ user ? user.nama : 'Pengguna' }}</p>
-              <p class="text-[10px] font-semibold text-[#5D87FF] capitalize mt-0.5">
-                {{ user?.jabatan || user?.role || 'Guest' }}
+              <p class="text-xs font-bold text-[#0F172A] truncate">{{ user ? user.nama : 'Pengguna' }}</p>
+              <p class="text-[11px] font-normal text-[#64748B] truncate capitalize mt-0.5">
+                {{ user?.role || 'Guest' }} {{ user?.nik ? '· ' + user.nik : '' }}
               </p>
-              <p v-if="user?.nik" class="text-[10px] font-mono text-[#7C8BAC]">
-                NIK: {{ user.nik }}
-              </p>
-              <p v-if="user?.email" class="text-[10px] text-[#94A3B8]">{{ user.email }}</p>
+              <p v-if="user?.email" class="text-[10.5px] text-[#94A3B8] truncate mt-0.5">{{ user.email }}</p>
             </div>
-            <button
-              type="button"
-              @click="logout"
-              class="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-[#FA896B] hover:bg-[#FDEDE8] transition-all text-left cursor-pointer"
-            >
-              <span class="material-symbols-outlined text-[18px]">logout</span>
-              Keluar Sistem
-            </button>
+
+            <!-- Account Actions -->
+            <div class="space-y-0.5">
+              <button
+                type="button"
+                @click="isProfileOpen = false; router.push('/my-assets')"
+                class="w-full flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-[#334155] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-colors text-left cursor-pointer"
+              >
+                <span class="material-symbols-outlined text-[16px] text-[#64748B]">badge</span>
+                <span>Aset Saya</span>
+              </button>
+
+              <div class="my-1 border-t border-[#F1F5F9]"></div>
+
+              <button
+                type="button"
+                @click="isProfileOpen = false; logout()"
+                class="w-full flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+              >
+                <span class="material-symbols-outlined text-[16px]">logout</span>
+                <span>Keluar</span>
+              </button>
+            </div>
           </div>
         </Transition>
+
+        <div v-if="isProfileOpen" class="fixed inset-0 z-40" @click="isProfileOpen = false"></div>
       </div>
 
     </div>

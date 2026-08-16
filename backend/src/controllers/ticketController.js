@@ -37,15 +37,17 @@ const MAX_RASTER_ATTACHMENT_BYTES = 5 * 1024 * 1024
 const MAX_TICKET_TITLE_LENGTH = 255
 const MAX_TICKET_DESCRIPTION_LENGTH = 20_000
 const MAX_TICKET_ATTACHMENT_LENGTH = 7_000_000
-const TICKET_CREATE_FIELDS = new Set(['judul', 'deskripsi', 'prioritas', 'queue_id', 'attachment'])
+const TICKET_CREATE_FIELDS = new Set(['judul', 'deskripsi', 'kategori', 'prioritas', 'queue_id', 'attachment'])
 const TICKET_UPDATE_FIELDS = new Set([
   'judul',
   'deskripsi',
+  'kategori',
   'prioritas',
   'status_tiket',
   'queue_id',
   'attachment',
 ])
+const TICKET_CATEGORIES = new Set(['Request', 'Support', 'request', 'support'])
 const TICKET_PRIORITIES = new Set(['Urgent (4h)', 'High (1day)', 'Medium (3d)', 'Low (7d)'])
 const TICKET_STATUSES = new Set([
   'Open',
@@ -284,9 +286,18 @@ function validateTicketCreateBody(body) {
     throw createHttpError(400, 'Prioritas tiket tidak valid.')
   }
 
+  let kategori = 'Support'
+  if (body.kategori !== undefined && body.kategori !== null && body.kategori !== '') {
+    if (typeof body.kategori !== 'string' || !TICKET_CATEGORIES.has(body.kategori)) {
+      throw createHttpError(400, 'Kategori tiket tidak valid. Harus Request atau Support.')
+    }
+    kategori = body.kategori.toLowerCase() === 'request' ? 'Request' : 'Support'
+  }
+
   return {
     judul,
     deskripsi,
+    kategori,
     queue_id: body.queue_id,
     prioritas: body.prioritas ?? 'Medium (3d)',
     attachment: normalizeTicketAttachment(body.attachment),
@@ -330,6 +341,13 @@ function validateTicketUpdateBody(body) {
         `Deskripsi tiket maksimal ${MAX_TICKET_DESCRIPTION_LENGTH} karakter.`,
       )
     }
+  }
+
+  if (hasField('kategori')) {
+    if (typeof body.kategori !== 'string' || !TICKET_CATEGORIES.has(body.kategori)) {
+      throw createHttpError(400, 'Kategori tiket tidak valid. Harus Request atau Support.')
+    }
+    normalized.kategori = body.kategori.toLowerCase() === 'request' ? 'Request' : 'Support'
   }
 
   if (hasField('prioritas')) {
@@ -869,7 +887,7 @@ export async function createTicket(req, res) {
     throw createHttpError(403, 'Anda tidak memiliki akses untuk membuat tiket.')
   }
   if (!identity.name) throw createHttpError(403, 'Identitas pelapor tidak lengkap.')
-  const { judul, deskripsi, queue_id, prioritas, attachment } = validateTicketCreateBody(req.body)
+  const { judul, deskripsi, kategori, queue_id, prioritas, attachment } = validateTicketCreateBody(req.body)
   const pelaporNama = identity.name
   const pelaporId = identity.id
 
@@ -895,7 +913,7 @@ export async function createTicket(req, res) {
         temporaryTicketNumber,
         judul,
         deskripsi,
-        queue.kode,
+        kategori || queue.kode,
         prioritas,
         'Open',
         null,

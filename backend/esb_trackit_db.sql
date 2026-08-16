@@ -89,7 +89,7 @@ INSERT INTO users (nama, email, password_hash, role, permissions, is_active)
 VALUES (
     'Super Admin',
     'superadmin@admin.com',
-    '$2b$10$4qCKXNwFhrWZaPeErQOjNenTxUdV7t99RkI7lI3qkd0zlBL7fJtPm',
+    '$2b$10$KUuuaQWHvErN2WNcqrJOXeRC1Ym6GRyxcIzwpmRboOSkDpOPxE/Cu',
     'superadmin',
     '{"dashboard":"full","assets":"full","tickets":"full"}'::jsonb,
     true

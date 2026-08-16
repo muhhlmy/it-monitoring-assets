@@ -1,4 +1,5 @@
 import { pool, withTransaction } from "../config/database.js";
+import { hashPassword } from "../security/passwordService.js";
 
 function cleanText(value) {
   if (value === undefined || value === null) return null;
@@ -80,7 +81,7 @@ export async function importExcelData(req, res) {
             );
             
             if (existingUserRes.rows.length === 0) {
-              const defaultPasswordHash = "$2b$10$4qCKXNwFhrWZaPeErQOjNenTxUdV7t99RkI7lI3qkd0zlBL7fJtPm";
+              const defaultPasswordHash = await hashPassword('admin123');
               await client.query(
                 `INSERT INTO users (nama, email, password_hash, role, permissions, is_active)
                  VALUES ($1, $2, $3, 'user', '{}'::jsonb, true)`,

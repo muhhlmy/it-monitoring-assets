@@ -320,9 +320,25 @@ export async function listMyAssets(req, res) {
     if (queryNik) {
       sql += ` AND nik_pemegang_asset = $1`;
       params.push(queryNik);
-    } else if (req.user.nik && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-      sql += ` AND nik_pemegang_asset = $1`;
-      params.push(req.user.nik);
+    } else if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      let userNik = req.user.nik;
+      if (!userNik && req.user.email) {
+        const empRes = await pool.query(
+          `SELECT nik FROM karyawan WHERE LOWER(TRIM(email_kantor)) = LOWER(TRIM($1)) OR LOWER(TRIM(nama_karyawan)) = LOWER(TRIM($2)) LIMIT 1`,
+          [req.user.email, req.user.nama || '']
+        );
+        if (empRes.rows.length > 0 && empRes.rows[0].nik) {
+          userNik = empRes.rows[0].nik;
+        }
+      }
+
+      if (userNik) {
+        sql += ` AND nik_pemegang_asset = $1`;
+        params.push(userNik);
+      } else {
+        sql += ` AND (LOWER(TRIM(nama_karyawan_pemegang_asset)) = LOWER(TRIM($1)) OR LOWER(TRIM(nik_pemegang_asset)) = LOWER(TRIM($2)))`;
+        params.push(req.user.nama || '', req.user.email || '');
+      }
     }
     sql += ` ORDER BY created_at DESC`;
 

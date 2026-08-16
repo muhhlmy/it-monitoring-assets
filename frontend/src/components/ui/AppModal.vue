@@ -6,6 +6,7 @@ const props = defineProps({
   isOpen:   { type: Boolean, default: false },
   title:    { type: String,  default: 'Modal' },
   subtitle: { type: String,  default: '' },
+  icon:     { type: String,  default: 'confirmation_number' },
   // 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
   size: {
     type: String,
@@ -112,7 +113,7 @@ onBeforeUnmount(() => {
           aria-modal="true"
           :aria-labelledby="titleId"
           tabindex="-1"
-          class="modal-panel flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl border border-[#E5EAEF] bg-white shadow-2xl outline-none"
+          class="modal-panel flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-2xl outline-none"
           :class="{
             'max-w-sm':   size === 'sm',
             'max-w-lg':   size === 'md',
@@ -123,21 +124,21 @@ onBeforeUnmount(() => {
           }"
         >
           <!-- Header Modal (Fixed Non-Scrollable Header) -->
-          <div class="flex shrink-0 items-center justify-between gap-3 border-b border-[#E5EAEF] bg-white px-4 py-3 sm:px-5">
+          <div class="flex shrink-0 items-center justify-between gap-3 border-b border-[#F1F5F9] bg-white px-5 py-3.5">
             <div class="flex items-center gap-2.5 min-w-0">
-              <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#ECF2FF] text-[#5D87FF]">
-                <span aria-hidden="true" class="material-symbols-outlined text-[17px]">inventory_2</span>
+              <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EFF6FF] text-[#2563EB]">
+                <span aria-hidden="true" class="material-symbols-outlined text-[17px]">{{ icon || 'confirmation_number' }}</span>
               </span>
               <div class="min-w-0">
-                <h2 :id="titleId" class="text-[14px] font-bold text-[#2A3547] leading-tight truncate">{{ title }}</h2>
-                <p v-if="subtitle" class="text-[10.5px] font-medium text-[#7C8BAC] mt-0.5 leading-none truncate">{{ subtitle }}</p>
+                <h2 :id="titleId" class="text-sm font-bold text-[#0F172A] leading-tight truncate">{{ title }}</h2>
+                <p v-if="subtitle" class="text-[11px] font-normal text-[#64748B] mt-0.5 leading-none truncate">{{ subtitle }}</p>
               </div>
             </div>
             <button
               type="button"
               aria-label="Tutup dialog"
               @click="close"
-              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#7C8BAC] transition-colors hover:bg-[#ECF2FF] hover:text-[#5D87FF] cursor-pointer"
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-[#F8FAFC] hover:text-[#0F172A] cursor-pointer"
             >
               <span aria-hidden="true" class="material-symbols-outlined text-[18px]">close</span>
             </button>

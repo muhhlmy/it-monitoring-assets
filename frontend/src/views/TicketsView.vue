@@ -188,6 +188,7 @@ let ticketAttachmentRequestVersion = 0
 const emptyForm = () => ({
   judul: '',
   deskripsi: '',
+  kategori: 'Support',
   queue_id: queues.value[0]?.id || '',
   prioritas: 'Medium (3d)',
   status_tiket: 'Open',
@@ -598,6 +599,7 @@ function openEdit(ticket) {
   form.value = {
     judul: ticket.judul || '',
     deskripsi: ticket.deskripsi || '',
+    kategori: ticket.kategori || 'Support',
     queue_id: ticket.queue_id || '',
     prioritas: ticket.prioritas || 'Medium (3d)',
     status_tiket: ticket.status_tiket || 'Open',
@@ -689,6 +691,7 @@ async function saveTicket() {
     const payload = {
       judul: form.value.judul.trim(),
       deskripsi: form.value.deskripsi || '',
+      kategori: form.value.kategori || 'Support',
       queue_id: Number(form.value.queue_id),
       prioritas: form.value.prioritas,
     }
@@ -1191,9 +1194,18 @@ function toast(message, type = 'success') {
           </thead>
           <tbody class="divide-y divide-[#F1F5F9]">
             <tr v-for="ticket in paginatedTickets" :key="ticket.id" class="group hover:bg-[#F8FAFC] transition-colors duration-150">
-              <td class="py-4 pl-5 pr-4 min-w-[130px] align-top">
-                <span class="font-mono text-[12px] font-semibold text-[#2563EB]">{{ ticket.nomor_tiket || `TCK-${ticket.id}` }}</span>
-                <span v-if="ticket.has_attachment" class="ml-1 material-symbols-outlined text-[14px] text-[#2563EB] align-middle">attach_file</span>
+              <td class="py-4 pl-5 pr-4 min-w-[140px] align-top">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="font-mono text-[12px] font-semibold text-[#2563EB]">{{ ticket.nomor_tiket || `TCK-${ticket.id}` }}</span>
+                  <span
+                    v-if="ticket.kategori"
+                    class="inline-flex items-center rounded-md px-1.5 py-0.2 text-[9.5px] font-extrabold uppercase tracking-wide"
+                    :class="ticket.kategori.toLowerCase() === 'request' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-sky-50 text-sky-700 border border-sky-200'"
+                  >
+                    {{ ticket.kategori }}
+                  </span>
+                  <span v-if="ticket.has_attachment" class="material-symbols-outlined text-[14px] text-[#2563EB]">attach_file</span>
+                </div>
               </td>
               <td class="py-4 px-4 min-w-[220px] align-top">
                 <div class="flex items-start gap-2">
@@ -1277,97 +1289,187 @@ function toast(message, type = 'success') {
     <AppModal
       :is-open="showFormModal"
       :title="modalMode === 'add' ? 'Buat Tiket Baru' : 'Edit Tiket Kendala'"
+      :subtitle="modalMode === 'add' ? 'Laporkan kendala dan bantu tim menangani masalah Anda' : 'Perbarui rincian kendala atau status tiket'"
+      icon="confirmation_number"
       size="lg"
       @close="closeModal"
     >
-      <form class="flex flex-col gap-4" @submit.prevent="saveTicket">
-        <div v-if="modalError" class="rounded-xl bg-[#FDEDE8] p-3 text-[12px] font-bold text-[#FA896B]">
-          {{ modalError }}
+      <form class="space-y-6 p-1" @submit.prevent="saveTicket">
+        <!-- Error Banner -->
+        <div v-if="modalError" class="flex items-center gap-2.5 rounded-xl bg-rose-50 p-3.5 text-xs font-semibold text-rose-600 border border-rose-100">
+          <span class="material-symbols-outlined text-[18px] shrink-0">error</span>
+          <span>{{ modalError }}</span>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label class="flex flex-col gap-1.5 sm:col-span-2">
-            <span class="text-[11px] font-bold uppercase text-[#2A3547]">Judul Kendala *</span>
-            <input v-model="form.judul" required placeholder="Contoh: Layar Laptop Berkedip Saat Buka CAD" class="form-control" />
-          </label>
+        <!-- SECTION 1: KENDALA -->
+        <div class="space-y-4">
+          <div class="border-b border-[#F1F5F9] pb-1.5">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">1. Kendala</span>
+          </div>
 
-          <label class="flex flex-col gap-1.5 sm:col-span-2">
-            <span class="text-[11px] font-bold uppercase text-[#2A3547]">Deskripsi Rinci</span>
-            <textarea v-model="form.deskripsi" rows="3" placeholder="Jelaskan rincian kendala perangkat..." class="form-control h-auto py-2"></textarea>
-          </label>
+          <!-- Judul Kendala -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-[#0F172A] flex items-center gap-1">
+              <span>Judul Kendala</span>
+              <span class="text-rose-500">*</span>
+            </label>
+            <input
+              v-model="form.judul"
+              type="text"
+              required
+              placeholder="Contoh: Laptop tidak dapat terhubung ke Wi-Fi"
+              class="h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 text-xs font-medium text-[#0F172A] placeholder-[#94A3B8] transition-all focus:bg-white focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+            />
+          </div>
 
-          <!-- Unit Tujuan -->
-          <label class="flex flex-col gap-1.5">
-            <span class="text-[11px] font-bold uppercase text-[#2A3547]">Unit Tujuan *</span>
-            <select v-model="form.queue_id" class="form-control">
-              <option value="" disabled>-- Pilih Unit --</option>
-              <option v-for="q in queues" :key="q.id" :value="q.id">{{ q.kode }} — {{ q.nama }}</option>
-            </select>
-          </label>
+          <!-- Deskripsi -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-[#0F172A]">Deskripsi</label>
+            <textarea
+              v-model="form.deskripsi"
+              rows="3"
+              placeholder="Jelaskan kendala secara singkat dan detail agar tim dapat membantu..."
+              class="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs font-medium text-[#0F172A] placeholder-[#94A3B8] transition-all focus:bg-white focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10 resize-y min-h-[96px] max-h-[160px]"
+            ></textarea>
+            <p class="text-[11px] font-normal text-[#94A3B8]">
+              Sertakan pesan error, kondisi perangkat, atau langkah yang sudah dicoba.
+            </p>
+          </div>
+        </div>
 
-          <label class="flex flex-col gap-1.5">
-            <span class="text-[11px] font-bold uppercase text-[#2A3547]">Prioritas SLA</span>
-            <select v-model="form.prioritas" class="form-control">
-              <option value="Low (7d)">Low (7d)</option>
-              <option value="Medium (3d)">Medium (3d)</option>
-              <option value="High (1day)">High (1day)</option>
-              <option value="Urgent (4h)">Urgent (4h)</option>
-            </select>
-          </label>
+        <!-- SECTION 2: PENANGANAN -->
+        <div class="space-y-4">
+          <div class="border-b border-[#F1F5F9] pb-1.5">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">2. Kategori & Penanganan</span>
+          </div>
 
-          <label v-if="modalMode === 'edit'" class="flex flex-col gap-1.5 sm:col-span-2">
-            <span class="text-[11px] font-bold uppercase text-[#2A3547]">Status Tiket</span>
-            <select v-model="form.status_tiket" class="form-control">
-              <option value="Open">Open</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Pending">Pending</option>
-              <option value="Resolved">Resolved</option>
-              <option value="Closed">Closed</option>
-            </select>
-          </label>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <!-- Kategori Tiket -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-[#0F172A] flex items-center gap-1">
+                <span>Kategori Tiket</span>
+                <span class="text-rose-500">*</span>
+              </label>
+              <select
+                v-model="form.kategori"
+                required
+                class="h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 text-xs font-medium text-[#0F172A] transition-all focus:bg-white focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10 cursor-pointer"
+              >
+                <option value="Request">Request (Permintaan)</option>
+                <option value="Support">Support (Kendala)</option>
+              </select>
+            </div>
 
-          <!-- Image Attachment Upload Field -->
-          <div class="flex flex-col gap-1.5 sm:col-span-2">
-            <span class="text-[11px] font-bold uppercase text-[#2A3547]">Attachment (Gambar Kendala)</span>
-            <div class="flex items-center gap-3">
-              <label class="flex h-10 items-center gap-2 rounded-xl border border-[#DFE5EF] bg-[#F8FAFC] px-4 text-[12px] font-semibold text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer">
-                <span class="material-symbols-outlined text-[18px]">add_a_photo</span>
-                <span>Pilih Gambar...</span>
+            <!-- Unit Tujuan -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-[#0F172A] flex items-center gap-1">
+                <span>Unit Tujuan</span>
+                <span class="text-rose-500">*</span>
+              </label>
+              <select
+                v-model="form.queue_id"
+                required
+                class="h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 text-xs font-medium text-[#0F172A] transition-all focus:bg-white focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10 cursor-pointer"
+              >
+                <option value="" disabled>-- Pilih Unit Tujuan --</option>
+                <option v-for="q in queues" :key="q.id" :value="q.id">{{ q.kode }} — {{ q.nama }}</option>
+              </select>
+            </div>
+
+            <!-- Prioritas SLA -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-[#0F172A]">Prioritas SLA</label>
+              <select
+                v-model="form.prioritas"
+                class="h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 text-xs font-medium text-[#0F172A] transition-all focus:bg-white focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10 cursor-pointer"
+              >
+                <option value="Low (7d)">Low · Target 7 hari</option>
+                <option value="Medium (3d)">Medium · Target 3 hari</option>
+                <option value="High (1day)">High · Target 1 hari</option>
+                <option value="Urgent (4h)">Critical · Target 4 jam</option>
+              </select>
+            </div>
+
+            <!-- Status Tiket (Edit Mode Only) -->
+            <div v-if="modalMode === 'edit'" class="flex flex-col gap-1.5 sm:col-span-3">
+              <label class="text-xs font-bold text-[#0F172A]">Status Tiket</label>
+              <select
+                v-model="form.status_tiket"
+                class="h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 text-xs font-medium text-[#0F172A] transition-all focus:bg-white focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10 cursor-pointer"
+              >
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Pending">Pending</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Closed">Closed</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 3: LAMPIRAN -->
+        <div class="space-y-3">
+          <div class="border-b border-[#F1F5F9] pb-1.5">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">3. Lampiran</span>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center gap-3 flex-wrap">
+              <label class="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-xs font-semibold text-[#334155] hover:bg-[#F1F5F9] hover:border-[#CBD5E1] transition-all cursor-pointer select-none">
+                <span class="material-symbols-outlined text-[18px] text-[#64748B]">attach_file</span>
+                <span>+ Tambah File</span>
                 <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="handleFileChange" />
               </label>
-              <span v-if="form.attachment" class="text-[11px] font-bold text-[#13DEB9] flex items-center gap-1">
-                <span class="material-symbols-outlined text-[16px]">check_circle</span> Gambar dipilih
-              </span>
-              <span v-else-if="isTicketAttachmentLoading" class="text-[11px] font-medium text-[#7C8BAC]">
-                Memuat lampiran...
+              <span class="text-[11.5px] font-normal text-[#94A3B8]">PNG, JPG hingga 5 MB</span>
+              <span v-if="isTicketAttachmentLoading" class="text-[11.5px] font-medium text-[#2563EB] flex items-center gap-1">
+                <span class="material-symbols-outlined text-[14px] animate-spin">progress_activity</span> Memuat...
               </span>
             </div>
 
-            <p v-if="ticketAttachmentError" class="text-[11px] font-medium text-red-600">
+            <p v-if="ticketAttachmentError" class="text-[11px] font-medium text-rose-600 mt-1">
               {{ ticketAttachmentError }}
             </p>
 
-            <!-- Preview Image if selected -->
-            <div v-if="form.attachment" class="relative mt-2 inline-block max-w-xs overflow-hidden rounded-2xl border border-[#E5EAEF] shadow-sm">
-              <img :src="form.attachment" alt="Preview Attachment" class="max-h-48 w-full object-cover" />
+            <!-- Attachment Item Card / Preview -->
+            <div v-if="form.attachment" class="relative mt-2 flex items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 max-w-md">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-[#E2E8F0] bg-white">
+                  <img :src="form.attachment" alt="Preview Attachment" class="h-full w-full object-cover" />
+                </div>
+                <div class="min-w-0">
+                  <p class="text-xs font-bold text-[#0F172A] truncate">Gambar kendala terlampir</p>
+                  <p class="text-[10.5px] text-[#64748B] truncate mt-0.5">Siap diunggah bersama tiket</p>
+                </div>
+              </div>
               <button
                 type="button"
                 @click="removeAttachment"
-                class="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600 transition-all"
-                title="Hapus Gambar"
+                class="flex h-7 w-7 items-center justify-center rounded-xl text-[#94A3B8] hover:bg-rose-50 hover:text-rose-600 transition-colors shrink-0 cursor-pointer"
+                title="Hapus Lampiran"
               >
-                <span class="material-symbols-outlined text-[16px]">close</span>
+                <span class="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
           </div>
         </div>
 
-        <div class="flex justify-end gap-3 border-t border-[#F1F5F9] pt-4 mt-2">
-          <button type="button" :disabled="isSubmitting" @click="closeModal" class="h-10 rounded-xl border border-[#DFE5EF] px-5 text-[12px] font-semibold text-[#2A3547] hover:bg-[#F8FAFC]">
+        <!-- FOOTER ACTIONS -->
+        <div class="flex items-center justify-end gap-2.5 border-t border-[#F1F5F9] pt-4 mt-6">
+          <button
+            type="button"
+            :disabled="isSubmitting"
+            @click="closeModal"
+            class="h-10 rounded-xl border border-[#E2E8F0] px-4 py-2 text-xs font-semibold text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-colors cursor-pointer"
+          >
             Batal
           </button>
-          <button type="submit" :disabled="isSubmitting" class="h-10 rounded-xl bg-[#5D87FF] px-5 text-[12px] font-bold text-white shadow-md shadow-blue-500/20 hover:bg-[#4570EA] disabled:opacity-50">
-            {{ isSubmitting ? 'Menyimpan...' : 'Simpan Tiket' }}
+          <button
+            type="submit"
+            :disabled="isSubmitting"
+            class="h-10 rounded-xl bg-[#2563EB] px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#1D4ED8] transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+          >
+            <span v-if="isSubmitting" class="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+            <span>{{ isSubmitting ? (modalMode === 'add' ? 'Membuat tiket...' : 'Menyimpan...') : (modalMode === 'add' ? 'Buat Tiket' : 'Simpan Tiket') }}</span>
           </button>
         </div>
       </form>

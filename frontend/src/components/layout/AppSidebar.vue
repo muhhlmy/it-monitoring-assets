@@ -633,58 +633,36 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
     </div>
 
     <!-- ── Bottom User Profile Section ── -->
-    <div class="relative p-2.5 border-t border-[#F1F5F9]">
-      <!-- Expanded Mode User Profile Card -->
-      <div
-        v-if="!isCollapsed"
-        class="flex items-center justify-between rounded-xl bg-[#ECF2FF] border border-[#D2E3FF] p-2 transition-all"
-      >
-        <div class="flex items-center gap-2 min-w-0">
-          <div
-            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#5D87FF] text-[12px] font-extrabold text-white shadow-md shadow-blue-500/20"
-          >
-            {{ user?.nama ? user.nama.charAt(0).toUpperCase() : 'U' }}
+    <div class="relative p-2 border-t border-[#F1F5F9]">
+      <!-- Expanded Mode User Profile Compact Control -->
+      <div v-if="!isCollapsed">
+        <button
+          type="button"
+          @click="toggleProfilePopover($event)"
+          class="flex w-full items-center justify-between gap-2 rounded-xl p-2 text-left hover:bg-[#F8FAFC] transition-colors cursor-pointer select-none group"
+        >
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#2563EB] text-xs font-bold text-white shadow-2xs">
+              {{ (user && user.nama ? user.nama.charAt(0) : 'U').toUpperCase() }}
+            </div>
+            <div class="min-w-0">
+              <p class="text-xs font-bold text-[#0F172A] truncate leading-tight">{{ user?.nama || 'Pengguna' }}</p>
+              <p class="text-[10.5px] font-normal text-[#64748B] truncate leading-tight capitalize">{{ user?.role || 'User' }}</p>
+            </div>
           </div>
-          <div class="min-w-0">
-            <p class="truncate text-[11.5px] font-bold text-[#2A3547] leading-tight">
-              {{ user?.nama || 'Pengguna' }}
-            </p>
-            <p class="mt-0.5 truncate text-[9.5px] font-medium text-[#7C8BAC] capitalize">
-              {{ user?.jabatan || user?.role || 'Guest' }}
-            </p>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-0.5 shrink-0">
-          <button
-            type="button"
-            @click="openChangePassword"
-            title="Ganti Password Akun"
-            class="flex h-7 w-7 items-center justify-center rounded-lg text-[#5D87FF] hover:bg-white hover:text-[#5D87FF] transition-all shadow-2xs cursor-pointer"
-          >
-            <span aria-hidden="true" class="material-symbols-outlined text-[16px]">key</span>
-          </button>
-
-          <button
-            type="button"
-            @click="logout"
-            title="Keluar / Logout"
-            class="flex h-7 w-7 items-center justify-center rounded-lg text-[#5D87FF] hover:bg-white hover:text-red-500 transition-all shadow-2xs cursor-pointer"
-          >
-            <span aria-hidden="true" class="material-symbols-outlined text-[16px]">power_settings_new</span>
-          </button>
-        </div>
+          <span class="material-symbols-outlined text-[16px] text-[#94A3B8] group-hover:text-[#0F172A] shrink-0">unfold_more</span>
+        </button>
       </div>
 
-      <!-- Collapsed Navigation Rail User Avatar Button -->
+      <!-- Collapsed Mode Navigation Rail User Avatar Button -->
       <div v-else class="relative flex flex-col items-center">
         <button
           type="button"
           @click="toggleProfilePopover($event)"
           title="Profil & Pengaturan"
-          class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#5D87FF] text-[13px] font-extrabold text-white shadow-md shadow-blue-500/20 hover:scale-105 transition-all cursor-pointer"
+          class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2563EB] text-xs font-bold text-white shadow-2xs hover:scale-105 transition-all cursor-pointer"
         >
-          {{ user?.nama ? user.nama.charAt(0).toUpperCase() : 'U' }}
+          {{ (user && user.nama ? user.nama.charAt(0) : 'U').toUpperCase() }}
         </button>
       </div>
     </div>
@@ -695,7 +673,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
     <!-- Parent Menu Flyout Popover -->
     <div
       v-if="isCollapsed && activeFlyoutParent"
-      class="fixed z-[9999] w-[195px] rounded-xl border border-[#E5EAEF] bg-white p-2 shadow-2xl transition-all select-none animate-in fade-in zoom-in-95 duration-150"
+      class="fixed z-[9999] w-[195px] rounded-xl border border-[#E2E8F0] bg-white p-2 shadow-2xl transition-all select-none animate-in fade-in zoom-in-95 duration-150"
       :style="{ top: `${flyoutPos.top}px`, left: `${flyoutPos.left}px` }"
       @mouseenter="cancelCloseFlyout"
       @mouseleave="handleParentMouseLeave"
@@ -711,12 +689,12 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
           class="group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11.5px] transition-all cursor-pointer"
           :class="
             route.path === sub.to
-              ? 'bg-[#ECF2FF] text-[#5D87FF] font-bold'
-              : 'text-[#2A3547] hover:bg-[#F8FAFC] hover:text-[#5D87FF] font-medium'
+              ? 'bg-[#EFF6FF] text-[#2563EB] font-bold'
+              : 'text-[#2A3547] hover:bg-[#F8FAFC] hover:text-[#2563EB] font-medium'
           "
           @click="activeFlyoutParent = null; emit('close-mobile')"
         >
-          <span aria-hidden="true" class="material-symbols-outlined text-[16px] shrink-0" :class="route.path === sub.to ? 'text-[#5D87FF]' : 'text-[#7C8BAC] group-hover:text-[#5D87FF]'">
+          <span aria-hidden="true" class="material-symbols-outlined text-[16px] shrink-0" :class="route.path === sub.to ? 'text-[#2563EB]' : 'text-[#7C8BAC] group-hover:text-[#2563EB]'">
             {{ sub.icon }}
           </span>
           <span class="truncate">{{ sub.label }}</span>
@@ -735,31 +713,31 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 
     <!-- User Profile Popover -->
     <div
-      v-if="isCollapsed && showProfilePopover"
-      class="fixed z-[9999] w-[190px] rounded-xl border border-[#E5EAEF] bg-white p-2 shadow-2xl transition-all select-none animate-in fade-in zoom-in-95 duration-150"
+      v-if="showProfilePopover"
+      class="fixed z-[9999] w-52 rounded-2xl border border-[#E2E8F0] bg-white p-1.5 shadow-xl transition-all select-none outline-none"
       :style="{ top: `${profilePopoverPos.top}px`, left: `${profilePopoverPos.left}px` }"
     >
-      <div class="px-2 py-1.5 border-b border-[#F1F5F9] mb-1">
-        <p class="truncate text-[11.5px] font-bold text-[#2A3547]">{{ user?.nama || 'Pengguna' }}</p>
-        <p class="truncate text-[9.5px] font-medium text-[#7C8BAC] capitalize">{{ user?.jabatan || user?.role || 'Guest' }}</p>
-        <p v-if="user?.nik" class="truncate font-mono text-[9px] text-[#9CA3AF] mt-0.5">NIK: {{ user.nik }}</p>
+      <div class="px-3 py-2 border-b border-[#F1F5F9] mb-1">
+        <p class="truncate text-xs font-bold text-[#0F172A]">{{ user?.nama || 'Pengguna' }}</p>
+        <p class="truncate text-[11px] text-[#64748B] capitalize mt-0.5">{{ user?.role || 'Guest' }} {{ user?.nik ? '· ' + user.nik : '' }}</p>
       </div>
       <div class="space-y-0.5">
         <button
           type="button"
           @click="showProfilePopover = false; openChangePassword()"
-          class="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
+          class="w-full flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-[#334155] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
         >
-          <span class="material-symbols-outlined text-[16px] text-[#5D87FF]">key</span>
+          <span class="material-symbols-outlined text-[16px] text-[#64748B]">key</span>
           <span>Ganti Password</span>
         </button>
+        <div class="my-1 border-t border-[#F1F5F9]"></div>
         <button
           type="button"
           @click="showProfilePopover = false; logout()"
-          class="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+          class="w-full flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
         >
-          <span class="material-symbols-outlined text-[16px]">power_settings_new</span>
-          <span>Logout</span>
+          <span class="material-symbols-outlined text-[16px]">logout</span>
+          <span>Keluar</span>
         </button>
       </div>
     </div>

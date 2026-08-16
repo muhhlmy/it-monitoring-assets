@@ -330,7 +330,7 @@ async function loadMyOwnAssets() {
   isLoadingAssets.value = true
   assetError.value = ''
   try {
-    const assetData = await get('/api/assets/my-assets')
+    const assetData = await get('/api/assets/my')
     myAssets.value = Array.isArray(assetData) ? assetData.map(normalizeAsset) : []
   } catch (err) {
     assetError.value = err.message || 'Gagal memuat data aset Anda.'
