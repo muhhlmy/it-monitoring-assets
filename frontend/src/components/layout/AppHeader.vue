@@ -540,18 +540,6 @@ onBeforeUnmount(() => {
         <span aria-hidden="true" class="material-symbols-outlined text-[18px]">menu</span>
       </button>
 
-      <!-- Toggle Desktop Collapse (hidden lg:flex) saat collapsed -->
-      <button
-        v-if="isCollapsed"
-        type="button"
-        aria-label="Perluas Sidepanel Desktop"
-        title="Perluas Sidepanel Desktop"
-        class="hidden lg:flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
-        @click="$emit('toggle-collapse')"
-      >
-        <span aria-hidden="true" class="material-symbols-outlined text-[18px]">menu</span>
-      </button>
-
       <div class="min-w-0 hidden sm:block">
         <h1 class="truncate text-[14px] font-extrabold tracking-tight text-[#2A3547] leading-tight">{{ pageTitle.title }}</h1>
         <p class="truncate text-[10px] font-medium text-[#7C8BAC] leading-none">{{ pageTitle.subtitle }}</p>

@@ -73,7 +73,7 @@ async function submitChangePassword() {
   }
 }
 
-// State Expanded / Collapsed Parent Menu
+// State Expanded Parent Menu
 const expandedParents = ref({
   asset_management: true,
   helpdesk: true,
@@ -81,16 +81,91 @@ const expandedParents = ref({
   sistem: true,
 })
 
-// State Flyout Popover untuk Collapsed Mode
-const activeFlyoutKey = ref(null)
+// State Teleport Floating Popover & Tooltip (Collapsed Rail Mode)
+const activeFlyoutParent = ref(null)
+const flyoutPos = ref({ top: 0, left: 0 })
+
+const hoveredTooltipLabel = ref('')
+const tooltipPos = ref({ top: 0, left: 0 })
+
 const showProfilePopover = ref(false)
+const profilePopoverPos = ref({ top: 0, left: 0 })
+
+let closeFlyoutTimer = null
+
+function handleParentClick(parent, event) {
+  if (props.isCollapsed) {
+    if (activeFlyoutParent.value?.key === parent.key) {
+      activeFlyoutParent.value = null
+    } else {
+      openFlyout(parent, event)
+    }
+  } else {
+    toggleParent(parent.key)
+  }
+}
+
+function handleParentMouseEnter(parent, event) {
+  if (!props.isCollapsed) return
+  if (closeFlyoutTimer) clearTimeout(closeFlyoutTimer)
+  openFlyout(parent, event)
+}
+
+function handleParentMouseLeave() {
+  if (!props.isCollapsed) return
+  closeFlyoutTimer = setTimeout(() => {
+    activeFlyoutParent.value = null
+  }, 200)
+}
+
+function cancelCloseFlyout() {
+  if (closeFlyoutTimer) clearTimeout(closeFlyoutTimer)
+}
+
+function openFlyout(parent, event) {
+  const btn = event.currentTarget
+  if (!btn) return
+  const rect = btn.getBoundingClientRect()
+  flyoutPos.value = {
+    top: Math.max(10, Math.min(rect.top, window.innerHeight - 180)),
+    left: rect.right + 8,
+  }
+  activeFlyoutParent.value = parent
+}
+
+function handleDirectMouseEnter(item, event) {
+  if (!props.isCollapsed) return
+  const btn = event.currentTarget
+  if (!btn) return
+  const rect = btn.getBoundingClientRect()
+  tooltipPos.value = {
+    top: rect.top + rect.height / 2,
+    left: rect.right + 10,
+  }
+  hoveredTooltipLabel.value = item.label
+}
+
+function handleDirectMouseLeave() {
+  hoveredTooltipLabel.value = ''
+}
+
+function toggleProfilePopover(event) {
+  if (showProfilePopover.value) {
+    showProfilePopover.value = false
+  } else {
+    const btn = event.currentTarget
+    if (!btn) return
+    const rect = btn.getBoundingClientRect()
+    profilePopoverPos.value = {
+      top: Math.max(10, rect.top - 80),
+      left: rect.right + 8,
+    }
+    showProfilePopover.value = true
+  }
+}
 
 function toggleParent(key) {
-  if (props.isCollapsed) {
-    activeFlyoutKey.value = activeFlyoutKey.value === key ? null : key
-  } else {
-    expandedParents.value[key] = !expandedParents.value[key]
-  }
+  expandedParents.value[key] = !expandedParents.value[key]
 }
 
 function isParentExpanded(key) {
@@ -109,7 +184,8 @@ watch(
   () => route.path,
   () => {
     autoExpandActiveParent()
-    activeFlyoutKey.value = null
+    activeFlyoutParent.value = null
+    hoveredTooltipLabel.value = ''
     showProfilePopover.value = false
   },
   { immediate: true },
@@ -278,17 +354,6 @@ function handleKeydown(event) {
   }
 }
 
-watch(
-  () => props.isMobileOpen,
-  (isOpen) => {
-    if (isOpen) {
-      nextTick(() => {
-        closeButtonRef.value?.focus()
-      })
-    }
-  },
-)
-
 onMounted(() => document.addEventListener('keydown', handleKeydown))
 onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 </script>
@@ -306,25 +371,25 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
     ></button>
   </Transition>
 
-  <!-- Sidebar / Navigation Rail Component -->
+  <!-- Sidebar Component (Expanded: 245px, Collapsed Rail: 74px) -->
   <aside
     id="app-navigation"
     ref="sidebarRef"
     :role="isMobileOpen ? 'dialog' : undefined"
     :aria-modal="isMobileOpen ? 'true' : undefined"
     aria-label="Navigasi aplikasi"
-    class="fixed inset-y-0 left-0 z-40 flex h-dvh shrink-0 flex-col border-r border-[#E5EAEF] bg-white text-[#2A3547] shadow-xl transition-all duration-300 ease-in-out lg:static lg:z-10 lg:shadow-none"
+    class="fixed inset-y-0 left-0 z-40 flex h-dvh shrink-0 flex-col border-r border-[#E5EAEF] bg-white text-[#2A3547] shadow-xl transition-all duration-300 ease-in-out lg:static lg:z-10 lg:shadow-none select-none"
     :class="[
       isMobileOpen ? 'w-[250px] translate-x-0 visible opacity-100' : '-translate-x-full lg:translate-x-0',
-      isCollapsed ? 'lg:w-[68px]' : 'lg:w-[245px]'
+      isCollapsed ? 'lg:w-[74px]' : 'lg:w-[245px]'
     ]"
   >
-    <!-- Brand Logo Top Header -->
+    <!-- ── Brand Logo Top Header Area ── -->
     <div
-      class="relative flex h-[52px] shrink-0 items-center border-b border-[#F1F5F9] transition-all"
-      :class="isCollapsed ? 'justify-center flex-col gap-1 py-1 px-0' : 'justify-between gap-2 px-3.5'"
+      class="relative flex h-[56px] shrink-0 items-center border-b border-[#F1F5F9] transition-all"
+      :class="isCollapsed ? 'justify-center flex-col gap-1 px-0 py-1' : 'justify-between gap-2 px-3.5'"
     >
-      <!-- Logo Penuh saat Expanded -->
+      <!-- Logo saat Expanded -->
       <RouterLink
         v-if="!isCollapsed"
         to="/dashboard"
@@ -338,30 +403,31 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
         />
       </RouterLink>
 
-      <!-- Logo Mark saat Collapsed (Navigation Rail Header) -->
+      <!-- Logo Mark + Control Button saat Collapsed Navigation Rail -->
       <template v-else>
-        <RouterLink
-          to="/dashboard"
-          title="Kembali ke Dashboard"
-          class="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[#ECF2FF] transition-all cursor-pointer shrink-0"
-        >
-          <img
-            src="/ESB Logo.svg"
-            alt="ESB Logo"
-            class="h-6 w-6 object-left object-cover shrink-0 block"
-          />
-        </RouterLink>
+        <div class="flex items-center justify-center gap-1.5 w-full px-1">
+          <RouterLink
+            to="/dashboard"
+            title="Kembali ke Dashboard"
+            class="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[#ECF2FF] transition-all cursor-pointer shrink-0"
+          >
+            <img
+              src="/ESB Logo.svg"
+              alt="ESB Logo"
+              class="h-6 w-6 object-left object-cover shrink-0 block"
+            />
+          </RouterLink>
 
-        <!-- Toggle Button Desktop (Saat Collapsed) -->
-        <button
-          type="button"
-          aria-label="Buka Sidepanel"
-          title="Buka Sidebar"
-          class="flex h-5 w-5 items-center justify-center rounded text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer shrink-0"
-          @click="emit('toggle-collapse')"
-        >
-          <span aria-hidden="true" class="material-symbols-outlined text-[15px]">chevron_right</span>
-        </button>
+          <button
+            type="button"
+            aria-label="Perluas Sidepanel"
+            title="Perluas Sidebar"
+            class="flex h-6 w-6 items-center justify-center rounded-md text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer shrink-0"
+            @click="emit('toggle-collapse')"
+          >
+            <span aria-hidden="true" class="material-symbols-outlined text-[16px]">chevron_right</span>
+          </button>
+        </div>
       </template>
 
       <!-- Toggle Button Desktop (Saat Expanded) -->
@@ -369,7 +435,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
         v-if="!isCollapsed"
         ref="closeButtonRef"
         type="button"
-        aria-label="Sembunyikan Sidepanel"
+        aria-label="Ciutkan Sidepanel"
         title="Ciutkan Sidebar"
         class="hidden lg:flex h-7 w-7 items-center justify-center rounded-lg text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer shrink-0"
         @click="emit('toggle-collapse')"
@@ -389,10 +455,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
       </button>
     </div>
 
-    <!-- Sidebar Scrollable Menu / Navigation Rail -->
+    <!-- ── Sidebar Scrollable Menu / Navigation Rail Container ── -->
     <div
       class="relative flex-1 overflow-y-auto py-3 transition-all"
-      :class="isCollapsed ? 'px-1.5 space-y-3' : 'px-2.5 space-y-4'"
+      :class="isCollapsed ? 'px-0 space-y-3' : 'px-2.5 space-y-4'"
     >
       <div v-for="group in menuGroups" :key="group.title" :class="isCollapsed ? 'space-y-2' : 'space-y-1'">
         <!-- Category Title (Hanya di Expanded Mode) -->
@@ -404,68 +470,74 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
         </p>
 
         <nav :class="isCollapsed ? 'flex flex-col items-center gap-1.5' : 'space-y-0.5'">
-          <!-- Direct Items (e.g. Dashboard) -->
+          
+          <!-- 1. Direct Items (e.g. Dashboard) -->
           <template v-if="group.items && group.items.length">
-            <RouterLink
+            <div
               v-for="item in group.items"
               :key="item.to"
-              :to="item.to"
-              :title="isCollapsed ? item.label : undefined"
-              class="group flex items-center transition-all duration-150 relative cursor-pointer"
-              :class="[
-                isCollapsed
-                  ? 'h-10 w-10 justify-center rounded-xl'
-                  : 'gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px]',
-                route.path === item.to
-                  ? 'bg-[#5D87FF] text-white shadow-xs font-semibold'
-                  : 'text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] font-medium'
-              ]"
-              @click="emit('close-mobile')"
+              class="relative"
+              :class="isCollapsed ? 'flex justify-center w-full' : ''"
+              @mouseenter="handleDirectMouseEnter(item, $event)"
+              @mouseleave="handleDirectMouseLeave"
             >
-              <span
-                aria-hidden="true"
-                class="material-symbols-outlined transition-colors shrink-0"
+              <RouterLink
+                :to="item.to"
+                class="group flex items-center transition-all duration-150 relative cursor-pointer"
                 :class="[
-                  isCollapsed ? 'text-[20px]' : 'text-[18px]',
-                  route.path === item.to ? 'text-white' : 'text-[#7C8BAC] group-hover:text-[#5D87FF]'
+                  isCollapsed
+                    ? 'h-10 w-10 justify-center rounded-xl'
+                    : 'w-full gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px]',
+                  route.path === item.to
+                    ? 'bg-[#5D87FF] text-white shadow-xs font-semibold'
+                    : 'text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] font-medium'
                 ]"
+                @click="emit('close-mobile')"
               >
-                {{ item.icon }}
-              </span>
+                <span
+                  aria-hidden="true"
+                  class="material-symbols-outlined transition-colors shrink-0"
+                  :class="[
+                    isCollapsed ? 'text-[20px]' : 'text-[18px]',
+                    route.path === item.to ? 'text-white' : 'text-[#7C8BAC] group-hover:text-[#5D87FF]'
+                  ]"
+                >
+                  {{ item.icon }}
+                </span>
 
-              <span
-                v-if="!isCollapsed"
-                class="min-w-0 flex-1 leading-none whitespace-nowrap"
-              >
-                {{ item.label }}
-              </span>
+                <span
+                  v-if="!isCollapsed"
+                  class="min-w-0 flex-1 leading-none whitespace-nowrap"
+                >
+                  {{ item.label }}
+                </span>
 
-              <span
-                v-if="item.badge && !isCollapsed"
-                class="rounded-full px-1.5 py-0.2 text-[9px] font-bold shrink-0"
-                :class="
-                  route.path === item.to ? 'bg-white/20 text-white' : 'bg-[#ECF2FF] text-[#5D87FF]'
-                "
-              >
-                {{ item.badge }}
-              </span>
-            </RouterLink>
+                <span
+                  v-if="item.badge && !isCollapsed"
+                  class="rounded-full px-1.5 py-0.2 text-[9px] font-bold shrink-0"
+                  :class="
+                    route.path === item.to ? 'bg-white/20 text-white' : 'bg-[#ECF2FF] text-[#5D87FF]'
+                  "
+                >
+                  {{ item.badge }}
+                </span>
+              </RouterLink>
+            </div>
           </template>
 
-          <!-- Parent Menus (Expandable di Expanded Mode, Flyout Popover di Collapsed Mode) -->
+          <!-- 2. Parent Menus (Expandable di Expanded Mode, Floating Popover di Collapsed Mode) -->
           <template v-if="group.parents && group.parents.length">
             <div
               v-for="parent in group.parents"
               :key="parent.key"
               class="relative"
-              :class="isCollapsed ? 'flex justify-center' : 'space-y-0.5'"
-              @mouseenter="isCollapsed ? activeFlyoutKey = parent.key : null"
-              @mouseleave="isCollapsed ? activeFlyoutKey = null : null"
+              :class="isCollapsed ? 'flex justify-center w-full' : 'space-y-0.5'"
+              @mouseenter="handleParentMouseEnter(parent, $event)"
+              @mouseleave="handleParentMouseLeave"
             >
-              <!-- Parent Menu Header Button -->
+              <!-- Parent Menu Trigger Button -->
               <button
                 type="button"
-                :title="isCollapsed ? parent.label : undefined"
                 class="group flex items-center transition-all duration-150 cursor-pointer select-none"
                 :class="[
                   isCollapsed
@@ -475,7 +547,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
                     ? (isCollapsed ? 'bg-[#ECF2FF] text-[#5D87FF]' : 'text-[#2A3547] bg-[#F8FAFC]')
                     : 'text-[#2A3547] hover:bg-[#F8FAFC] hover:text-[#5D87FF]'
                 ]"
-                @click="toggleParent(parent.key)"
+                @click="handleParentClick(parent, $event)"
               >
                 <div class="flex items-center gap-2.5 min-w-0" :class="isCollapsed ? 'justify-center' : ''">
                   <span
@@ -540,44 +612,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
                 </RouterLink>
               </div>
 
-              <!-- Collapsed Mode Flyout Popover Menu -->
-              <div
-                v-if="isCollapsed && activeFlyoutKey === parent.key"
-                class="absolute left-full top-0 ml-2.5 z-50 w-[185px] rounded-xl border border-[#E5EAEF] bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-150"
-              >
-                <div class="px-2 py-1 border-b border-[#F1F5F9] mb-1">
-                  <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#7C8BAC]">{{ parent.label }}</p>
-                </div>
-                <div class="space-y-0.5">
-                  <RouterLink
-                    v-for="sub in parent.items"
-                    :key="sub.to"
-                    :to="sub.to"
-                    class="group flex items-center gap-2 rounded-lg px-2 py-1.5 text-[11.5px] transition-all"
-                    :class="
-                      route.path === sub.to
-                        ? 'bg-[#ECF2FF] text-[#5D87FF] font-bold'
-                        : 'text-[#2A3547] hover:bg-[#F8FAFC] hover:text-[#5D87FF] font-medium'
-                    "
-                    @click="activeFlyoutKey = null; emit('close-mobile')"
-                  >
-                    <span aria-hidden="true" class="material-symbols-outlined text-[16px] shrink-0" :class="route.path === sub.to ? 'text-[#5D87FF]' : 'text-[#7C8BAC] group-hover:text-[#5D87FF]'">
-                      {{ sub.icon }}
-                    </span>
-                    <span class="truncate">{{ sub.label }}</span>
-                  </RouterLink>
-                </div>
-              </div>
-
             </div>
           </template>
         </nav>
       </div>
     </div>
 
-    <!-- Bottom User Profile Card / Rail Avatar -->
+    <!-- ── Bottom User Profile Section ── -->
     <div class="relative p-2.5 border-t border-[#F1F5F9]">
-      <!-- Expanded Mode User Card -->
+      <!-- Expanded Mode User Profile Card -->
       <div
         v-if="!isCollapsed"
         class="flex items-center justify-between rounded-xl bg-[#ECF2FF] border border-[#D2E3FF] p-2 transition-all"
@@ -619,48 +662,94 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
         </div>
       </div>
 
-      <!-- Collapsed Mode User Avatar Rail Button -->
+      <!-- Collapsed Navigation Rail User Avatar Button -->
       <div v-else class="relative flex flex-col items-center">
         <button
           type="button"
-          @click="showProfilePopover = !showProfilePopover"
+          @click="toggleProfilePopover($event)"
           title="Profil & Pengaturan"
           class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#5D87FF] text-[13px] font-extrabold text-white shadow-md shadow-blue-500/20 hover:scale-105 transition-all cursor-pointer"
         >
           {{ user?.nama ? user.nama.charAt(0).toUpperCase() : 'U' }}
         </button>
-
-        <!-- Flyout Profile Actions Popover -->
-        <div
-          v-if="showProfilePopover"
-          class="absolute bottom-0 left-full ml-2.5 z-50 w-[180px] rounded-xl border border-[#E5EAEF] bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-150"
-        >
-          <div class="px-2 py-1.5 border-b border-[#F1F5F9] mb-1">
-            <p class="truncate text-[11.5px] font-bold text-[#2A3547]">{{ user?.nama || 'Pengguna' }}</p>
-            <p class="truncate text-[9.5px] font-medium text-[#7C8BAC] capitalize">{{ user?.jabatan || user?.role || 'Guest' }}</p>
-          </div>
-          <div class="space-y-0.5">
-            <button
-              type="button"
-              @click="showProfilePopover = false; openChangePassword()"
-              class="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
-            >
-              <span class="material-symbols-outlined text-[16px] text-[#5D87FF]">key</span>
-              <span>Ganti Password</span>
-            </button>
-            <button
-              type="button"
-              @click="showProfilePopover = false; logout()"
-              class="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
-            >
-              <span class="material-symbols-outlined text-[16px]">power_settings_new</span>
-              <span>Logout</span>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   </aside>
+
+  <!-- ── Teleport Flyout Popovers & Tooltips for Collapsed Navigation Rail ── -->
+  <Teleport to="body">
+    <!-- Parent Menu Flyout Popover -->
+    <div
+      v-if="isCollapsed && activeFlyoutParent"
+      class="fixed z-[9999] w-[195px] rounded-xl border border-[#E5EAEF] bg-white p-2 shadow-2xl transition-all select-none animate-in fade-in zoom-in-95 duration-150"
+      :style="{ top: `${flyoutPos.top}px`, left: `${flyoutPos.left}px` }"
+      @mouseenter="cancelCloseFlyout"
+      @mouseleave="handleParentMouseLeave"
+    >
+      <div class="px-2 py-1.5 border-b border-[#F1F5F9] mb-1">
+        <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-[#7C8BAC]">{{ activeFlyoutParent.label }}</p>
+      </div>
+      <div class="space-y-0.5">
+        <RouterLink
+          v-for="sub in activeFlyoutParent.items"
+          :key="sub.to"
+          :to="sub.to"
+          class="group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11.5px] transition-all cursor-pointer"
+          :class="
+            route.path === sub.to
+              ? 'bg-[#ECF2FF] text-[#5D87FF] font-bold'
+              : 'text-[#2A3547] hover:bg-[#F8FAFC] hover:text-[#5D87FF] font-medium'
+          "
+          @click="activeFlyoutParent = null; emit('close-mobile')"
+        >
+          <span aria-hidden="true" class="material-symbols-outlined text-[16px] shrink-0" :class="route.path === sub.to ? 'text-[#5D87FF]' : 'text-[#7C8BAC] group-hover:text-[#5D87FF]'">
+            {{ sub.icon }}
+          </span>
+          <span class="truncate">{{ sub.label }}</span>
+        </RouterLink>
+      </div>
+    </div>
+
+    <!-- Direct Item Tooltip -->
+    <div
+      v-if="isCollapsed && hoveredTooltipLabel"
+      class="fixed z-[9999] -translate-y-1/2 whitespace-nowrap rounded-md bg-[#1E293B] px-2.5 py-1 text-[11px] font-bold text-white shadow-md pointer-events-none"
+      :style="{ top: `${tooltipPos.top}px`, left: `${tooltipPos.left}px` }"
+    >
+      {{ hoveredTooltipLabel }}
+    </div>
+
+    <!-- User Profile Popover -->
+    <div
+      v-if="isCollapsed && showProfilePopover"
+      class="fixed z-[9999] w-[190px] rounded-xl border border-[#E5EAEF] bg-white p-2 shadow-2xl transition-all select-none animate-in fade-in zoom-in-95 duration-150"
+      :style="{ top: `${profilePopoverPos.top}px`, left: `${profilePopoverPos.left}px` }"
+    >
+      <div class="px-2 py-1.5 border-b border-[#F1F5F9] mb-1">
+        <p class="truncate text-[11.5px] font-bold text-[#2A3547]">{{ user?.nama || 'Pengguna' }}</p>
+        <p class="truncate text-[9.5px] font-medium text-[#7C8BAC] capitalize">{{ user?.jabatan || user?.role || 'Guest' }}</p>
+        <p v-if="user?.nik" class="truncate font-mono text-[9px] text-[#9CA3AF] mt-0.5">NIK: {{ user.nik }}</p>
+      </div>
+      <div class="space-y-0.5">
+        <button
+          type="button"
+          @click="showProfilePopover = false; openChangePassword()"
+          class="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
+        >
+          <span class="material-symbols-outlined text-[16px] text-[#5D87FF]">key</span>
+          <span>Ganti Password</span>
+        </button>
+        <button
+          type="button"
+          @click="showProfilePopover = false; logout()"
+          class="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+        >
+          <span class="material-symbols-outlined text-[16px]">power_settings_new</span>
+          <span>Logout</span>
+        </button>
+      </div>
+    </div>
+  </Teleport>
 
   <!-- Modal Ganti Password Akun -->
   <AppModal
