@@ -708,18 +708,18 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- ─── MODERN SAAS ASSET TABLE ────────────────────────────── -->
-    <div class="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-2xs">
+    <!-- ─── MODERN ENTERPRISE SAAS ASSET TABLE ────────────────────────────── -->
+    <div class="overflow-hidden rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs">
       <!-- Loading State Skeleton -->
-      <div v-if="isLoading" class="p-4 space-y-2.5">
-        <div v-for="n in 5" :key="n" class="h-10 w-full animate-pulse rounded-lg bg-[#F8FAFC]"></div>
+      <div v-if="isLoading" class="p-5 space-y-3">
+        <div v-for="n in 5" :key="n" class="h-12 w-full animate-pulse rounded-xl bg-[#F8FAFC]"></div>
       </div>
 
       <!-- Error State -->
       <div
         v-else-if="pageError"
         role="alert"
-        class="flex items-center gap-2 bg-rose-50 px-5 py-3.5 text-[12.5px] text-rose-600"
+        class="flex items-center gap-2 bg-rose-50 px-5 py-4 text-[12.5px] text-rose-600"
       >
         <span class="material-symbols-outlined text-[18px]">error</span>
         <span class="flex-1 font-semibold">{{ pageError }}</span>
@@ -737,13 +737,13 @@ onMounted(async () => {
           <caption class="sr-only">Daftar Master Aset IT</caption>
           <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
             <tr>
-              <th class="py-2.5 pl-4 pr-3 text-[10px] font-semibold uppercase tracking-wider text-[#64748B]">Asset</th>
-              <th class="py-2.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-[#64748B]">Pemegang</th>
-              <th class="py-2.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-[#64748B]">Departemen / Lokasi</th>
-              <th class="py-2.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-[#64748B]">Tipe & Model</th>
-              <th class="py-2.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-[#64748B]">Status</th>
-              <th class="py-2.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-[#64748B]">Kondisi</th>
-              <th class="py-2.5 pr-4 pl-3 text-right text-[10px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
+              <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Asset</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Pemegang</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Departemen / Lokasi</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Tipe & Model</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Status</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Kondisi</th>
+              <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[#F1F5F9]">
@@ -751,12 +751,12 @@ onMounted(async () => {
               v-for="asset in paginatedAssets"
               :key="asset.id_aset"
               @click="openDetails(asset)"
-              class="group hover:bg-[#F8FAFC]/90 transition-colors duration-150 cursor-pointer select-none"
+              class="group hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none"
             >
               <!-- 1. ASSET Column (Primary Prominent Typography) -->
-              <td class="py-2.5 pl-4 pr-3 min-w-[170px]">
+              <td class="py-4 pl-5 pr-4 min-w-[180px]">
                 <div class="flex flex-col">
-                  <span class="text-[13px] font-semibold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate">
+                  <span class="text-[13.5px] font-semibold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate">
                     {{ asset.hostname || asset.label_aset || '—' }}
                   </span>
                   <span class="font-mono text-[11px] font-normal text-[#64748B] mt-0.5 tracking-tight truncate">
@@ -766,43 +766,43 @@ onMounted(async () => {
               </td>
 
               <!-- 2. PEMEGANG Column (2-line Hierarchy) -->
-              <td class="py-2.5 px-3 min-w-[160px]">
+              <td class="py-4 px-4 min-w-[170px]">
                 <div class="flex flex-col">
-                  <span class="text-[12px] font-medium leading-snug truncate" :class="asset.nama_karyawan ? 'text-[#1E293B]' : 'text-[#94A3B8] italic font-normal'">
+                  <span class="text-[12.5px] font-medium leading-snug truncate" :class="asset.nama_karyawan ? 'text-[#1E293B]' : 'text-[#94A3B8] italic font-normal'">
                     {{ asset.nama_karyawan || 'Belum ditetapkan' }}
                   </span>
-                  <span class="font-mono text-[10.5px] text-[#64748B] mt-0.5 tracking-tight truncate">
+                  <span class="font-mono text-[11px] text-[#64748B] mt-0.5 tracking-tight truncate">
                     {{ asset.nik ? `NIK: ${asset.nik}` : '—' }}
                   </span>
                 </div>
               </td>
 
               <!-- 3. DEPARTEMEN / LOKASI Column (2-line Hierarchy) -->
-              <td class="py-2.5 px-3 min-w-[160px]">
+              <td class="py-4 px-4 min-w-[170px]">
                 <div class="flex flex-col">
-                  <span class="text-[12px] font-medium text-[#1E293B] leading-snug truncate">
+                  <span class="text-[12.5px] font-medium text-[#1E293B] leading-snug truncate">
                     {{ asset.departemen || '—' }}
                   </span>
-                  <span class="text-[11px] font-normal text-[#64748B] mt-0.5 truncate flex items-center gap-1">
+                  <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate flex items-center gap-1">
                     {{ asset.lokasi_kerja || asset.lokasi_aset || '—' }}
                   </span>
                 </div>
               </td>
 
               <!-- 4. TIPE & MODEL Column (2-line Hierarchy) -->
-              <td class="py-2.5 px-3 min-w-[150px]">
+              <td class="py-4 px-4 min-w-[160px]">
                 <div class="flex flex-col">
-                  <span class="text-[12px] font-medium text-[#1E293B] leading-snug truncate">
+                  <span class="text-[12.5px] font-medium text-[#1E293B] leading-snug truncate">
                     {{ asset.tipe_perangkat || '—' }}
                   </span>
-                  <span class="text-[11px] font-normal text-[#64748B] mt-0.5 truncate">
+                  <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate">
                     {{ [asset.merek || asset.brand_merek, asset.model].filter(Boolean).join(' ') || '—' }}
                   </span>
                 </div>
               </td>
 
               <!-- 5. STATUS Column (Linear / Stripe Small Soft Pill) -->
-              <td class="py-2.5 px-3 min-w-[120px]">
+              <td class="py-4 px-4 min-w-[130px]">
                 <span
                   class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-all select-none"
                   :class="[formatStatusPill(asset.status_aset).bg, formatStatusPill(asset.status_aset).text, formatStatusPill(asset.status_aset).border]"
@@ -813,14 +813,14 @@ onMounted(async () => {
               </td>
 
               <!-- 6. KONDISI Column -->
-              <td class="py-2.5 px-3 min-w-[110px]">
-                <span class="text-[11.5px]" :class="formatKondisiStyle(asset.kondisi_aset)">
+              <td class="py-4 px-4 min-w-[115px]">
+                <span class="text-[12px]" :class="formatKondisiStyle(asset.kondisi_aset)">
                   {{ asset.kondisi_aset || '—' }}
                 </span>
               </td>
 
               <!-- 7. AKSI Column (Minimal Icon Button) -->
-              <td class="py-2.5 pr-4 pl-3 text-right" @click.stop>
+              <td class="py-4 pr-5 pl-4 text-right" @click.stop>
                 <AppRowActions :actions="getAssetActions(asset)" />
               </td>
             </tr>

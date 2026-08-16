@@ -1169,10 +1169,9 @@ function toast(message, type = 'success') {
     </div>
 
     <!-- ── Tickets Table Card ──────────────────────────────── -->
-    <div class="shadow-card rounded-2xl border border-[#E5EAEF] bg-white overflow-hidden">
-      <div v-if="isLoading" class="flex items-center justify-center gap-3 py-16 text-[#7C8BAC]">
-        <span class="h-8 w-8 animate-spin rounded-full border-4 border-[#E5EAEF] border-t-[#5D87FF]"></span>
-        <span class="text-[13px] font-medium">Memuat data tiket...</span>
+    <div class="rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs overflow-hidden">
+      <div v-if="isLoading" class="p-5 space-y-3">
+        <div v-for="n in 5" :key="n" class="h-12 w-full animate-pulse rounded-xl bg-[#F8FAFC]"></div>
       </div>
 
       <div v-else-if="pageError" class="bg-[#FDEDE8] p-5 text-[13px] font-semibold text-[#FA896B]">
@@ -1180,58 +1179,58 @@ function toast(message, type = 'success') {
       </div>
 
       <div v-else class="overflow-x-auto">
-        <table class="w-full border-collapse">
-          <thead>
-            <tr class="bg-[#F8FAFC]">
-              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Tiket</th>
-              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Judul</th>
-              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Unit</th>
-              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Prioritas</th>
-              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">SLA</th>
-              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Assignee</th>
-              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Status</th>
-              <th class="py-2 px-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Tanggal</th>
-              <th class="py-2 px-3 text-right text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Aksi</th>
+        <table class="w-full text-left border-collapse">
+          <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
+            <tr>
+              <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Tiket</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Judul & Pelapor</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Unit</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Prioritas</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">SLA</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Assignee</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Status</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Tanggal</th>
+              <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
             </tr>
           </thead>
-          <tbody>
-            <tr v-for="ticket in paginatedTickets" :key="ticket.id" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-              <td class="py-2 px-3 align-top">
-                <span class="font-mono text-[11px] font-semibold text-[#5D87FF]">{{ ticket.nomor_tiket || `TCK-${ticket.id}` }}</span>
-                <span v-if="ticket.has_attachment" class="ml-1 material-symbols-outlined text-[14px] text-[#5D87FF]">attach_file</span>
+          <tbody class="divide-y divide-[#F1F5F9]">
+            <tr v-for="ticket in paginatedTickets" :key="ticket.id" class="group hover:bg-[#F8FAFC] transition-colors duration-150">
+              <td class="py-4 pl-5 pr-4 min-w-[130px] align-top">
+                <span class="font-mono text-[12px] font-semibold text-[#2563EB]">{{ ticket.nomor_tiket || `TCK-${ticket.id}` }}</span>
+                <span v-if="ticket.has_attachment" class="ml-1 material-symbols-outlined text-[14px] text-[#2563EB] align-middle">attach_file</span>
               </td>
-              <td class="py-2 px-3 align-top">
+              <td class="py-4 px-4 min-w-[220px] align-top">
                 <div class="flex items-start gap-2">
-                  <p class="text-[12px] font-medium text-[#2A3547]">{{ ticket.judul }}</p>
-                  <span v-if="ticket.total_komentar > 0" class="inline-flex items-center gap-0.5 rounded-md bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold text-blue-600 shrink-0">
-                    <span class="material-symbols-outlined text-[10px]">chat_bubble</span>
+                  <p class="text-[13.5px] font-semibold text-[#0F172A] leading-snug truncate">{{ ticket.judul }}</p>
+                  <span v-if="ticket.total_komentar > 0" class="inline-flex items-center gap-0.5 rounded-md bg-[#EFF6FF] px-1.5 py-0.5 text-[10px] font-semibold text-[#2563EB] shrink-0">
+                    <span class="material-symbols-outlined text-[11px]">chat_bubble</span>
                     {{ ticket.total_komentar }}
                   </span>
                 </div>
-                <p class="mt-0.5 text-[10px] text-slate-500 line-clamp-1">{{ ticket.deskripsi || '-' }}</p>
-                <p class="mt-0.5 text-[9px] text-slate-400">👤 {{ ticket.pelapor_nama || ticket.pelapor || '-' }}</p>
+                <p class="mt-0.5 text-[11.5px] font-normal text-[#64748B] truncate">{{ ticket.deskripsi || '-' }}</p>
+                <p class="mt-0.5 text-[10.5px] font-medium text-[#94A3B8]">👤 {{ ticket.pelapor_nama || ticket.pelapor || '-' }}</p>
               </td>
-              <td class="py-2 px-3 align-top">
+              <td class="py-4 px-4 align-top min-w-[90px]">
                 <AppBadge :type="getQueueBadgeType(ticket.queue_kode)" :text="ticket.queue_kode || 'IT'" />
               </td>
-              <td class="py-2 px-3 align-top">
+              <td class="py-4 px-4 align-top min-w-[120px]">
                 <AppBadge :type="getPriorityBadgeType(ticket.prioritas)" :text="ticket.prioritas || 'Medium (3d)'" small />
               </td>
-              <td class="py-2 px-3 align-top">
-                <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold"
-                      :class="getSlaCountdownInfo(ticket).isClosed ? 'bg-emerald-50 text-emerald-700'
-                        : getSlaCountdownInfo(ticket).isOverdue ? 'bg-red-50 text-red-700 animate-pulse'
-                        : 'bg-green-50 text-green-700'">
+              <td class="py-4 px-4 align-top min-w-[120px]">
+                <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium border"
+                      :class="getSlaCountdownInfo(ticket).isClosed ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : getSlaCountdownInfo(ticket).isOverdue ? 'bg-red-50 text-red-700 border-red-200 animate-pulse'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'">
                   {{ getSlaCountdownInfo(ticket).text }}
                 </span>
               </td>
-              <td class="py-2 px-3 align-top">
+              <td class="py-4 px-4 align-top min-w-[160px]">
                 <div class="flex items-center gap-2">
-                  <div class="flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold"
-                       :class="ticket.assigned_to_user_id ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'">
+                  <div class="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold shrink-0"
+                       :class="ticket.assigned_to_user_id ? 'bg-[#EFF6FF] text-[#2563EB]' : 'bg-[#F1F5F9] text-[#64748B]'">
                     {{ (ticket.assigned_to_nama || ticket.assigned_to || '?').charAt(0).toUpperCase() }}
                   </div>
-                  <span class="text-[11px] font-medium" :class="ticket.assigned_to_user_id ? 'text-slate-700' : 'text-slate-400 italic'">
+                  <span class="text-[12px] font-medium truncate" :class="ticket.assigned_to_user_id ? 'text-[#1E293B]' : 'text-[#94A3B8] italic'">
                     {{ ticket.assigned_to_nama || ticket.assigned_to || 'Belum diambil' }}
                   </span>
                 </div>
@@ -1240,7 +1239,7 @@ function toast(message, type = 'success') {
                 <select v-if="isSuperAdmin && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
                         :value="ticket.assigned_to_user_id || ''" @change="assignTicketToUser(ticket, $event.target.value)"
                         :disabled="isReassigning === ticket.id || isClaiming === ticket.id"
-                        class="mt-1 w-full rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[9px] font-semibold text-blue-700 focus:border-blue-500 focus:outline-none disabled:opacity-50">
+                        class="mt-1.5 w-full rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-2 py-1 text-[10px] font-semibold text-[#2563EB] focus:border-[#2563EB] focus:outline-none disabled:opacity-50 cursor-pointer shadow-2xs">
                   <option value="" disabled>Assign to {{ ticket.queue_kode || 'Queue' }}</option>
                   <option v-for="adm in getAdminsForQueue(ticket.queue_id)" :key="adm.id" :value="adm.id">{{ adm.nama }}</option>
                 </select>
@@ -1249,22 +1248,22 @@ function toast(message, type = 'success') {
                 <button v-if="isAdmin && !isSuperAdmin && hasWritePermission('tickets') && !ticket.assigned_to_user_id && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
                         type="button" @click.stop="claimTicket(ticket)"
                         :disabled="isClaiming === ticket.id || isReassigning === ticket.id"
-                        class="mt-1 flex items-center justify-center gap-1 rounded bg-blue-500 px-2 py-1 text-[9px] font-semibold text-white hover:bg-blue-600 disabled:opacity-50">
+                        class="mt-1.5 flex items-center justify-center gap-1 rounded-lg bg-[#2563EB] px-2.5 py-1 text-[10.5px] font-semibold text-white hover:bg-[#1D4ED8] disabled:opacity-50 cursor-pointer shadow-2xs">
                   <span v-if="isClaiming === ticket.id" class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                  <span v-else class="material-symbols-outlined text-[11px]">person_add</span>
+                  <span v-else class="material-symbols-outlined text-[13px]">person_add</span>
                   {{ isClaiming === ticket.id ? 'Mengambil...' : 'Ambil' }}
                 </button>
               </td>
-              <td class="py-2 px-3 align-top">
+              <td class="py-4 px-4 align-top min-w-[110px]">
                 <AppBadge :type="getStatusBadgeType(ticket.status_tiket)" :text="ticket.status_tiket" small />
               </td>
-              <td class="py-2 px-3 align-top text-[11px] text-slate-500">{{ formatDate(ticket.dibuat_pada) }}</td>
-              <td class="py-2 px-3 align-top text-right">
+              <td class="py-4 px-4 align-top text-[11.5px] font-normal text-[#64748B] min-w-[110px]">{{ formatDate(ticket.dibuat_pada) }}</td>
+              <td class="py-4 pr-5 pl-4 align-top text-right min-w-[80px]">
                 <AppRowActions :actions="getTicketActions(ticket)" />
               </td>
             </tr>
             <tr v-if="filteredTickets.length === 0">
-              <td colspan="9" class="py-8 text-center text-[11px] text-slate-500">Tidak ada tiket yang ditemukan.</td>
+              <td colspan="9" class="py-12 text-center text-[12px] text-[#64748B]">Tidak ada tiket yang ditemukan.</td>
             </tr>
           </tbody>
         </table>

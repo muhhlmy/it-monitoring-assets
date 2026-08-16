@@ -533,65 +533,67 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
 
       <!-- Tabel -->
       <div v-else class="overflow-x-auto" tabindex="0" aria-label="Tabel pengguna; geser secara horizontal untuk melihat seluruh kolom">
-        <table class="w-full min-w-[720px]">
+        <table class="w-full min-w-[720px] text-left border-collapse">
           <caption class="sr-only">Daftar pengguna sistem</caption>
-          <thead>
-            <tr class="border-b border-[#E8EDF3] bg-[#F8FAFC]">
-              <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Pengguna</th>
-              <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Email</th>
-              <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Role Akses</th>
-              <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Sub Role / Unit Ditangani</th>
-              <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Hak Akses Fitur</th>
-              <th class="px-5 py-3 text-left text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Status</th>
-              <th class="px-5 py-3 text-right text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Aksi</th>
+          <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
+            <tr>
+              <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Pengguna</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Email</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Role Akses</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Sub Role / Unit Ditangani</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Hak Akses Fitur</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Status</th>
+              <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-[#F9FAFB]">
+          <tbody class="divide-y divide-[#F1F5F9]">
             <tr
               v-for="user in paginatedUsers"
               :key="user.id"
-              class="group hover:bg-[#F7FAFD]"
+              class="group hover:bg-[#F8FAFC] transition-colors duration-150"
             >
               <!-- Kolom Pengguna (avatar + nama) -->
-              <td class="px-5 py-3">
-                <div class="flex items-center gap-3">
-                  <div>
-                    <p class="text-[13px] font-bold text-[#111827]">{{ user.nama }}</p>
-                    <p class="text-[10px] text-[#9CA3AF]">ID #{{ user.id }}</p>
-                  </div>
+              <td class="py-4 pl-5 pr-4 min-w-[180px]">
+                <div class="flex flex-col">
+                  <span class="text-[13.5px] font-semibold text-[#0F172A] leading-snug truncate">
+                    {{ user.nama }}
+                  </span>
+                  <span class="font-mono text-[11px] font-normal text-[#64748B] mt-0.5 tracking-tight truncate">
+                    ID #{{ user.id }}
+                  </span>
                 </div>
               </td>
 
               <!-- Email -->
-              <td class="px-5 py-3 text-[12px] text-[#6B7280]">{{ user.email }}</td>
+              <td class="py-4 px-4 text-[12.5px] font-normal text-[#475569] min-w-[180px]">{{ user.email }}</td>
 
               <!-- Role Badge -->
-              <td class="px-5 py-3">
+              <td class="py-4 px-4 min-w-[110px]">
                 <AppBadge :type="getRoleBadgeType(user.role)" :text="(user.role || 'user').toUpperCase()" />
               </td>
 
               <!-- Unit Tiket (Queue) Badge -->
-              <td class="px-5 py-3">
-                <div v-if="isRoleSuperAdmin(user.role)" class="text-[11px] font-bold text-[#5D87FF]">
+              <td class="py-4 px-4 min-w-[160px]">
+                <div v-if="isRoleSuperAdmin(user.role)" class="text-[11.5px] font-semibold text-[#2563EB]">
                   Semua Unit (Superadmin)
                 </div>
                 <div v-else-if="user.queues && user.queues.length > 0" class="flex flex-wrap gap-1">
                   <span
                     v-for="q in user.queues"
                     :key="q.id"
-                    class="inline-flex items-center rounded-md bg-[#ECF2FF] px-2 py-0.5 text-[10px] font-bold text-[#5D87FF]"
+                    class="inline-flex items-center rounded-md bg-[#EFF6FF] px-2 py-0.5 text-[10.5px] font-semibold text-[#2563EB]"
                   >{{ q.kode }}</span>
                 </div>
-                <span v-else class="text-[11px] text-[#9CA3AF] italic">Tidak ada unit</span>
+                <span v-else class="text-[11.5px] text-[#94A3B8] italic">Tidak ada unit</span>
               </td>
 
               <!-- Hak Akses Fitur Count Badge -->
-              <td class="px-5 py-3">
+              <td class="py-4 px-4 min-w-[140px]">
                 <AppBadge :type="getPermissionBadge(user).type" :text="getPermissionBadge(user).text" />
               </td>
 
               <!-- Status Akun -->
-              <td class="px-5 py-3">
+              <td class="py-4 px-4 min-w-[110px]">
                 <AppBadge
                   :type="user.is_active === false ? 'danger' : 'success'"
                   :text="user.is_active === false ? 'NONAKTIF' : 'AKTIF'"
@@ -599,7 +601,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               </td>
 
               <!-- Aksi -->
-              <td class="px-5 py-3 text-right">
+              <td class="py-4 pr-5 pl-4 text-right">
                 <AppRowActions :actions="getUserActions(user)" />
               </td>
             </tr>

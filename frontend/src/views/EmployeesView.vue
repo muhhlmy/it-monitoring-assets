@@ -430,66 +430,73 @@ onMounted(() => {
     </div>
 
     <!-- Table Section -->
-    <div class="rounded-2xl border border-[#E5EAEF] bg-white shadow-xs overflow-hidden">
-      <div v-if="isLoading" class="flex flex-col items-center justify-center py-16 text-[#7C8BAC]">
-        <div class="h-8 w-8 animate-spin rounded-full border-4 border-[#5D87FF] border-t-transparent mb-3"></div>
-        <p class="text-[13px] font-semibold">Memuat data karyawan...</p>
+    <div class="rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs overflow-hidden">
+      <div v-if="isLoading" class="p-5 space-y-3">
+        <div v-for="n in 5" :key="n" class="h-12 w-full animate-pulse rounded-xl bg-[#F8FAFC]"></div>
       </div>
 
       <div v-else-if="pageError" class="p-6 text-center text-rose-600">
         <p class="font-bold text-[14px]">{{ pageError }}</p>
-        <button type="button" @click="fetchData" class="mt-2 text-[12px] font-bold underline">Coba Lagi</button>
+        <button type="button" @click="fetchData" class="mt-2 text-[12px] font-bold underline cursor-pointer">Coba Lagi</button>
       </div>
 
-      <div v-else-if="filteredEmployees.length === 0" class="p-12 text-center text-[#7C8BAC]">
-        <span class="material-symbols-outlined text-[48px] text-[#CBD5E1]">person_off</span>
-        <p class="mt-2 font-bold text-[14px]">Tidak Ada Data Karyawan</p>
-        <p class="text-[12px]">Cobalah untuk mengosongkan filter atau menambah karyawan baru.</p>
+      <div v-else-if="filteredEmployees.length === 0" class="p-12 text-center text-[#64748B]">
+        <span class="material-symbols-outlined text-[44px] text-[#CBD5E1]">person_off</span>
+        <p class="mt-2 font-bold text-[13.5px] text-[#0F172A]">Tidak Ada Data Karyawan</p>
+        <p class="text-[11.5px] text-[#64748B]">Cobalah untuk mengosongkan filter atau menambah karyawan baru.</p>
       </div>
 
       <div v-else class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="border-b border-[#E5EAEF] bg-[#F8FAFC] text-[11px] font-extrabold uppercase tracking-wider text-[#7C8BAC]">
-              <th class="py-3.5 px-4">Karyawan</th>
-              <th class="py-3.5 px-4">NIK</th>
-              <th class="py-3.5 px-4">Title / Jabatan</th>
-              <th class="py-3.5 px-4">Job Level</th>
-              <th class="py-3.5 px-4">Departemen / Direktorat</th>
-              <th class="py-3.5 px-4">Status</th>
-              <th class="py-3.5 px-4">Lokasi Kerja</th>
-              <th v-if="canWriteKaryawan" class="py-3.5 px-4 text-right">Aksi</th>
+          <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
+            <tr>
+              <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Karyawan</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">NIK</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Title / Jabatan</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Departemen / Direktorat</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Status</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Lokasi Kerja</th>
+              <th v-if="canWriteKaryawan" class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-[#F1F5F9] text-[12px]">
-            <tr v-for="emp in paginatedEmployees" :key="emp.id_karyawan || emp.nik" class="hover:bg-[#F8FAFC] transition-colors">
-              <td class="py-3.5 px-4">
-                <div class="flex items-center gap-3">
-                  <div>
-                    <p class="font-bold text-[#2A3547]">{{ emp.nama_karyawan }}</p>
-                    <p class="text-[11px] text-[#7C8BAC]">{{ emp.email_kantor || '-' }}</p>
-                  </div>
+          <tbody class="divide-y divide-[#F1F5F9]">
+            <tr v-for="emp in paginatedEmployees" :key="emp.id_karyawan || emp.nik" class="group hover:bg-[#F8FAFC] transition-colors duration-150">
+              <td class="py-4 pl-5 pr-4 min-w-[180px]">
+                <div class="flex flex-col">
+                  <span class="text-[13.5px] font-semibold text-[#0F172A] leading-snug truncate">
+                    {{ emp.nama_karyawan }}
+                  </span>
+                  <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate">
+                    {{ emp.email_kantor || '-' }}
+                  </span>
                 </div>
               </td>
-              <td class="py-3.5 px-4 font-mono font-bold text-[#2A3547]">{{ emp.nik }}</td>
-              <td class="py-3.5 px-4 font-medium text-[#2A3547]">{{ emp.jabatan || emp.title || '-' }}</td>
-              <td class="py-3.5 px-4">
-                <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                  {{ emp.tingkat_jabatan || emp.job_level || '-' }}
-                </span>
+
+              <td class="py-4 px-4 font-mono text-[11.5px] font-semibold text-[#0F172A] min-w-[110px]">{{ emp.nik }}</td>
+
+              <td class="py-4 px-4 min-w-[160px]">
+                <span class="text-[12.5px] font-medium text-[#1E293B]">{{ emp.jabatan || emp.title || '-' }}</span>
               </td>
-              <td class="py-3.5 px-4">
-                <p class="font-semibold text-[#2A3547]">{{ emp.departemen || '-' }}</p>
-                <p class="text-[10px] text-[#7C8BAC]">{{ emp.direktorat || emp.directorate || '-' }}</p>
+
+              <td class="py-4 px-4 min-w-[170px]">
+                <div class="flex flex-col">
+                  <span class="text-[12.5px] font-medium text-[#1E293B] leading-snug truncate">
+                    {{ emp.departemen || '-' }}
+                  </span>
+                  <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate">
+                    {{ emp.direktorat || emp.directorate || '-' }}
+                  </span>
+                </div>
               </td>
-              <td class="py-3.5 px-4">
+
+              <td class="py-4 px-4 min-w-[110px]">
                 <AppBadge
                   :type="(emp.status_karyawan || emp.status) === 'Active' ? 'success' : (emp.status_karyawan || emp.status) === 'Outsource' ? 'warning' : 'danger'"
                   :text="emp.status_karyawan || emp.status || 'Active'"
                 />
               </td>
-              <td class="py-3.5 px-4 font-bold text-[#2A3547]">{{ emp.lokasi_kerja || '-' }}</td>
-              <td v-if="canWriteKaryawan" class="py-3.5 px-4 text-right">
+              <td class="py-4 px-4 text-[12.5px] font-normal text-[#475569] min-w-[130px]">{{ emp.lokasi_kerja || emp.work_location || '-' }}</td>
+              <td v-if="canWriteKaryawan" class="py-4 pr-5 pl-4 text-right">
                 <AppRowActions :actions="getEmployeeActions(emp)" />
               </td>
             </tr>
