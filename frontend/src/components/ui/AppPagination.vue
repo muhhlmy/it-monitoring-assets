@@ -49,7 +49,7 @@ function goToPage(page) {
 </script>
 
 <template>
-  <div class="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#E5EAEF] bg-[#F8FAFC] px-5 py-3 text-[12px] text-[#7C8BAC]">
+  <div class="flex flex-col sm:flex-row items-center justify-between gap-2.5 border-t border-[#E5EAEF] bg-[#F8FAFC] px-3.5 py-2 text-[11px] text-[#7C8BAC]">
     <div class="flex items-center gap-1 font-medium">
       <span>Menampilkan</span>
       <span class="font-bold text-[#2A3547]">{{ startIndex }}</span>
@@ -65,17 +65,17 @@ function goToPage(page) {
         type="button"
         @click="goToPage(currentPage - 1)"
         :disabled="currentPage === 1"
-        class="flex h-8 w-8 items-center justify-center rounded-lg border border-[#DFE5EF] bg-white text-[#2A3547] shadow-2xs hover:bg-[#F1F5F9] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        class="flex h-7 w-7 items-center justify-center rounded-lg border border-[#DFE5EF] bg-white text-[#2A3547] shadow-2xs hover:bg-[#F1F5F9] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         title="Halaman Sebelumnya"
       >
-        <span class="material-symbols-outlined text-[18px]">chevron_left</span>
+        <span class="material-symbols-outlined text-[16px]">chevron_left</span>
       </button>
 
       <template v-for="page in visiblePageNumbers" :key="page">
         <button
           type="button"
           @click="goToPage(page)"
-          class="flex h-8 min-w-[32px] px-2 items-center justify-center rounded-lg text-[12px] font-bold transition-all cursor-pointer"
+          class="flex h-7 min-w-[28px] px-1.5 items-center justify-center rounded-lg text-[11px] font-bold transition-all cursor-pointer"
           :class="page === currentPage ? 'bg-[#5D87FF] text-white shadow-sm' : 'border border-[#DFE5EF] bg-white text-[#2A3547] hover:bg-[#F1F5F9]'"
         >
           {{ page }}
@@ -86,10 +86,10 @@ function goToPage(page) {
         type="button"
         @click="goToPage(currentPage + 1)"
         :disabled="currentPage === totalPages"
-        class="flex h-8 w-8 items-center justify-center rounded-lg border border-[#DFE5EF] bg-white text-[#2A3547] shadow-2xs hover:bg-[#F1F5F9] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        class="flex h-7 w-7 items-center justify-center rounded-lg border border-[#DFE5EF] bg-white text-[#2A3547] shadow-2xs hover:bg-[#F1F5F9] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         title="Halaman Selanjutnya"
       >
-        <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+        <span class="material-symbols-outlined text-[16px]">chevron_right</span>
       </button>
     </div>
   </div>

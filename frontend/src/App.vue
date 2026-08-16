@@ -96,7 +96,7 @@ watch(isLoginPage, (loginPage) => {
         />
 
         <!-- Konten halaman aktif, scrollable -->
-        <main id="main-content" tabindex="-1" class="app-main flex-1 overflow-y-auto p-4 outline-none sm:p-6 xl:p-8">
+        <main id="main-content" tabindex="-1" class="app-main flex-1 overflow-y-auto p-3.5 outline-none sm:p-4 lg:p-5">
           <div class="mx-auto w-full max-w-[1560px]">
             <RouterView />
           </div>

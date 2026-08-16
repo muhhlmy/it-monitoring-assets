@@ -525,19 +525,19 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header class="relative z-30 flex h-[72px] shrink-0 items-center justify-between border-b border-[#E5EAEF] bg-white/95 px-4 backdrop-blur-md sm:px-6 xl:px-8">
+  <header class="relative z-30 flex h-[52px] shrink-0 items-center justify-between border-b border-[#E5EAEF] bg-white/95 px-3.5 backdrop-blur-md sm:px-5">
 
     <!-- 1. LEFT: Navigation Drawer Toggle & Page Titles -->
-    <div class="flex items-center gap-3 shrink-0 min-w-0">
+    <div class="flex items-center gap-2.5 shrink-0 min-w-0">
       <!-- Toggle Mobile Drawer (lg:hidden) -->
       <button
         type="button"
         aria-label="Buka Navigasi Mobile"
         title="Buka Navigasi Mobile"
-        class="flex lg:hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
+        class="flex lg:hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
         @click="$emit('toggle-mobile')"
       >
-        <span aria-hidden="true" class="material-symbols-outlined text-[22px]">menu</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[18px]">menu</span>
       </button>
 
       <!-- Toggle Desktop Collapse (hidden lg:flex) saat collapsed -->
@@ -546,25 +546,25 @@ onBeforeUnmount(() => {
         type="button"
         aria-label="Perluas Sidepanel Desktop"
         title="Perluas Sidepanel Desktop"
-        class="hidden lg:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
+        class="hidden lg:flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
         @click="$emit('toggle-collapse')"
       >
-        <span aria-hidden="true" class="material-symbols-outlined text-[22px]">menu</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[18px]">menu</span>
       </button>
 
       <div class="min-w-0 hidden sm:block">
-        <h1 class="truncate text-[17px] font-extrabold tracking-tight text-[#2A3547]">{{ pageTitle.title }}</h1>
-        <p class="truncate text-[11px] font-medium text-[#7C8BAC]">{{ pageTitle.subtitle }}</p>
+        <h1 class="truncate text-[14px] font-extrabold tracking-tight text-[#2A3547] leading-tight">{{ pageTitle.title }}</h1>
+        <p class="truncate text-[10px] font-medium text-[#7C8BAC] leading-none">{{ pageTitle.subtitle }}</p>
       </div>
     </div>
 
     <!-- 2. CENTER: Main Global Search Bar -->
-    <div class="flex-1 max-w-xl mx-2 sm:mx-4 relative flex justify-center z-40">
-      <div class="relative w-full max-w-sm sm:max-w-md lg:max-w-lg">
+    <div class="flex-1 max-w-lg mx-2 sm:mx-4 relative flex justify-center z-40">
+      <div class="relative w-full max-w-sm sm:max-w-md">
         <form role="search" @submit.prevent="submitSearch" class="relative flex items-center w-full">
           <label for="global-main-search" class="sr-only">Cari Global</label>
 
-          <span aria-hidden="true" class="material-symbols-outlined absolute left-3.5 text-[19px] text-[#7C8BAC] pointer-events-none transition-colors">
+          <span aria-hidden="true" class="material-symbols-outlined absolute left-3 text-[17px] text-[#7C8BAC] pointer-events-none transition-colors">
             search
           </span>
 
@@ -576,7 +576,7 @@ onBeforeUnmount(() => {
             autocomplete="off"
             @focus="initGlobalSearchData"
             placeholder="Cari aset, karyawan, tiket, atau user..."
-            class="h-10 w-full rounded-full border border-[#DFE5EF] bg-[#F8FAFC] pl-10 pr-20 text-[12px] font-medium text-[#2A3547] placeholder-[#94A3B8] outline-none transition-all shadow-xs focus:bg-white focus:border-[#5D87FF] focus:ring-2 focus:ring-[#5D87FF]/20"
+            class="h-8 w-full rounded-full border border-[#DFE5EF] bg-[#F8FAFC] pl-9 pr-16 text-[11px] font-medium text-[#2A3547] placeholder-[#94A3B8] outline-none transition-all shadow-xs focus:bg-white focus:border-[#5D87FF] focus:ring-2 focus:ring-[#5D87FF]/20"
           />
 
           <!-- Action Buttons / Hotkey Indicator -->

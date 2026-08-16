@@ -225,21 +225,21 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
       aria-haspopup="listbox"
       :aria-expanded="isOpen"
       :aria-controls="listboxId"
-      class="flex h-10 w-full items-center justify-between rounded-xl border border-[#DCE3EC] bg-white px-3 text-left text-[12px] font-medium text-[#334155] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
-      :class="{ 'border-brand ring-1 ring-brand/20': isOpen, 'pr-16': clearable && selectedOption }"
+      class="flex h-8 w-full items-center justify-between rounded-lg border border-[#DCE3EC] bg-white px-2.5 text-left text-[11px] font-medium text-[#334155] focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
+      :class="{ 'border-brand ring-1 ring-brand/20': isOpen, 'pr-14': clearable && selectedOption }"
       @click="toggleDropdown"
       @keydown="handleTriggerKeydown"
     >
-      <span v-if="selectedOption" class="truncate text-[12px]">
+      <span v-if="selectedOption" class="truncate text-[11px]">
         {{ selectedOption[labelKey] }}
-        <span v-if="secondaryLabelKey" class="font-mono text-[10px] text-[#94A3B8]">
+        <span v-if="secondaryLabelKey" class="font-mono text-[9px] text-[#94A3B8]">
           ({{ selectedOption[secondaryLabelKey] }})
         </span>
       </span>
-      <span v-else class="truncate text-[12px] text-[#9CA3AF]">{{ placeholder }}</span>
+      <span v-else class="truncate text-[11px] text-[#9CA3AF]">{{ placeholder }}</span>
       <span
         aria-hidden="true"
-        class="material-symbols-outlined shrink-0 text-[18px] text-[#94A3B8] transition-transform duration-200"
+        class="material-symbols-outlined shrink-0 text-[16px] text-[#94A3B8] transition-transform duration-200"
         :class="{ 'rotate-180': isOpen }"
       >keyboard_arrow_down</span>
     </button>
@@ -248,18 +248,18 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
       v-if="clearable && selectedOption"
       type="button"
       :aria-label="`Hapus pilihan ${selectedOption[labelKey]}`"
-      class="absolute right-9 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-red-50 hover:text-[#EF4444]"
+      class="absolute right-7 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[#94A3B8] transition-colors hover:bg-red-50 hover:text-[#EF4444]"
       @click.stop="clearSelection"
     >
-      <span aria-hidden="true" class="material-symbols-outlined text-[16px]">close</span>
+      <span aria-hidden="true" class="material-symbols-outlined text-[14px]">close</span>
     </button>
 
     <div
       v-if="isOpen"
-      class="absolute left-0 right-0 z-50 mt-1.5 flex flex-col rounded-xl border border-[#E8EDF3] bg-white shadow-2xl animate-fade-in"
+      class="absolute left-0 right-0 z-50 mt-1 flex flex-col rounded-lg border border-[#E8EDF3] bg-white shadow-xl animate-fade-in"
     >
-      <div class="relative border-b border-[#F1F5F9] p-2">
-        <span aria-hidden="true" class="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[16px] text-[#94A3B8]">search</span>
+      <div class="relative border-b border-[#F1F5F9] p-1.5">
+        <span aria-hidden="true" class="material-symbols-outlined pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] text-[#94A3B8]">search</span>
         <input
           ref="searchInputRef"
           v-model="searchQuery"
@@ -271,7 +271,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
           :aria-controls="listboxId"
           :aria-activedescendant="activeDescendant"
           :placeholder="searchPlaceholder"
-          class="h-8 w-full rounded-lg border border-[#EBEFF5] bg-[#F8FAFC] pl-9 pr-3 text-[11px] font-medium text-[#334155] placeholder-[#94A3B8] focus:border-brand focus:outline-none"
+          class="h-7 w-full rounded-md border border-[#EBEFF5] bg-[#F8FAFC] pl-8 pr-2.5 text-[11px] font-medium text-[#334155] placeholder-[#94A3B8] focus:border-brand focus:outline-none"
           @keydown.stop="handleSearchKeydown"
         />
       </div>
@@ -280,7 +280,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
         :id="listboxId"
         role="listbox"
         :aria-label="ariaLabel || placeholder"
-        class="max-h-52 overflow-y-auto p-1"
+        class="max-h-48 overflow-y-auto p-1"
       >
         <li
           v-for="(option, index) in filteredOptions"
@@ -288,7 +288,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
           :key="option[valueKey]"
           role="option"
           :aria-selected="option[valueKey] === modelValue"
-          class="flex cursor-pointer flex-col rounded-lg px-3 py-2 text-left transition-colors hover:bg-brand-light"
+          class="flex cursor-pointer flex-col rounded-md px-2.5 py-1.5 text-left transition-colors hover:bg-brand-light"
           :class="{
             'bg-brand-light font-bold text-brand': option[valueKey] === modelValue,
             'ring-1 ring-inset ring-brand/40': activeIndex === index,
@@ -297,7 +297,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
           @mousedown.prevent
           @click.stop.prevent="selectOption(option)"
         >
-          <span class="text-[12px] text-[#172033]" :class="{ 'font-bold text-brand': option[valueKey] === modelValue }">
+          <span class="text-[11px] text-[#172033]" :class="{ 'font-bold text-brand': option[valueKey] === modelValue }">
             {{ option[labelKey] }}
           </span>
           <span v-if="secondaryLabelKey" class="mt-0.5 font-mono text-[9px] text-[#94A3B8]">

@@ -469,14 +469,14 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
       <!-- Search -->
       <div class="relative col-span-2 min-w-0 sm:flex-1 sm:min-w-[220px]">
         <label for="user-search" class="sr-only">Cari pengguna</label>
-        <span aria-hidden="true" class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] text-[18px] pointer-events-none">search</span>
+        <span aria-hidden="true" class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] text-[16px] pointer-events-none">search</span>
         <input
           id="user-search"
           v-model="searchQuery"
           type="search"
           autocomplete="off"
           placeholder="Cari nama atau email pengguna..."
-          class="h-10 w-full rounded-xl border border-[#DCE3EC] bg-[#F8FAFC] pl-10 pr-4 text-[12px] font-medium text-[#334155] placeholder-[#94A3B8] focus:outline-none"
+          class="h-8 w-full rounded-lg border border-[#DCE3EC] bg-[#F8FAFC] pl-8 pr-3 text-[11px] font-medium text-[#334155] placeholder-[#94A3B8] focus:outline-none"
         />
       </div>
 
@@ -485,7 +485,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
       <select
         id="user-role-filter"
         v-model="filterRole"
-        class="h-10 min-w-0 w-full rounded-xl border border-[#DCE3EC] bg-white px-3 text-[11px] font-semibold text-[#475569] focus:outline-none sm:w-auto"
+        class="h-8 min-w-0 w-full rounded-lg border border-[#DCE3EC] bg-white px-2.5 text-[11px] font-semibold text-[#475569] focus:outline-none sm:w-auto"
       >
         <option value="">Semua Role</option>
         <option value="admin">ADMIN</option>
@@ -497,7 +497,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
       <button
         v-if="searchQuery || filterRole"
         @click="resetFilters"
-        class="h-10 w-full rounded-xl border border-[#F1D0D0] bg-[#FFF7F7] px-4 text-[11px] font-bold text-[#D94B4B] hover:bg-[#FFEEEE] sm:w-auto"
+        class="h-8 w-full rounded-lg border border-[#F1D0D0] bg-[#FFF7F7] px-3 text-[11px] font-bold text-[#D94B4B] hover:bg-[#FFEEEE] sm:w-auto"
       >
         Reset
       </button>
@@ -508,9 +508,9 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
       <button
         v-if="canWriteUsers"
         @click="openAdd"
-        class="col-span-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-[11px] font-bold text-white shadow-md shadow-blue-200/70 hover:-translate-y-0.5 hover:bg-brand-dark sm:w-auto cursor-pointer"
+        class="col-span-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-brand px-3.5 text-[11px] font-bold text-white shadow-sm shadow-blue-200/70 hover:bg-brand-dark sm:w-auto cursor-pointer"
       >
-        <span aria-hidden="true" class="material-symbols-outlined text-[17px]">person_add</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[16px]">person_add</span>
         Tambah Admin / Promosikan Akses
       </button>
     </div>

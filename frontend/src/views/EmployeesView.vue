@@ -389,21 +389,21 @@ onMounted(() => {
     </div>
 
     <!-- Search & Filters -->
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white p-4 rounded-2xl border border-[#E5EAEF] shadow-xs">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 bg-white p-2.5 rounded-xl border border-[#E5EAEF] shadow-xs">
       <div class="relative flex-1">
-        <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[20px] text-[#7C8BAC]">search</span>
+        <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[17px] text-[#7C8BAC]">search</span>
         <input
           v-model="searchQuery"
           type="text"
           placeholder="Cari NIK, Nama, Email, Jabatan, Departemen..."
-          class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] pl-10 pr-4 py-2 text-[13px] text-[#2A3547] focus:border-[#5D87FF] focus:bg-white focus:outline-none transition-all"
+          class="h-8 w-full rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] pl-8 pr-3 text-[11px] text-[#2A3547] focus:border-[#5D87FF] focus:bg-white focus:outline-none transition-all"
         />
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
         <select
           v-model="filterDepartemen"
-          class="rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[12px] font-semibold text-[#2A3547] focus:outline-none"
+          class="h-8 rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] px-2.5 text-[11px] font-semibold text-[#2A3547] focus:outline-none"
         >
           <option value="">Semua Departemen</option>
           <option v-for="dep in availableDepartemenOptions" :key="dep" :value="dep">{{ dep }}</option>
@@ -411,7 +411,7 @@ onMounted(() => {
 
         <select
           v-model="filterLokasi"
-          class="rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[12px] font-semibold text-[#2A3547] focus:outline-none"
+          class="h-8 rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] px-2.5 text-[11px] font-semibold text-[#2A3547] focus:outline-none"
         >
           <option value="">Semua Lokasi</option>
           <option v-for="loc in availableLokasiOptions" :key="loc" :value="loc">{{ loc }}</option>
@@ -419,7 +419,7 @@ onMounted(() => {
 
         <select
           v-model="filterStatus"
-          class="rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[12px] font-semibold text-[#2A3547] focus:outline-none"
+          class="h-8 rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] px-2.5 text-[11px] font-semibold text-[#2A3547] focus:outline-none"
         >
           <option value="">Semua Status</option>
           <option value="Active">Active</option>

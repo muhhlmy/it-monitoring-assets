@@ -3,8 +3,9 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 
 const props = defineProps({
-  isOpen:  { type: Boolean, default: false },
-  title:   { type: String,  default: 'Modal' },
+  isOpen:   { type: Boolean, default: false },
+  title:    { type: String,  default: 'Modal' },
+  subtitle: { type: String,  default: '' },
   // 'sm' | 'md' | 'lg'
   size: {
     type: String,
@@ -119,25 +120,28 @@ onBeforeUnmount(() => {
           }"
         >
           <!-- Header Modal -->
-          <div class="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-[#E5EAEF] bg-white px-5 py-4.5 sm:px-6">
-            <div class="flex items-center gap-3">
-              <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ECF2FF] text-[#5D87FF]">
-                <span aria-hidden="true" class="material-symbols-outlined text-[20px]">inventory_2</span>
+          <div class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[#E5EAEF] bg-white px-4 py-3 sm:px-5">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#ECF2FF] text-[#5D87FF]">
+                <span aria-hidden="true" class="material-symbols-outlined text-[17px]">inventory_2</span>
               </span>
-              <h2 :id="titleId" class="text-[16px] font-bold text-[#2A3547]">{{ title }}</h2>
+              <div class="min-w-0">
+                <h2 :id="titleId" class="text-[14px] font-bold text-[#2A3547] leading-tight truncate">{{ title }}</h2>
+                <p v-if="subtitle" class="text-[10.5px] font-medium text-[#7C8BAC] mt-0.5 leading-none truncate">{{ subtitle }}</p>
+              </div>
             </div>
             <button
               type="button"
               aria-label="Tutup dialog"
               @click="close"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-[#7C8BAC] transition-colors hover:bg-[#ECF2FF] hover:text-[#5D87FF]"
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#7C8BAC] transition-colors hover:bg-[#ECF2FF] hover:text-[#5D87FF]"
             >
-              <span aria-hidden="true" class="material-symbols-outlined text-[20px]">close</span>
+              <span aria-hidden="true" class="material-symbols-outlined text-[18px]">close</span>
             </button>
           </div>
 
           <!-- Konten Modal (slot) -->
-          <div class="p-5 sm:p-6">
+          <div class="p-3.5 sm:p-4">
             <slot />
           </div>
         </div>

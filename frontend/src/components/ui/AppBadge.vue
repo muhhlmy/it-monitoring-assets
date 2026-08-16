@@ -29,7 +29,7 @@ const dotColors = {
 
 <template>
   <span
-    class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] tracking-[0.01em] transition-all"
+    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] tracking-[0.01em] transition-all"
     :class="classes[type] || classes.default"
   >
     <span aria-hidden="true" class="h-1.5 w-1.5 rounded-full" :class="dotColors[type] || dotColors.default"></span>

@@ -330,24 +330,24 @@ onUnmounted(() => {
     <template v-else-if="stats">
 
       <!-- ─── ROW 1: Hero Banner + 6 Stat Cards ────────── -->
-      <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+      <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
 
         <!-- 1. Total Asset (ESB Primary Orange Hero Card) -->
-        <div class="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#FC841B] to-[#E26F10] p-5 text-white shadow-lg shadow-orange-500/15 border border-white/10 flex flex-col justify-between transition-transform hover:scale-[1.02]">
+        <div class="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#FC841B] to-[#E26F10] p-3.5 text-white shadow-md shadow-orange-500/10 border border-white/10 flex flex-col justify-between transition-transform hover:scale-[1.01]">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold uppercase tracking-wider text-white/90">Total Aset</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-white/90">Total Aset</span>
             <span class="flex items-center -mr-1">
-              <span class="material-symbols-outlined text-[20px] text-white/90">inventory_2</span>
+              <span class="material-symbols-outlined text-[18px] text-white/90">inventory_2</span>
             </span>
           </div>
-          <div class="mt-4">
-            <p class="font-num text-[32px] font-black leading-none tracking-tight text-white">{{ totalAssets }}</p>
-            <div class="mt-4 flex items-center justify-between gap-2 flex-wrap">
-              <span class="text-xs font-medium text-white/85">Unit Terdaftar</span>
+          <div class="mt-2.5">
+            <p class="font-num text-[24px] font-black leading-none tracking-tight text-white">{{ totalAssets }}</p>
+            <div class="mt-2.5 flex items-center justify-between gap-1.5 flex-wrap">
+              <span class="text-[10px] font-medium text-white/85">Unit Terdaftar</span>
               <button
                 v-if="canWriteAssets"
                 type="button"
-                class="rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs font-semibold text-white border border-white/30 backdrop-blur-sm transition-all duration-200 cursor-pointer"
+                class="rounded-md bg-white/10 hover:bg-white/20 px-2 py-1 text-[10px] font-bold text-white border border-white/30 backdrop-blur-sm transition-all duration-200 cursor-pointer"
                 @click="goToAddAsset"
               >
                 + Tambah
@@ -357,96 +357,96 @@ onUnmounted(() => {
         </div>
 
         <!-- 2. In Use -->
-        <div class="shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B7E8DD] bg-gradient-to-br from-[#EDFBF7] to-white p-5">
+        <div class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B7E8DD] bg-gradient-to-br from-[#EDFBF7] to-white p-3.5">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold uppercase tracking-wide text-[#13DEB9]">Digunakan</span>
+            <span class="text-[10px] font-bold uppercase tracking-wide text-[#13DEB9]">Digunakan</span>
             <span class="flex items-center -mr-1">
-              <span class="material-symbols-outlined text-[20px] text-[#13DEB9]/70" style="opacity: 0.7;">check_circle</span>
+              <span class="material-symbols-outlined text-[18px] text-[#13DEB9]/70" style="opacity: 0.7;">check_circle</span>
             </span>
           </div>
-          <div class="mt-4">
-            <p class="font-num text-[28px] font-bold text-[#2A3547] leading-none">{{ countDipakai }}</p>
-            <div class="flex items-center gap-2 mt-3">
+          <div class="mt-2.5">
+            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">{{ countDipakai }}</p>
+            <div class="flex items-center gap-1.5 mt-2">
               <div class="flex-1 h-1.5 bg-[#E6F4F1] rounded-full overflow-hidden">
                 <div class="h-full bg-gradient-to-r from-[#13DEB9] to-[#1ECAB5] rounded-full transition-all duration-500" :style="{ width: pctDipakai + '%' }"></div>
               </div>
-              <span class="text-xs font-bold text-[#13DEB9]">{{ pctDipakai }}%</span>
+              <span class="text-[10px] font-bold text-[#13DEB9]">{{ pctDipakai }}%</span>
             </div>
           </div>
         </div>
 
         <!-- 3. Stock -->
-        <div class="shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B2E2FF] bg-gradient-to-br from-[#E8F7FF] to-white p-5">
+        <div class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B2E2FF] bg-gradient-to-br from-[#E8F7FF] to-white p-3.5">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold uppercase tracking-wide text-[#49BEFF]">Stok</span>
+            <span class="text-[10px] font-bold uppercase tracking-wide text-[#49BEFF]">Stok</span>
             <span class="flex items-center -mr-1">
-              <span class="material-symbols-outlined text-[20px] text-[#49BEFF]/70" style="opacity: 0.7;">inventory</span>
+              <span class="material-symbols-outlined text-[18px] text-[#49BEFF]/70" style="opacity: 0.7;">inventory</span>
             </span>
           </div>
-          <div class="mt-4">
-            <p class="font-num text-[28px] font-bold text-[#2A3547] leading-none">{{ countTersedia }}</p>
-            <div class="flex items-center gap-2 mt-3">
+          <div class="mt-2.5">
+            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">{{ countTersedia }}</p>
+            <div class="flex items-center gap-1.5 mt-2">
               <div class="flex-1 h-1.5 bg-[#E6F6FA] rounded-full overflow-hidden">
                 <div class="h-full bg-gradient-to-r from-[#49BEFF] to-[#3DA8E5] rounded-full transition-all duration-500" :style="{ width: pctTersedia + '%' }"></div>
               </div>
-              <span class="text-xs font-bold text-[#49BEFF]">{{ pctTersedia }}%</span>
+              <span class="text-[10px] font-bold text-[#49BEFF]">{{ pctTersedia }}%</span>
             </div>
           </div>
         </div>
 
         <!-- 4. Damaged -->
-        <div class="shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FCD5CE] bg-gradient-to-br from-[#FDEDE8] to-white p-5">
+        <div class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FCD5CE] bg-gradient-to-br from-[#FDEDE8] to-white p-3.5">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold uppercase tracking-wide text-[#FA896B]">Rusak</span>
+            <span class="text-[10px] font-bold uppercase tracking-wide text-[#FA896B]">Rusak</span>
             <span class="flex items-center -mr-1">
-              <span class="material-symbols-outlined text-[20px] text-[#FA896B]/70" style="opacity: 0.7;">report_problem</span>
+              <span class="material-symbols-outlined text-[18px] text-[#FA896B]/70" style="opacity: 0.7;">report_problem</span>
             </span>
           </div>
-          <div class="mt-4">
-            <p class="font-num text-[28px] font-bold text-[#2A3547] leading-none">{{ countRusak }}</p>
-            <div class="flex items-center gap-2 mt-3">
+          <div class="mt-2.5">
+            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">{{ countRusak }}</p>
+            <div class="flex items-center gap-1.5 mt-2">
               <div class="flex-1 h-1.5 bg-[#FDF2EF] rounded-full overflow-hidden">
                 <div class="h-full bg-gradient-to-r from-[#FA896B] to-[#E87558] rounded-full transition-all duration-500" :style="{ width: pctRusak + '%' }"></div>
               </div>
-              <span class="text-xs font-bold text-[#FA896B]">{{ pctRusak }}%</span>
+              <span class="text-[10px] font-bold text-[#FA896B]">{{ pctRusak }}%</span>
             </div>
           </div>
         </div>
 
         <!-- 5. In Service -->
-        <div class="shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FAD0AB] bg-gradient-to-br from-[#FEF5E5] to-white p-5">
+        <div class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FAD0AB] bg-gradient-to-br from-[#FEF5E5] to-white p-3.5">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold uppercase tracking-wide text-[#FFAE1F]">Maintenance</span>
+            <span class="text-[10px] font-bold uppercase tracking-wide text-[#FFAE1F]">Maintenance</span>
             <span class="flex items-center -mr-1">
-              <span class="material-symbols-outlined text-[20px] text-[#FFAE1F]/70" style="opacity: 0.7;">build</span>
+              <span class="material-symbols-outlined text-[18px] text-[#FFAE1F]/70" style="opacity: 0.7;">build</span>
             </span>
           </div>
-          <div class="mt-4">
-            <p class="font-num text-[28px] font-bold text-[#2A3547] leading-none">{{ countMaintenance }}</p>
-            <div class="flex items-center gap-2 mt-3">
+          <div class="mt-2.5">
+            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">{{ countMaintenance }}</p>
+            <div class="flex items-center gap-1.5 mt-2">
               <div class="flex-1 h-1.5 bg-[#FEF8F1] rounded-full overflow-hidden">
                 <div class="h-full bg-gradient-to-r from-[#FFAE1F] to-[#E69A1A] rounded-full transition-all duration-500" :style="{ width: pctMaintenance + '%' }"></div>
               </div>
-              <span class="text-xs font-bold text-[#FFAE1F]">{{ pctMaintenance }}%</span>
+              <span class="text-[10px] font-bold text-[#FFAE1F]">{{ pctMaintenance }}%</span>
             </div>
           </div>
         </div>
 
         <!-- 6. Disposal -->
-        <div class="shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#DBC8FC] bg-gradient-to-br from-[#F4F3FD] to-white p-5">
+        <div class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#DBC8FC] bg-gradient-to-br from-[#F4F3FD] to-white p-3.5">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold uppercase tracking-wide text-[#8B5CF6]">Dibuang</span>
+            <span class="text-[10px] font-bold uppercase tracking-wide text-[#8B5CF6]">Dibuang</span>
             <span class="flex items-center -mr-1">
-              <span class="material-symbols-outlined text-[20px] text-[#8B5CF6]/70" style="opacity: 0.7;">delete_forever</span>
+              <span class="material-symbols-outlined text-[18px] text-[#8B5CF6]/70" style="opacity: 0.7;">delete_forever</span>
             </span>
           </div>
-          <div class="mt-4">
-            <p class="font-num text-[28px] font-bold text-[#2A3547] leading-none">{{ countDisposal }}</p>
-            <div class="flex items-center gap-2 mt-3">
+          <div class="mt-2.5">
+            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">{{ countDisposal }}</p>
+            <div class="flex items-center gap-1.5 mt-2">
               <div class="flex-1 h-1.5 bg-[#F7F6FD] rounded-full overflow-hidden">
                 <div class="h-full bg-gradient-to-r from-[#8B5CF6] to-[#7C4EEC] rounded-full transition-all duration-500" :style="{ width: pctDisposal + '%' }"></div>
               </div>
-              <span class="text-xs font-bold text-[#8B5CF6]">{{ pctDisposal }}%</span>
+              <span class="text-[10px] font-bold text-[#8B5CF6]">{{ pctDisposal }}%</span>
             </div>
           </div>
         </div>
@@ -454,11 +454,11 @@ onUnmounted(() => {
       </div>
 
       <!-- ─── ROW 2: Line Chart (8 col) + Donut Chart (4 col) ── -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div class="lg:col-span-8 shadow-sm rounded-xl border border-[#E2E8F0] bg-white p-5 hover:shadow-md transition-shadow duration-300">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-base font-bold text-[#1E293B]">Tren Aset Bulanan</h3>
-            <span class="text-xs font-medium text-[#64748B] bg-[#F1F5F9] px-2.5 py-1 rounded-lg">Per Bulan</span>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 mt-3.5">
+        <div class="lg:col-span-8 shadow-xs rounded-xl border border-[#E2E8F0] bg-white p-3.5 hover:shadow-xs transition-shadow duration-300">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold text-[#1E293B]">Tren Aset Bulanan</h3>
+            <span class="text-[10px] font-medium text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-md">Per Bulan</span>
           </div>
           <AssetTrendLineChart
             class="w-full"
@@ -467,10 +467,10 @@ onUnmounted(() => {
             :error="error"
           />
         </div>
-        <div class="lg:col-span-4 shadow-sm rounded-xl border border-[#E2E8F0] bg-white p-5 hover:shadow-md transition-shadow duration-300">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-base font-bold text-[#1E293B]">Status Aset</h3>
-            <span class="text-xs font-medium text-[#64748B] bg-[#F1F5F9] px-2.5 py-1 rounded-lg">Distribusi</span>
+        <div class="lg:col-span-4 shadow-xs rounded-xl border border-[#E2E8F0] bg-white p-3.5 hover:shadow-xs transition-shadow duration-300">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold text-[#1E293B]">Status Aset</h3>
+            <span class="text-[10px] font-medium text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-md">Distribusi</span>
           </div>
 
           <!-- Empty State -->
