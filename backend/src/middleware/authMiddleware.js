@@ -69,7 +69,7 @@ export async function authenticateToken(req, res, next) {
          u.permissions,
          u.is_active,
          COALESCE(k.nik, '') AS nik,
-         COALESCE(k.jabatan, u.role) AS jabatan
+         COALESCE(k.title, u.role) AS jabatan
        FROM users u
        LEFT JOIN karyawan k
          ON LOWER(TRIM(u.email)) = LOWER(TRIM(k.email_kantor))

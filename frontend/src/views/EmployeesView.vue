@@ -97,6 +97,7 @@ const emptyForm = () => ({
   direktorat: 'Technology',
   tanggal_mulai_bekerja: '',
   status_kepegawaian: 'Permanent',
+  nik_atasan_langsung: '',
 })
 
 const form = ref(emptyForm())
@@ -116,14 +117,16 @@ const filteredEmployees = computed(() => {
   const q = searchQuery.value.trim().toLocaleLowerCase('id-ID')
   return employees.value.filter((emp) => {
     const searchable = [
-      emp.nik, emp.nama_karyawan, emp.email_kantor, emp.jabatan,
-      emp.departemen, emp.direktorat, emp.lokasi_kerja, emp.status_karyawan
+      emp.nik, emp.nama_karyawan, emp.email_kantor, emp.jabatan, emp.title,
+      emp.departemen, emp.direktorat, emp.directorate, emp.lokasi_kerja,
+      emp.status_karyawan, emp.status, emp.nik_atasan_langsung
     ].join(' ').toLocaleLowerCase('id-ID')
 
+    const statusVal = emp.status_karyawan || emp.status
     return (!q || searchable.includes(q))
       && (!filterDepartemen.value || emp.departemen === filterDepartemen.value)
       && (!filterLokasi.value || emp.lokasi_kerja === filterLokasi.value)
-      && (!filterStatus.value || emp.status_karyawan === filterStatus.value)
+      && (!filterStatus.value || statusVal === filterStatus.value)
   })
 })
 
@@ -162,7 +165,22 @@ async function fetchData() {
   pageError.value = ''
   try {
     const data = await get('/api/karyawan/with-assets')
-    employees.value = Array.isArray(data) ? data : []
+    const rawList = Array.isArray(data) ? data : []
+    employees.value = rawList.map((e) => ({
+      ...e,
+      id_karyawan: e.id_karyawan || e.id,
+      id: e.id || e.id_karyawan,
+      status: e.status || e.status_karyawan || 'Active',
+      status_karyawan: e.status_karyawan || e.status || 'Active',
+      title: e.title || e.jabatan || '',
+      jabatan: e.jabatan || e.title || '',
+      job_level: e.job_level || e.tingkat_jabatan || 'L3',
+      tingkat_jabatan: e.tingkat_jabatan || e.job_level || 'L3',
+      directorate: e.directorate || e.direktorat || '',
+      direktorat: e.direktorat || e.directorate || '',
+      employeement_status: e.employeement_status || e.status_kepegawaian || 'Permanent',
+      status_kepegawaian: e.status_kepegawaian || e.employeement_status || 'Permanent',
+    }))
   } catch (err) {
     pageError.value = err.message || 'Gagal memuat data karyawan.'
   } finally {
@@ -183,18 +201,22 @@ function openEdit(emp) {
   if (!canWriteKaryawan.value) return
   modalMode.value = 'edit'
   selectedEmployee.value = emp
+  const rawDate = emp.tanggal_mulai_bekerja
+  const formattedDate = rawDate ? new Date(rawDate).toISOString().split('T')[0] : ''
+
   form.value = {
     nik: emp.nik || '',
     nama_karyawan: emp.nama_karyawan || '',
     email_kantor: emp.email_kantor || '',
     lokasi_kerja: emp.lokasi_kerja || 'JKT',
-    status_karyawan: emp.status_karyawan || 'Active',
-    jabatan: emp.jabatan || '',
-    tingkat_jabatan: emp.tingkat_jabatan || 'L3',
+    status_karyawan: emp.status_karyawan || emp.status || 'Active',
+    jabatan: emp.jabatan || emp.title || '',
+    tingkat_jabatan: emp.tingkat_jabatan || emp.job_level || 'L3',
     departemen: emp.departemen || '',
-    direktorat: emp.direktorat || '',
-    tanggal_mulai_bekerja: emp.tanggal_mulai_bekerja ? emp.tanggal_mulai_bekerja.split('T')[0] : '',
-    status_kepegawaian: emp.status_kepegawaian || emp.jenis_perjanjian_kerja || 'Permanent',
+    direktorat: emp.direktorat || emp.directorate || '',
+    tanggal_mulai_bekerja: formattedDate,
+    status_kepegawaian: emp.status_kepegawaian || emp.employeement_status || 'Permanent',
+    nik_atasan_langsung: emp.nik_atasan_langsung || '',
   }
   modalError.value = ''
   showFormModal.value = true
@@ -223,19 +245,33 @@ async function saveEmployee() {
   const payload = {
     nik: form.value.nik.trim(),
     nama_karyawan: form.value.nama_karyawan.trim(),
-    email_kantor: form.value.email_kantor.trim(),
+    email_kantor: form.value.email_kantor ? form.value.email_kantor.trim() : null,
     lokasi_kerja: form.value.lokasi_kerja,
+    status: form.value.status_karyawan,
     status_karyawan: form.value.status_karyawan,
+    title: form.value.jabatan.trim(),
     jabatan: form.value.jabatan.trim(),
+    job_level: form.value.tingkat_jabatan,
     tingkat_jabatan: form.value.tingkat_jabatan,
     departemen: form.value.departemen,
+    directorate: form.value.direktorat,
     direktorat: form.value.direktorat,
     tanggal_mulai_bekerja: form.value.tanggal_mulai_bekerja || null,
+    employeement_status: form.value.status_kepegawaian,
     status_kepegawaian: form.value.status_kepegawaian,
+    nik_atasan_langsung: form.value.nik_atasan_langsung ? form.value.nik_atasan_langsung.trim() : null,
   }
 
   if (!payload.nik || !payload.nama_karyawan) {
     modalError.value = 'NIK dan Nama Karyawan wajib diisi.'
+    return
+  }
+  if (!payload.departemen || !payload.direktorat) {
+    modalError.value = 'Departemen dan Direktorat wajib diisi.'
+    return
+  }
+  if (!payload.tanggal_mulai_bekerja) {
+    modalError.value = 'Tanggal mulai bekerja wajib diisi.'
     return
   }
 
@@ -243,11 +279,12 @@ async function saveEmployee() {
   modalError.value = ''
 
   try {
+    const targetId = selectedEmployee.value?.id_karyawan || selectedEmployee.value?.id
     if (modalMode.value === 'add') {
       await post('/api/karyawan', payload)
       toast('Data karyawan berhasil ditambahkan.')
     } else {
-      await put(`/api/karyawan/${selectedEmployee.value.id_karyawan}`, payload)
+      await put(`/api/karyawan/${targetId}`, payload)
       toast('Data karyawan berhasil diperbarui.')
     }
     closeModal()
@@ -265,8 +302,9 @@ async function deleteEmployee() {
   modalError.value = ''
 
   try {
-    await del(`/api/karyawan/${selectedEmployee.value.id_karyawan}`)
-    toast('Data karyawan berhasil dihapus.')
+    const targetId = selectedEmployee.value?.id_karyawan || selectedEmployee.value?.id
+    await del(`/api/karyawan/${targetId}`)
+    toast('Data karyawan berhasil diubah statusnya menjadi Resigned.')
     closeModal()
     await fetchData()
   } catch (err) {
@@ -386,6 +424,7 @@ onMounted(() => {
           <option value="">Semua Status</option>
           <option value="Active">Active</option>
           <option value="Outsource">Outsource</option>
+          <option value="Resigned">Resigned</option>
         </select>
       </div>
     </div>
@@ -419,12 +458,11 @@ onMounted(() => {
               <th class="py-3.5 px-4">Departemen / Direktorat</th>
               <th class="py-3.5 px-4">Status</th>
               <th class="py-3.5 px-4">Lokasi Kerja</th>
-              <th class="py-3.5 px-4 text-center">Aset Dipinjam</th>
               <th v-if="canWriteKaryawan" class="py-3.5 px-4 text-right">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[#F1F5F9] text-[12px]">
-            <tr v-for="emp in paginatedEmployees" :key="emp.id_karyawan" class="hover:bg-[#F8FAFC] transition-colors">
+            <tr v-for="emp in paginatedEmployees" :key="emp.id_karyawan || emp.nik" class="hover:bg-[#F8FAFC] transition-colors">
               <td class="py-3.5 px-4">
                 <div class="flex items-center gap-3">
                   <div>
@@ -434,31 +472,23 @@ onMounted(() => {
                 </div>
               </td>
               <td class="py-3.5 px-4 font-mono font-bold text-[#2A3547]">{{ emp.nik }}</td>
-              <td class="py-3.5 px-4 font-medium text-[#2A3547]">{{ emp.jabatan || '-' }}</td>
+              <td class="py-3.5 px-4 font-medium text-[#2A3547]">{{ emp.jabatan || emp.title || '-' }}</td>
               <td class="py-3.5 px-4">
                 <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                  {{ emp.tingkat_jabatan || '-' }}
+                  {{ emp.tingkat_jabatan || emp.job_level || '-' }}
                 </span>
               </td>
               <td class="py-3.5 px-4">
                 <p class="font-semibold text-[#2A3547]">{{ emp.departemen || '-' }}</p>
-                <p class="text-[10px] text-[#7C8BAC]">{{ emp.direktorat || '-' }}</p>
+                <p class="text-[10px] text-[#7C8BAC]">{{ emp.direktorat || emp.directorate || '-' }}</p>
               </td>
               <td class="py-3.5 px-4">
                 <AppBadge
-                  :type="emp.status_karyawan === 'Active' ? 'success' : 'warning'"
-                  :text="emp.status_karyawan || 'Active'"
+                  :type="(emp.status_karyawan || emp.status) === 'Active' ? 'success' : (emp.status_karyawan || emp.status) === 'Outsource' ? 'warning' : 'danger'"
+                  :text="emp.status_karyawan || emp.status || 'Active'"
                 />
               </td>
               <td class="py-3.5 px-4 font-bold text-[#2A3547]">{{ emp.lokasi_kerja || '-' }}</td>
-              <td class="py-3.5 px-4 text-center">
-                <span
-                  class="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full px-2 text-[11px] font-bold"
-                  :class="parseInt(emp.jumlah_aset || 0) > 0 ? 'bg-[#ECF2FF] text-[#5D87FF]' : 'bg-gray-100 text-gray-500'"
-                >
-                  {{ emp.jumlah_aset || 0 }} Unit
-                </span>
-              </td>
               <td v-if="canWriteKaryawan" class="py-3.5 px-4 text-right">
                 <AppRowActions :actions="getEmployeeActions(emp)" />
               </td>
@@ -512,10 +542,11 @@ onMounted(() => {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Email Kantor</label>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Email Kantor *</label>
             <input
               v-model="form.email_kantor"
               type="email"
+              required
               placeholder="nama@esb.co.id"
               class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#2A3547] focus:outline-none focus:border-[#5D87FF]"
             />
@@ -523,22 +554,23 @@ onMounted(() => {
 
           <div>
             <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Lokasi Kerja *</label>
-            <select
+            <input
               v-model="form.lokasi_kerja"
+              type="text"
               required
-              class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#2A3547] focus:outline-none"
-            >
-              <option v-for="loc in locationCodeOptions" :key="loc" :value="loc">{{ loc }}</option>
-            </select>
+              placeholder="Contoh: JKT, Solo, BSD"
+              class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#2A3547] focus:outline-none focus:border-[#5D87FF]"
+            />
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Title / Jabatan</label>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Title / Jabatan *</label>
             <input
               v-model="form.jabatan"
               type="text"
+              required
               placeholder="Contoh: Software Engineer"
               class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#2A3547] focus:outline-none focus:border-[#5D87FF]"
             />
@@ -559,43 +591,46 @@ onMounted(() => {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Departemen *</label>
-            <select
+            <input
               v-model="form.departemen"
+              type="text"
               required
-              class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#2A3547] focus:outline-none"
-            >
-              <option v-for="dep in departemenOptions" :key="dep" :value="dep">{{ dep }}</option>
-            </select>
+              placeholder="Contoh: Technology"
+              class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#2A3547] focus:outline-none focus:border-[#5D87FF]"
+            />
           </div>
 
           <div>
             <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Directorate *</label>
-            <select
+            <input
               v-model="form.direktorat"
+              type="text"
               required
-              class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#2A3547] focus:outline-none"
-            >
-              <option v-for="dir in directorateOptions" :key="dir" :value="dir">{{ dir }}</option>
-            </select>
+              placeholder="Contoh: Technology"
+              class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#2A3547] focus:outline-none focus:border-[#5D87FF]"
+            />
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Status Karyawan</label>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Status Karyawan *</label>
             <select
               v-model="form.status_karyawan"
+              required
               class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#2A3547] focus:outline-none"
             >
               <option value="Active">Active</option>
               <option value="Outsource">Outsource</option>
+              <option value="Resigned">Resigned</option>
             </select>
           </div>
 
           <div>
-            <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Status Kepegawaian</label>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Status Kepegawaian *</label>
             <select
               v-model="form.status_kepegawaian"
+              required
               class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#2A3547] focus:outline-none"
             >
               <option value="Permanent">Permanent</option>
@@ -604,13 +639,31 @@ onMounted(() => {
           </div>
 
           <div>
-            <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Tgl Mulai Bekerja</label>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Tgl Mulai Bekerja *</label>
             <input
               v-model="form.tanggal_mulai_bekerja"
               type="date"
+              required
               class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#2A3547] focus:outline-none"
             />
           </div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">NIK Atasan Langsung</label>
+          <select
+            v-model="form.nik_atasan_langsung"
+            class="w-full rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#2A3547] focus:outline-none"
+          >
+            <option value="">-- Tanpa Atasan / Tidak Ada --</option>
+            <option
+              v-for="e in employees.filter(emp => emp.nik !== form.nik)"
+              :key="e.nik"
+              :value="e.nik"
+            >
+              {{ e.nik }} - {{ e.nama_karyawan }} ({{ e.jabatan || e.title || 'Staff' }})
+            </option>
+          </select>
         </div>
 
         <div class="flex items-center justify-end gap-2 pt-4 border-t border-[#E5EAEF]">

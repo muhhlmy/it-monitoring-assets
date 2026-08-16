@@ -26,6 +26,7 @@ employeeRouter.get(
   employeeController.listLocations,
 )
 employeeRouter.get('/', requireEmployeeReferenceRead, employeeController.listEmployees)
+employeeRouter.get('/:id', requireEmployeeReferenceRead, employeeController.fetchEmployee)
 employeeRouter.post('/', requireEmployeeWrite, employeeController.storeEmployee)
 employeeRouter.put('/:id', requireEmployeeWrite, employeeController.updateEmployee)
 employeeRouter.delete('/:id', requireEmployeeWrite, employeeController.deleteEmployee)

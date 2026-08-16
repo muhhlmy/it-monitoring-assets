@@ -5,6 +5,7 @@ import { requireJsonRequest } from "./middleware/jsonRequestMiddleware.js";
 import { setSecurityHeaders } from "./middleware/securityHeaders.js";
 import { router } from "./routes/index.js";
 import { isCorsOriginAllowed } from "./security/corsPolicy.js";
+import fs from 'fs';
 
 export const app = express();
 
@@ -97,6 +98,21 @@ function handleError(err, req, res, next) {
     res.status(400).json({ message: "Penghapusan data secara permanen (hard delete) dilarang oleh sistem. Gunakan metode soft-delete." });
     return;
   }
+
+  // LOG ERROR TO FILE AND CONSOLE  
+  const timestamp = new Date().toISOString();
+  const errorLog = `[${timestamp}] ERROR:\n` + 
+                   `Status: ${err.statusCode || 'N/A'}\n` +
+                   `Message: ${err.message || 'Unknown'}\n` +
+                   `Stack: ${(err.stack || 'No stack').substring(0, 1000)}\n`;
+  
+  try {
+    fs.appendFileSync('./error_log.log', errorLog);
+  } catch (e) {
+    // Ignore file write errors
+  }
+  
+  console.error(errorLog);
 
   if (err.statusCode) {
     res.status(err.statusCode).json({ message: err.message });

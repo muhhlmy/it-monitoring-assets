@@ -133,9 +133,11 @@ function validateTicketListQuery(query) {
     throw createHttpError(400, 'Status tiket tidak valid.')
   }
 
-  const prioritas = normalizeOptionalText(query.prioritas, 'Prioritas tiket')
-  if (prioritas && !TICKET_PRIORITIES.has(prioritas)) {
-    throw createHttpError(400, 'Prioritas tiket tidak valid.')
+  // Validasi ENUM prioritas tiket
+  const prioritas = normalizeOptionalText(query.prioritas, 'Prioritas tiket');
+  const VALID_PRIORITIES = ["Urgent (4h)", "High (1day)", "Medium (3d)", "Low (7d)"];
+  if (prioritas && !VALID_PRIORITIES.includes(prioritas)) {
+    throw createHttpError(400, `Prioritas tidak valid. Harus salah satu dari: ${VALID_PRIORITIES.join(", ")}`);
   }
 
   const tab = normalizeOptionalText(query.tab, 'Tab tiket').toLowerCase()
@@ -433,7 +435,7 @@ export async function listTickets(req, res) {
     params.push(`%${search}%`)
     const n = params.length
     conditions.push(
-      `(t.judul ILIKE $${n} OR t.nomor_tiket ILIKE $${n} OR t.pelapor ILIKE $${n} OR reporter.nama ILIKE $${n})`,
+      `(t.judul ILIKE $${n} OR t.nomor_tiket ILIKE $${n} OR reporter.email ILIKE $${n} OR reporter.nama ILIKE $${n})`,
     )
   }
   if (status) {
@@ -460,22 +462,22 @@ export async function listTickets(req, res) {
       t.kategori,
       t.prioritas,
       t.status_tiket,
-      t.assigned_to,
-      t.pelapor,
+      t.assigned_to_user_id AS assigned_to,
+      t.pelapor_user_id AS pelapor,
       t.queue_id,
       t.pelapor_user_id,
       t.assigned_to_user_id,
       t.resolved_at,
       t.resolved_by_user_id,
-      t.dibuat_pada,
-      t.diperbarui_pada,
-      (t.attachment IS NOT NULL) AS has_attachment,
+      t.created_at AS dibuat_pada,
+      t.updated_at AS diperbarui_pada,
+      (t.attachment_count > 0) AS has_attachment,
       q.kode   AS queue_kode,
       q.nama   AS queue_nama,
       assignee.nama  AS assigned_to_nama,
       reporter.nama  AS pelapor_nama,
       COALESCE(k_rep.nik, '') AS pelapor_nik,
-      COALESCE(k_rep.jabatan, 'User') AS pelapor_jabatan,
+      COALESCE(k_rep.title, 'User') AS pelapor_jabatan,
       COALESCE((
         SELECT COUNT(*)::int
         FROM komentar_tiket comment_row
@@ -496,7 +498,7 @@ export async function listTickets(req, res) {
         WHEN 'Low (7d)'     THEN 4
         ELSE 5
       END,
-      t.dibuat_pada DESC,
+      t.created_at DESC,
       t.id DESC
     LIMIT $${params.length + 1}
     OFFSET $${params.length + 2}
@@ -542,16 +544,16 @@ export async function getTicketStats(req, res) {
       t.kategori,
       t.prioritas,
       t.status_tiket,
-      t.assigned_to,
-      t.pelapor,
+      t.assigned_to_user_id AS assigned_to,
+      t.pelapor_user_id AS pelapor,
       t.queue_id,
       t.pelapor_user_id,
       t.assigned_to_user_id,
       t.resolved_at,
       t.resolved_by_user_id,
-      t.dibuat_pada,
-      t.diperbarui_pada,
-      (t.attachment IS NOT NULL) AS has_attachment,
+      t.created_at AS dibuat_pada,
+      t.updated_at AS diperbarui_pada,
+      (t.attachment_count > 0) AS has_attachment,
       q.kode AS queue_kode,
       assignee.nama AS assigned_to_nama
     FROM tickets t

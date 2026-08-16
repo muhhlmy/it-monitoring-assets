@@ -13,31 +13,30 @@ const requireAssetsRead = authorizePermission('assets', 'read')
 const requireAssetsWrite = authorizePermission('assets', 'write')
 
 // /my bisa diakses semua role yang sudah login
-assetRouter.get(
-  '/my',
+assetRouter.get('/my', 
   authorizePermission('my_assets', 'read'),
-  assetController.listMyAssets,
+  assetController.listMyAssets
 )
 
 // Selain /my, hanya admin yang boleh akses
 assetRouter.use(requireAdmin)
 
-assetRouter.get(
-  '/stats',
+assetRouter.get('/stats',
   authorizeAnyPermission(['dashboard', 'assets'], 'read'),
-  assetController.showAssetStats,
+  assetController.showAssetStats
 )
-assetRouter.get(
-  '/cycle/:nik',
+
+assetRouter.get('/cycle/:nik',
   authorizeAnyPermission(['my_assets', 'assets'], 'read'),
-  assetController.getDeviceCycleByNik,
+  assetController.getDeviceCycleByNik
 )
-assetRouter.get(
-  '/',
+
+assetRouter.get('/',
   authorizeAnyPermission(['assets', 'submissions'], 'read'),
-  assetController.listAssets,
+  assetController.listAssets
 )
-assetRouter.get('/:id', requireAssetsRead, assetController.showAsset)
-assetRouter.post('/', requireAssetsWrite, assetController.storeAsset)
+
+assetRouter.get('/:id', requireAssetsRead, assetController.fetchAsset)
+assetRouter.post('/', requireAssetsWrite, assetController.addAsset)
 assetRouter.put('/:id', requireAssetsWrite, assetController.replaceAsset)
-assetRouter.delete('/:id', requireAssetsWrite, assetController.destroyAsset)
+assetRouter.delete('/:id', requireAssetsWrite, assetController.deleteAsset)
