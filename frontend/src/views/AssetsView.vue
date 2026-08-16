@@ -520,12 +520,14 @@ function openStatusChange(asset) {
 
 function formatKondisiStyle(kondisi) {
   const k = (kondisi || '').toLowerCase()
-  if (k === 'baru') return 'text-[#059669] font-medium'
-  if (k === 'normal') return 'text-[#334155] font-medium'
-  if (k.includes('ringan')) return 'text-[#D97706] font-medium'
-  if (k.includes('sedang')) return 'text-[#EA580C] font-medium'
-  if (k.includes('berat')) return 'text-[#DC2626] font-medium'
-  return 'text-[#64748B] font-medium'
+  if (k.includes('rusak') || k.includes('perbaikan') || k.includes('berat')) {
+    return 'inline-flex items-center rounded-md bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#DC2626] border border-[#FECACA]/60'
+  }
+  if (k.includes('ringan') || k.includes('sedang')) {
+    return 'inline-flex items-center rounded-md bg-[#FFFBEB] px-2 py-0.5 text-[11px] font-semibold text-[#D97706] border border-[#FDE68A]/60'
+  }
+  // Normal / Baru / Baik: text biasa muted tanpa heavy badge
+  return 'text-[12px] font-normal text-[#64748B]'
 }
 
 function getAssetActions(asset) {
@@ -636,19 +638,19 @@ onMounted(async () => {
     <div class="flex flex-col gap-3.5 bg-white p-4 rounded-xl border border-[#E2E8F0] shadow-2xs">
       <!-- Row 1: Page Info -->
       <div class="w-full">
-        <h2 class="text-base font-bold text-[#0F172A] tracking-tight">Daftar Aset IT</h2>
-        <p class="text-xs text-[#64748B] mt-0.5 leading-normal">Kelola dan pantau seluruh perangkat IT perusahaan</p>
+        <h2 class="text-base font-bold text-[#0F172A] tracking-tight">Aset IT</h2>
+        <p class="text-xs text-[#64748B] mt-0.5 leading-normal">Monitor dan kelola seluruh perangkat IT perusahaan</p>
       </div>
 
       <!-- Row 2: Full-Width Toolbar -->
       <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full min-w-0">
         <!-- Search input (Takes maximum flexible space) -->
-        <div class="relative flex-1 min-w-[180px]">
+        <div class="relative flex-1 min-w-[200px]">
           <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[17px] text-[#94A3B8] pointer-events-none">search</span>
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Cari aset, NIK, pemegang, departemen..."
+            placeholder="Cari aset, serial number, atau pemegang..."
             class="h-9 w-full rounded-lg border border-[#E2E8F0] bg-white pl-8 pr-2.5 text-xs text-[#0F172A] placeholder-[#94A3B8] focus:border-[#2563EB] focus:outline-none transition-all shadow-2xs"
           />
         </div>
@@ -671,7 +673,7 @@ onMounted(async () => {
           <option v-for="tipe in availableTipeOptions" :key="tipe" :value="tipe">{{ tipe }}</option>
         </select>
 
-        <!-- Export Button -->
+        <!-- Export Button (Secondary Action) -->
         <button
           type="button"
           @click="openExport"
@@ -682,7 +684,7 @@ onMounted(async () => {
           <span>Ekspor</span>
         </button>
 
-        <!-- Import Button -->
+        <!-- Import Button (Secondary Action) -->
         <button
           v-if="canWriteAssets"
           type="button"
@@ -694,7 +696,7 @@ onMounted(async () => {
           <span>Impor</span>
         </button>
 
-        <!-- Add Asset Button -->
+        <!-- Add Asset Button (Primary CTA) -->
         <button
           v-if="canWriteAssets"
           type="button"
@@ -737,10 +739,10 @@ onMounted(async () => {
           <caption class="sr-only">Daftar Master Aset IT</caption>
           <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
             <tr>
-              <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Asset</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Pemegang</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Departemen / Lokasi</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Tipe & Model</th>
+              <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aset</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Penanggung Jawab</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Lokasi</th>
+              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Perangkat</th>
               <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Status</th>
               <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Kondisi</th>
               <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
@@ -753,8 +755,8 @@ onMounted(async () => {
               @click="openDetails(asset)"
               class="group hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none"
             >
-              <!-- 1. ASSET Column (Primary Prominent Typography) -->
-              <td class="py-4 pl-5 pr-4 min-w-[180px]">
+              <!-- 1. ASET Column -->
+              <td class="py-4 pl-5 pr-4 min-w-[170px]">
                 <div class="flex flex-col">
                   <span class="text-[13.5px] font-semibold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate">
                     {{ asset.hostname || asset.label_aset || '—' }}
@@ -765,34 +767,29 @@ onMounted(async () => {
                 </div>
               </td>
 
-              <!-- 2. PEMEGANG Column (2-line Hierarchy) -->
+              <!-- 2. PENANGGUNG JAWAB Column -->
               <td class="py-4 px-4 min-w-[170px]">
                 <div class="flex flex-col">
-                  <span class="text-[12.5px] font-medium leading-snug truncate" :class="asset.nama_karyawan ? 'text-[#1E293B]' : 'text-[#94A3B8] italic font-normal'">
+                  <span class="text-[12.5px] leading-snug truncate" :class="asset.nama_karyawan ? 'font-medium text-[#1E293B]' : 'text-[#94A3B8] italic font-normal'">
                     {{ asset.nama_karyawan || 'Belum ditetapkan' }}
                   </span>
-                  <span class="font-mono text-[11px] text-[#64748B] mt-0.5 tracking-tight truncate">
-                    {{ asset.nik ? `NIK: ${asset.nik}` : '—' }}
+                  <span v-if="asset.nama_karyawan && asset.nik" class="font-mono text-[11px] text-[#64748B] mt-0.5 tracking-tight truncate">
+                    NIK: {{ asset.nik }}
                   </span>
                 </div>
               </td>
 
-              <!-- 3. DEPARTEMEN / LOKASI Column (2-line Hierarchy) -->
-              <td class="py-4 px-4 min-w-[170px]">
-                <div class="flex flex-col">
-                  <span class="text-[12.5px] font-medium text-[#1E293B] leading-snug truncate">
-                    {{ asset.departemen || '—' }}
-                  </span>
-                  <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate flex items-center gap-1">
-                    {{ asset.lokasi_kerja || asset.lokasi_aset || '—' }}
-                  </span>
-                </div>
+              <!-- 3. LOKASI Column -->
+              <td class="py-4 px-4 min-w-[140px]">
+                <span class="text-[12.5px] font-normal text-[#1E293B] truncate block">
+                  {{ asset.lokasi_kerja || asset.lokasi_aset || '—' }}
+                </span>
               </td>
 
-              <!-- 4. TIPE & MODEL Column (2-line Hierarchy) -->
+              <!-- 4. PERANGKAT Column -->
               <td class="py-4 px-4 min-w-[160px]">
                 <div class="flex flex-col">
-                  <span class="text-[12.5px] font-medium text-[#1E293B] leading-snug truncate">
+                  <span class="text-[12.5px] font-semibold text-[#1E293B] leading-snug truncate">
                     {{ asset.tipe_perangkat || '—' }}
                   </span>
                   <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate">
@@ -801,7 +798,7 @@ onMounted(async () => {
                 </div>
               </td>
 
-              <!-- 5. STATUS Column (Linear / Stripe Small Soft Pill) -->
+              <!-- 5. STATUS Column -->
               <td class="py-4 px-4 min-w-[130px]">
                 <span
                   class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-all select-none"
@@ -814,12 +811,12 @@ onMounted(async () => {
 
               <!-- 6. KONDISI Column -->
               <td class="py-4 px-4 min-w-[115px]">
-                <span class="text-[12px]" :class="formatKondisiStyle(asset.kondisi_aset)">
+                <span :class="formatKondisiStyle(asset.kondisi_aset)">
                   {{ asset.kondisi_aset || '—' }}
                 </span>
               </td>
 
-              <!-- 7. AKSI Column (Minimal Icon Button) -->
+              <!-- 7. AKSI Column -->
               <td class="py-4 pr-5 pl-4 text-right" @click.stop>
                 <AppRowActions :actions="getAssetActions(asset)" />
               </td>

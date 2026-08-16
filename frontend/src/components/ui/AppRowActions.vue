@@ -122,10 +122,10 @@ onBeforeUnmount(() => {
       type="button"
       @click.stop="toggleDropdown"
       title="Opsi Aksi"
-      class="flex h-8 w-8 items-center justify-center rounded-xl text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer"
-      :class="isOpen ? 'bg-[#ECF2FF] text-[#5D87FF]' : ''"
+      class="flex h-7 w-7 items-center justify-center rounded-lg text-[#64748B] opacity-50 group-hover:opacity-100 hover:bg-[#F1F5F9] hover:text-[#0F172A] transition-all cursor-pointer"
+      :class="isOpen ? 'bg-[#F1F5F9] text-[#0F172A] opacity-100' : ''"
     >
-      <span aria-hidden="true" class="material-symbols-outlined text-[20px]">more_vert</span>
+      <span aria-hidden="true" class="material-symbols-outlined text-[18px]">more_horiz</span>
     </button>
 
     <Teleport to="body">

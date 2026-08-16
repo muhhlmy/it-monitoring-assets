@@ -31,6 +31,7 @@ const isLoadingAssets = ref(false)
 const assetError = ref('')
 const assetSearch = ref('')
 const filterTipe = ref('')
+const viewModeAssets = ref('grid') // 'grid' | 'table'
 
 const showDetailsModal = ref(false)
 const showSpecificationModal = ref(false)
@@ -717,99 +718,179 @@ onMounted(() => {
       <!-- Section: Aset yang Dimiliki -->
       <div class="shadow-xs overflow-hidden rounded-xl border border-[#E5EAEF] bg-white">
         <!-- Section Header & Filter -->
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-b border-[#E5EAEF] bg-[#F8FAFC] p-2.5">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-b border-[#E2E8F0]/80 bg-[#F8FAFC] p-3">
           <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-[18px] text-[#5D87FF]">devices</span>
-            <h4 class="text-[12px] font-bold text-[#2A3547]">Aset yang Dimiliki</h4>
-            <span class="rounded-full bg-[#ECF2FF] px-2 py-0.2 text-[10px] font-extrabold text-[#5D87FF]">
+            <span class="material-symbols-outlined text-[18px] text-[#2563EB]">devices</span>
+            <h4 class="text-[13px] font-bold text-[#0F172A]">Aset yang Dimiliki</h4>
+            <span class="rounded-full bg-[#EFF6FF] px-2.5 py-0.5 text-[10.5px] font-bold text-[#2563EB]">
               {{ myAssets.length }}
             </span>
           </div>
 
           <div class="flex items-center gap-2 flex-wrap">
             <div class="relative min-w-[160px]">
-              <span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-[15px] text-[#94A3B8] pointer-events-none">search</span>
+              <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[15px] text-[#94A3B8] pointer-events-none">search</span>
               <input
                 v-model="assetSearch"
                 type="search"
                 placeholder="Cari label / serial..."
-                class="h-7 w-full rounded-md border border-[#E5EAEF] bg-white pl-7 pr-2 text-[11px] font-medium text-[#2A3547] focus:outline-none focus:border-[#5D87FF]"
+                class="h-8 w-full rounded-lg border border-[#E2E8F0] bg-white pl-8 pr-2.5 text-[11.5px] font-medium text-[#0F172A] focus:outline-none focus:border-[#2563EB] shadow-2xs"
               />
             </div>
             <select
               v-model="filterTipe"
-              class="h-7 rounded-md border border-[#E5EAEF] bg-white px-2 text-[11px] font-semibold text-[#2A3547] focus:outline-none"
+              class="h-8 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-[11.5px] font-medium text-[#0F172A] focus:outline-none focus:border-[#2563EB] cursor-pointer shadow-2xs"
             >
               <option value="">Semua Tipe</option>
               <option v-for="tipe in availableTipeOptions" :key="tipe" :value="tipe">{{ tipe }}</option>
             </select>
+
+            <!-- View Mode Switcher (Grid vs Table) -->
+            <div class="flex items-center rounded-lg border border-[#E2E8F0] bg-white p-0.5 shadow-2xs">
+              <button
+                type="button"
+                @click="viewModeAssets = 'grid'"
+                class="flex h-7 w-7 items-center justify-center rounded-md text-[16px] transition-all cursor-pointer"
+                :class="viewModeAssets === 'grid' ? 'bg-[#2563EB] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'"
+                title="Tampilan Grid Card"
+              >
+                <span class="material-symbols-outlined text-[16px]">grid_view</span>
+              </button>
+              <button
+                type="button"
+                @click="viewModeAssets = 'table'"
+                class="flex h-7 w-7 items-center justify-center rounded-md text-[16px] transition-all cursor-pointer"
+                :class="viewModeAssets === 'table' ? 'bg-[#2563EB] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'"
+                title="Tampilan Tabel List"
+              >
+                <span class="material-symbols-outlined text-[16px]">view_list</span>
+              </button>
+            </div>
           </div>
         </div>
 
         <!-- Loading Assets -->
-        <div v-if="isLoadingAssets" class="flex flex-col items-center justify-center py-12 text-[#7C8BAC]">
-          <div class="h-6 w-6 animate-spin rounded-full border-2 border-[#5D87FF] border-t-transparent mb-2"></div>
-          <p class="text-[11px] font-semibold">Memuat aset karyawan...</p>
+        <div v-if="isLoadingAssets" class="flex flex-col items-center justify-center py-12 text-[#64748B]">
+          <div class="h-6 w-6 animate-spin rounded-full border-2 border-[#2563EB] border-t-transparent mb-2"></div>
+          <p class="text-[11.5px] font-semibold">Memuat aset karyawan...</p>
         </div>
 
         <!-- Error Assets -->
-        <div v-else-if="assetError" class="p-4 text-center text-rose-600 text-[11px]">
+        <div v-else-if="assetError" class="p-4 text-center text-rose-600 text-[11.5px]">
           <p class="font-bold">{{ assetError }}</p>
-          <button type="button" @click="goToLevel2(selectedEmployee)" class="mt-1 font-bold underline">Coba lagi</button>
+          <button type="button" @click="goToLevel2(selectedEmployee)" class="mt-1 font-bold underline cursor-pointer">Coba lagi</button>
         </div>
 
         <!-- INTENTIONAL EMPTY STATE -->
         <div v-else-if="myAssets.length === 0" class="flex flex-col items-center justify-center gap-2.5 py-12 px-4 text-center">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#F8FAFC] text-[#94A3B8] border border-[#E5EAEF]">
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#F8FAFC] text-[#94A3B8] border border-[#E2E8F0]">
             <span class="material-symbols-outlined text-[24px]">devices_off</span>
           </div>
-          <h4 class="text-[13px] font-bold text-[#2A3547]">Aset Belum Ditugaskan</h4>
-          <p class="max-w-xs text-[10.5px] font-medium text-[#7C8BAC]">
+          <h4 class="text-[13.5px] font-bold text-[#0F172A]">Aset Belum Ditugaskan</h4>
+          <p class="max-w-xs text-[11.5px] font-normal text-[#64748B]">
             Belum ada aset IT yang ditugaskan kepada {{ selectedEmployee.nama_karyawan }}.
           </p>
         </div>
 
-        <!-- Asset Table Level 2 -->
+        <!-- Asset Grid Card View (Primary Default Mode) -->
+        <div v-else-if="viewModeAssets === 'grid'" class="p-4 bg-[#F8FAFC]/50">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div
+              v-for="asset in paginatedAssets"
+              :key="asset.id_aset"
+              @click="goToLevel3(asset)"
+              class="group relative flex flex-col justify-between rounded-2xl border border-[#E2E8F0]/80 bg-white p-4.5 shadow-2xs hover:shadow-md hover:border-[#2563EB]/40 transition-all duration-200 cursor-pointer"
+            >
+              <div>
+                <!-- Top Row: Icon + Status Pill -->
+                <div class="flex items-center justify-between gap-2 mb-3">
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB] group-hover:scale-105 transition-transform">
+                    <span class="material-symbols-outlined text-[20px]">{{ getDeviceIcon(asset.tipe_perangkat) }}</span>
+                  </div>
+                  <span
+                    class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-medium border transition-all select-none"
+                    :class="[formatStatusPill(asset.status_aset).bg, formatStatusPill(asset.status_aset).text, formatStatusPill(asset.status_aset).border]"
+                  >
+                    <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="formatStatusPill(asset.status_aset).dot"></span>
+                    {{ formatStatusPill(asset.status_aset).label }}
+                  </span>
+                </div>
+
+                <!-- Asset Label & Serial Number -->
+                <h4 class="text-[14px] font-bold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate">
+                  {{ asset.label_aset || asset.merek || 'Aset IT' }}
+                </h4>
+                <p class="font-mono text-[11px] font-medium text-[#64748B] mt-0.5 truncate">
+                  SN: {{ asset.nomor_seri || '—' }}
+                </p>
+
+                <!-- Details Grid -->
+                <div class="mt-3.5 pt-3 border-t border-[#F1F5F9] grid grid-cols-2 gap-2 text-[11.5px]">
+                  <div>
+                    <span class="block text-[10px] font-semibold uppercase text-[#94A3B8]">Tipe</span>
+                    <span class="font-semibold text-[#1E293B] truncate block mt-0.5">{{ asset.tipe_perangkat || '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="block text-[10px] font-semibold uppercase text-[#94A3B8]">Merek / Model</span>
+                    <span class="font-semibold text-[#1E293B] truncate block mt-0.5">{{ [asset.merek, asset.model].filter(Boolean).join(' ') || '—' }}</span>
+                  </div>
+                  <div class="col-span-2 mt-1">
+                    <span class="block text-[10px] font-semibold uppercase text-[#94A3B8]">Kondisi</span>
+                    <span class="font-semibold text-[#1E293B] truncate block mt-0.5">{{ asset.kondisi_aset || '—' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bottom Footer Link -->
+              <div class="mt-4 pt-3 border-t border-[#F1F5F9] flex items-center justify-between text-[11.5px] font-bold text-[#2563EB]">
+                <span>Lihat Detail & History</span>
+                <span class="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Asset Table View (Alternative View Mode) -->
         <div v-else class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="border-b border-[#E5EAEF] bg-[#F8FAFC] text-[10px] font-bold uppercase text-[#7C8BAC]">
-                <th class="py-2.5 px-3.5">Asset & Label</th>
-                <th class="py-2.5 px-3.5">Serial Number</th>
-                <th class="py-2.5 px-3.5">Tipe Perangkat</th>
-                <th class="py-2.5 px-3.5">Spesifikasi Singkat</th>
-                <th class="py-2.5 px-3.5">Status</th>
-                <th class="py-2.5 px-3.5">Kondisi</th>
-                <th class="py-2.5 px-3.5 text-right">Aksi</th>
+            <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
+              <tr>
+                <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Asset & Label</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Serial Number</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Tipe Perangkat</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Spesifikasi Singkat</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Status</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Kondisi</th>
+                <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#F1F5F9] text-[11px]">
+            <tbody class="divide-y divide-[#F1F5F9]">
               <tr
                 v-for="asset in paginatedAssets"
                 :key="asset.id_aset"
                 @click="goToLevel3(asset)"
-                class="hover:bg-[#F8FAFC] transition-colors cursor-pointer group"
+                class="group hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none"
               >
-                <td class="py-2.5 px-3.5">
-                  <div class="flex items-center gap-2.5">
-                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#ECF2FF] text-[#5D87FF]">
-                      <span class="material-symbols-outlined text-[16px]">{{ getDeviceIcon(asset.tipe_perangkat) }}</span>
+                <td class="py-4 pl-5 pr-4 min-w-[180px]">
+                  <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB]">
+                      <span class="material-symbols-outlined text-[18px]">{{ getDeviceIcon(asset.tipe_perangkat) }}</span>
                     </span>
                     <div>
-                      <p class="font-bold text-[#2A3547] group-hover:text-[#5D87FF] transition-colors leading-tight">
+                      <p class="text-[13.5px] font-semibold text-[#0F172A] group-hover:text-[#2563EB] transition-colors leading-snug truncate">
                         {{ asset.label_aset || asset.merek || 'Aset IT' }}
                       </p>
-                      <p class="text-[9.5px] text-[#7C8BAC]">ID: #{{ asset.id_aset }}</p>
+                      <p class="font-mono text-[11px] text-[#64748B] mt-0.5 truncate">ID: #{{ asset.id_aset }}</p>
                     </div>
                   </div>
                 </td>
 
-                <td class="py-2.5 px-3.5 font-mono font-bold text-[#2A3547]">{{ asset.nomor_seri || '—' }}</td>
-                <td class="py-2.5 px-3.5 font-medium text-[#2A3547]">{{ asset.tipe_perangkat || '—' }}</td>
-                <td class="py-2.5 px-3.5 text-[#2A3547]">
-                  <p class="font-bold">{{ [asset.merek, asset.model].filter(Boolean).join(' ') || '—' }}</p>
+                <td class="py-4 px-4 font-mono text-[11.5px] font-semibold text-[#0F172A] min-w-[120px]">{{ asset.nomor_seri || '—' }}</td>
+                <td class="py-4 px-4 text-[12.5px] font-medium text-[#1E293B] min-w-[130px]">{{ asset.tipe_perangkat || '—' }}</td>
+                <td class="py-4 px-4 text-[12.5px] text-[#1E293B] min-w-[160px]">
+                  <p class="font-medium truncate">{{ [asset.merek, asset.model].filter(Boolean).join(' ') || '—' }}</p>
                 </td>
-                <td class="py-2.5 px-3.5">
+                <td class="py-4 px-4 min-w-[130px]">
                   <span
                     class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-all select-none"
                     :class="[formatStatusPill(asset.status_aset).bg, formatStatusPill(asset.status_aset).text, formatStatusPill(asset.status_aset).border]"
@@ -818,14 +899,14 @@ onMounted(() => {
                     {{ formatStatusPill(asset.status_aset).label }}
                   </span>
                 </td>
-                <td class="py-2.5 px-3.5 font-semibold text-[#2A3547]">{{ asset.kondisi_aset || '—' }}</td>
+                <td class="py-4 px-4 text-[12.5px] font-medium text-[#1E293B] min-w-[110px]">{{ asset.kondisi_aset || '—' }}</td>
 
-                <td class="py-2.5 px-3.5 text-right">
+                <td class="py-4 pr-5 pl-4 text-right">
                   <button
                     type="button"
-                    class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[#7C8BAC] group-hover:bg-[#ECF2FF] group-hover:text-[#5D87FF] transition-all"
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] group-hover:bg-[#EFF6FF] group-hover:text-[#2563EB] transition-all cursor-pointer"
                   >
-                    <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                    <span class="material-symbols-outlined text-[18px]">chevron_right</span>
                   </button>
                 </td>
               </tr>
