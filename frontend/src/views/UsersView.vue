@@ -463,82 +463,84 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
       </div>
     </Transition>
 
-    <!-- ── Toolbar ───────────────────────────────────────── -->
-    <div class="shadow-card grid min-w-0 grid-cols-2 items-center gap-3 rounded-2xl border border-[#E8EDF3] bg-white p-3 sm:flex sm:flex-wrap">
+    <!-- Simplified SaaS Header & Toolbar Container -->
+    <div class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
+      <!-- Row 1: Page Title & Primary CTA -->
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">Master Data Pengguna</h2>
+          <p class="text-xs text-[#64748B] mt-0.5 leading-normal">Pengelolaan akun, role, dan hak akses pengguna sistem</p>
+        </div>
 
-      <!-- Search -->
-      <div class="relative col-span-2 min-w-0 sm:flex-1 sm:min-w-[220px]">
-        <label for="user-search" class="sr-only">Cari pengguna</label>
-        <span aria-hidden="true" class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] text-[16px] pointer-events-none">search</span>
-        <input
-          id="user-search"
-          v-model="searchQuery"
-          type="search"
-          autocomplete="off"
-          placeholder="Cari nama atau email pengguna..."
-          class="h-8 w-full rounded-lg border border-[#DCE3EC] bg-[#F8FAFC] pl-8 pr-3 text-[11px] font-medium text-[#334155] placeholder-[#94A3B8] focus:outline-none"
-        />
+        <button
+          v-if="canWriteUsers"
+          type="button"
+          @click="openAdd"
+          class="h-9 shrink-0 whitespace-nowrap rounded-lg bg-[#2563EB] px-3.5 text-xs font-semibold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          title="Tambah admin baru atau promosikan akses"
+        >
+          <span aria-hidden="true" class="material-symbols-outlined text-[16px]">person_add</span>
+          <span>Tambah Admin / Akses</span>
+        </button>
       </div>
 
-      <!-- Filter Role -->
-      <label for="user-role-filter" class="sr-only">Filter role pengguna</label>
-      <select
-        id="user-role-filter"
-        v-model="filterRole"
-        class="h-8 min-w-0 w-full rounded-lg border border-[#DCE3EC] bg-white px-2.5 text-[11px] font-semibold text-[#475569] focus:outline-none sm:w-auto"
-      >
-        <option value="">Semua Role</option>
-        <option value="admin">ADMIN</option>
-        <option value="superadmin">SUPERADMIN</option>
-        <option value="user">USER</option>
-      </select>
+      <!-- Row 2: Search & Filters -->
+      <div class="flex flex-wrap items-center gap-2 w-full min-w-0 pt-2 border-t border-[#F1F5F9]">
+        <div class="relative flex-1 min-w-[200px]">
+          <span aria-hidden="true" class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[17px] text-[#94A3B8] pointer-events-none">search</span>
+          <input
+            id="user-search"
+            v-model="searchQuery"
+            type="search"
+            autocomplete="off"
+            placeholder="Cari nama atau email pengguna..."
+            class="h-9 w-full rounded-lg border border-[#E2E8F0] bg-white pl-8 pr-2.5 text-xs text-[#0F172A] placeholder-[#94A3B8] focus:border-[#2563EB] focus:outline-none transition-all shadow-2xs"
+          />
+        </div>
 
-      <!-- Reset -->
-      <button
-        v-if="searchQuery || filterRole"
-        @click="resetFilters"
-        class="h-8 w-full rounded-lg border border-[#F1D0D0] bg-[#FFF7F7] px-3 text-[11px] font-bold text-[#D94B4B] hover:bg-[#FFEEEE] sm:w-auto"
-      >
-        Reset
-      </button>
+        <select
+          id="user-role-filter"
+          v-model="filterRole"
+          class="h-9 w-[135px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
+        >
+          <option value="">Semua Role</option>
+          <option value="admin">ADMIN</option>
+          <option value="superadmin">SUPERADMIN</option>
+          <option value="user">USER</option>
+        </select>
 
-      <div class="hidden flex-1 sm:block"></div>
-
-      <!-- Tambah Admin / Akses -->
-      <button
-        v-if="canWriteUsers"
-        @click="openAdd"
-        class="col-span-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-brand px-3.5 text-[11px] font-bold text-white shadow-sm shadow-blue-200/70 hover:bg-brand-dark sm:w-auto cursor-pointer"
-      >
-        <span aria-hidden="true" class="material-symbols-outlined text-[16px]">person_add</span>
-        Tambah Admin / Promosikan Akses
-      </button>
+        <button
+          v-if="searchQuery || filterRole"
+          type="button"
+          @click="resetFilters"
+          class="h-9 rounded-lg border border-[#FDE8E8] bg-[#FDF2F2] px-3 text-xs font-semibold text-[#E11D48] hover:bg-[#FCE7F3] transition-all cursor-pointer"
+        >
+          Reset
+        </button>
+      </div>
     </div>
 
     <!-- ── Tabel Pengguna ─────────────────────────────────── -->
-    <div class="shadow-card overflow-hidden rounded-[20px] border border-[#E8EDF3] bg-white">
-
+    <div class="rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs overflow-hidden">
       <!-- Loading -->
-      <div v-if="isLoading" role="status" class="flex items-center justify-center gap-3 py-16 text-[13px] text-[#6B7280]">
-        <div aria-hidden="true" class="w-8 h-8 border-4 border-[#E5E7EB] border-t-brand rounded-full animate-spin"></div>
-        <span>Memuat data pengguna...</span>
+      <div v-if="isLoading" role="status" class="p-5 space-y-3">
+        <div v-for="n in 5" :key="n" class="h-12 w-full animate-pulse rounded-xl bg-[#F8FAFC]"></div>
       </div>
 
       <!-- Error -->
-      <div v-else-if="pageError" role="alert" class="flex flex-wrap items-center gap-2 px-5 py-4 text-[13px] text-red-700 bg-red-50">
+      <div v-else-if="pageError" role="alert" class="flex flex-wrap items-center gap-2 px-5 py-4 text-[12.5px] text-rose-600 bg-rose-50">
         <span aria-hidden="true" class="material-symbols-outlined text-[18px]">error</span>
-        <span class="flex-1">{{ pageError }}</span>
-        <button type="button" class="font-bold underline underline-offset-2" @click="fetchUsers">Coba lagi</button>
+        <span class="flex-1 font-semibold">{{ pageError }}</span>
+        <button type="button" class="font-bold underline cursor-pointer" @click="fetchUsers">Coba lagi</button>
       </div>
 
       <!-- Tabel -->
-      <div v-else class="overflow-x-auto" tabindex="0" aria-label="Tabel pengguna; geser secara horizontal untuk melihat seluruh kolom">
-        <table class="w-full min-w-[720px] text-left border-collapse">
+      <div v-else class="overflow-x-auto" tabindex="0" aria-label="Tabel pengguna">
+        <table class="w-full text-left border-collapse">
           <caption class="sr-only">Daftar pengguna sistem</caption>
           <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
             <tr>
               <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Pengguna</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Email</th>
               <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Role Akses</th>
               <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Sub Role / Unit Ditangani</th>
               <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Hak Akses Fitur</th>
@@ -552,20 +554,17 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               :key="user.id"
               class="group hover:bg-[#F8FAFC] transition-colors duration-150"
             >
-              <!-- Kolom Pengguna (avatar + nama) -->
-              <td class="py-4 pl-5 pr-4 min-w-[180px]">
+              <!-- Kolom Pengguna (nama + email) -->
+              <td class="py-4 pl-5 pr-4 min-w-[200px]">
                 <div class="flex flex-col">
-                  <span class="text-[13.5px] font-semibold text-[#0F172A] leading-snug truncate">
+                  <span class="text-[13.5px] font-bold text-[#0F172A] leading-snug truncate group-hover:text-[#2563EB] transition-colors">
                     {{ user.nama }}
                   </span>
-                  <span class="font-mono text-[11px] font-normal text-[#64748B] mt-0.5 tracking-tight truncate">
-                    ID #{{ user.id }}
+                  <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate">
+                    {{ user.email }}
                   </span>
                 </div>
               </td>
-
-              <!-- Email -->
-              <td class="py-4 px-4 text-[12.5px] font-normal text-[#475569] min-w-[180px]">{{ user.email }}</td>
 
               <!-- Role Badge -->
               <td class="py-4 px-4 min-w-[110px]">
@@ -601,7 +600,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
               </td>
 
               <!-- Aksi -->
-              <td class="py-4 pr-5 pl-4 text-right">
+              <td class="py-4 pr-5 pl-4 text-right" @click.stop>
                 <AppRowActions :actions="getUserActions(user)" />
               </td>
             </tr>

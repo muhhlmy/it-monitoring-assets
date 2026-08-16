@@ -180,16 +180,15 @@ function parsePerubahan(perubahan, aksi) {
 </script>
 
 <template>
-  <div class="flex min-w-0 flex-col gap-5">
-    <!-- Header deskripsi halaman -->
-    <div class="flex flex-col gap-1.5">
-      <p class="text-[11px] font-medium text-[#9CA3AF]">
-        {{
-          isSuperAdmin
-            ? 'Melihat rekam jejak perubahan sistem & audit login pengguna'
-            : 'Melihat rekam jejak perubahan aset'
-        }}
-      </p>
+  <div class="flex min-w-0 flex-col gap-4">
+    <!-- Simplified SaaS Header Container -->
+    <div class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
+      <div>
+        <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">Audit Log &amp; Riwayat Aktivitas</h2>
+        <p class="text-xs text-[#64748B] mt-0.5 leading-normal">
+          {{ isSuperAdmin ? 'Melihat rekam jejak perubahan sistem & audit login pengguna' : 'Melihat rekam jejak perubahan aset' }}
+        </p>
+      </div>
     </div>
 
     <!-- Error state -->

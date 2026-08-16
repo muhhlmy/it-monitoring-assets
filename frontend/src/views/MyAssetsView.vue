@@ -460,69 +460,33 @@ onMounted(() => {
     ════════════════════════════════════════════════════════════════════════ -->
     <template v-if="currentLevel === 1">
 
-      <!-- Header & Summary Metrics -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <!-- Simplified SaaS Header & Toolbar Container Level 1 -->
+      <div class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
+        <!-- Row 1: Title -->
         <div>
-          <h2 class="text-[16px] font-extrabold text-[#2A3547] leading-tight">Aset Karyawan</h2>
-          <p class="mt-0.5 text-[11px] font-medium text-[#7C8BAC]">
-            Daftar karyawan dan aset IT yang sedang mereka pegang.
-          </p>
+          <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">Aset Karyawan</h2>
+          <p class="text-xs text-[#64748B] mt-0.5 leading-normal">Daftar karyawan dan penugasan aset IT perusahaan</p>
         </div>
 
-        <!-- Summary Metrics Cards -->
-        <div v-if="isAdmin" class="flex items-center gap-2 shrink-0">
-          <div class="flex items-center gap-2 rounded-xl border border-[#E5EAEF] bg-white px-3 py-1.5 shadow-xs">
-            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-[#ECF2FF] text-[#5D87FF]">
-              <span class="material-symbols-outlined text-[16px]">group</span>
-            </span>
-            <div>
-              <p class="font-num text-[15px] font-extrabold leading-none text-[#2A3547]">{{ employees.length }}</p>
-              <p class="text-[9px] font-bold uppercase tracking-wider text-[#7C8BAC]">Total Karyawan</p>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2 rounded-xl border border-[#E5EAEF] bg-white px-3 py-1.5 shadow-xs">
-            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EDFBF7] text-[#13DEB9]">
-              <span class="material-symbols-outlined text-[16px]">badge</span>
-            </span>
-            <div>
-              <p class="font-num text-[15px] font-extrabold leading-none text-[#2A3547]">{{ totalWithAssets }}</p>
-              <p class="text-[9px] font-bold uppercase tracking-wider text-[#7C8BAC]">Punya Aset</p>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2 rounded-xl border border-[#E5EAEF] bg-white px-3 py-1.5 shadow-xs">
-            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#49BEFF]">
-              <span class="material-symbols-outlined text-[16px]">devices</span>
-            </span>
-            <div>
-              <p class="font-num text-[15px] font-extrabold leading-none text-[#2A3547]">{{ totalAssignedAssetsCount }}</p>
-              <p class="text-[9px] font-bold uppercase tracking-wider text-[#7C8BAC]">Aset Ditugaskan</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Filter Bar Level 1 -->
-      <div v-if="isAdmin" class="shadow-xs rounded-xl border border-[#E5EAEF] bg-white p-2.5">
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <div class="relative flex-1 min-w-0">
+        <!-- Row 2: Search Input & Filters -->
+        <div v-if="isAdmin" class="flex flex-wrap items-center gap-2 w-full min-w-0 pt-2 border-t border-[#F1F5F9]">
+          <div class="relative flex-1 min-w-[200px]">
             <label for="emp-search" class="sr-only">Cari karyawan</label>
-            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-[#7C8BAC] pointer-events-none">search</span>
+            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[17px] text-[#94A3B8] pointer-events-none">search</span>
             <input
               id="emp-search"
               v-model="employeeSearch"
               type="search"
               autocomplete="off"
-              placeholder="Cari nama, NIK, jabatan, email..."
-              class="h-8 w-full rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] pl-8 pr-3 text-[11px] font-medium text-[#2A3547] focus:outline-none focus:border-[#5D87FF]"
+              placeholder="Cari nama, NIK, jabatan, atau email..."
+              class="h-9 w-full rounded-lg border border-[#E2E8F0] bg-white pl-8 pr-2.5 text-xs text-[#0F172A] placeholder-[#94A3B8] focus:border-[#2563EB] focus:outline-none transition-all shadow-2xs"
             />
           </div>
 
           <select
             v-model="filterDepartemen"
             aria-label="Filter departemen"
-            class="h-8 rounded-lg border border-[#E5EAEF] bg-white px-2.5 text-[11px] font-semibold text-[#2A3547] focus:outline-none"
+            class="h-9 w-[140px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
           >
             <option value="">Semua Departemen</option>
             <option v-for="dep in departemenOptions" :key="dep" :value="dep">{{ dep }}</option>
@@ -531,7 +495,7 @@ onMounted(() => {
           <select
             v-model="filterLokasi"
             aria-label="Filter lokasi"
-            class="h-8 rounded-lg border border-[#E5EAEF] bg-white px-2.5 text-[11px] font-semibold text-[#2A3547] focus:outline-none"
+            class="h-9 w-[130px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
           >
             <option value="">Semua Lokasi</option>
             <option v-for="loc in lokasiOptions" :key="loc" :value="loc">{{ loc }}</option>
@@ -541,7 +505,7 @@ onMounted(() => {
             v-if="employeeSearch || filterDepartemen || filterLokasi"
             type="button"
             @click="resetEmployeeFilters"
-            class="h-8 rounded-lg border border-[#FDEDE8] bg-[#FDEDE8] px-3 text-[11px] font-bold text-[#FA896B] hover:bg-[#FA896B] hover:text-white transition-all cursor-pointer"
+            class="h-9 rounded-lg border border-[#FDE8E8] bg-[#FDF2F2] px-3 text-xs font-semibold text-[#E11D48] hover:bg-[#FCE7F3] transition-all cursor-pointer"
           >
             Reset
           </button>
@@ -549,69 +513,68 @@ onMounted(() => {
       </div>
 
       <!-- Tabel List Karyawan -->
-      <div class="shadow-xs overflow-hidden rounded-xl border border-[#E5EAEF] bg-white">
+      <div class="rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs overflow-hidden">
         <!-- Loading -->
-        <div v-if="isLoadingEmployees" class="flex flex-col items-center justify-center py-12 text-[#7C8BAC]">
-          <div class="h-6 w-6 animate-spin rounded-full border-2 border-[#5D87FF] border-t-transparent mb-2"></div>
-          <p class="text-[11px] font-semibold">Memuat daftar karyawan...</p>
+        <div v-if="isLoadingEmployees" class="p-5 space-y-3">
+          <div v-for="n in 5" :key="n" class="h-12 w-full animate-pulse rounded-xl bg-[#F8FAFC]"></div>
         </div>
 
         <!-- Error -->
-        <div v-else-if="employeeError" class="p-4 text-center text-rose-600 text-[11px]">
+        <div v-else-if="employeeError" class="p-4 text-center text-rose-600 text-[11.5px]">
           <p class="font-bold">{{ employeeError }}</p>
-          <button type="button" @click="fetchEmployees" class="mt-1 font-bold underline">Coba lagi</button>
+          <button type="button" @click="fetchEmployees" class="mt-1 font-bold underline cursor-pointer">Coba lagi</button>
         </div>
 
         <!-- Empty Filter -->
-        <div v-else-if="filteredEmployees.length === 0" class="p-12 text-center text-[#7C8BAC]">
+        <div v-else-if="filteredEmployees.length === 0" class="p-12 text-center text-[#64748B]">
           <span class="material-symbols-outlined text-[36px] text-[#CBD5E1]">person_search</span>
-          <p class="mt-1 font-bold text-[12px]">Tidak Ada Karyawan</p>
-          <p class="text-[10px]">Coba sesuaikan kata kunci pencarian atau filter.</p>
+          <p class="mt-1 font-bold text-[13.5px] text-[#0F172A]">Tidak Ada Karyawan</p>
+          <p class="text-[11.5px] text-[#64748B]">Coba sesuaikan kata kunci pencarian atau filter.</p>
         </div>
 
         <!-- Table -->
         <div v-else class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="border-b border-[#E5EAEF] bg-[#F8FAFC] text-[10px] font-bold uppercase text-[#7C8BAC]">
-                <th class="py-2.5 px-3.5">Karyawan</th>
-                <th class="py-2.5 px-3.5">Jabatan</th>
-                <th class="py-2.5 px-3.5">Departemen</th>
-                <th class="py-2.5 px-3.5">Lokasi Kerja</th>
-                <th class="py-2.5 px-3.5">Status</th>
-                <th class="py-2.5 px-3.5 text-center">Total Aset</th>
-                <th class="py-2.5 px-3.5 text-right">Aksi</th>
+            <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
+              <tr>
+                <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Karyawan</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Jabatan</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Departemen</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Lokasi Kerja</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Status</th>
+                <th class="py-3 px-4 text-center text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Total Aset</th>
+                <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#F1F5F9] text-[11px]">
+            <tbody class="divide-y divide-[#F1F5F9]">
               <tr
                 v-for="(employee, idx) in paginatedEmployees"
                 :key="employee.id_karyawan || employee.nik"
                 @click="goToLevel2(employee)"
-                class="hover:bg-[#F8FAFC] transition-colors cursor-pointer group"
+                class="group hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none"
               >
                 <!-- Avatar & Nama -->
-                <td class="py-2.5 px-3.5">
-                  <div class="flex items-center gap-2.5">
+                <td class="py-4 pl-5 pr-4 min-w-[180px]">
+                  <div class="flex items-center gap-3">
                     <div
-                      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-[11px] font-extrabold text-white shadow-xs"
+                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-[12px] font-extrabold text-white shadow-2xs"
                       :class="getAvatarGradient(idx)"
                     >
                       {{ getInitials(employee.nama_karyawan) }}
                     </div>
-                    <div>
-                      <p class="font-bold text-[#2A3547] group-hover:text-[#5D87FF] transition-colors leading-tight">
+                    <div class="flex flex-col min-w-0">
+                      <span class="text-[13.5px] font-bold text-[#0F172A] group-hover:text-[#2563EB] transition-colors leading-snug truncate">
                         {{ employee.nama_karyawan }}
-                      </p>
-                      <p class="font-mono text-[9.5px] text-[#94A3B8]">NIK: {{ employee.nik }}</p>
+                      </span>
+                      <span class="font-mono text-[11px] font-normal text-[#64748B] mt-0.5 truncate">NIK: {{ employee.nik }}</span>
                     </div>
                   </div>
                 </td>
 
-                <td class="py-2.5 px-3.5 font-medium text-[#2A3547]">{{ employee.jabatan || '—' }}</td>
-                <td class="py-2.5 px-3.5 font-medium text-[#2A3547]">{{ employee.departemen || '—' }}</td>
-                <td class="py-2.5 px-3.5 font-medium text-[#2A3547]">{{ employee.lokasi_kerja || '—' }}</td>
-                <td class="py-2.5 px-3.5">
+                <td class="py-4 px-4 text-[12.5px] font-medium text-[#1E293B] min-w-[150px]">{{ employee.jabatan || '—' }}</td>
+                <td class="py-4 px-4 text-[12.5px] font-medium text-[#1E293B] min-w-[150px]">{{ employee.departemen || '—' }}</td>
+                <td class="py-4 px-4 text-[12.5px] font-normal text-[#1E293B] min-w-[130px]">{{ employee.lokasi_kerja || '—' }}</td>
+                <td class="py-4 px-4 min-w-[110px]">
                   <AppBadge
                     v-if="employee.status_karyawan || employee.status"
                     :type="(employee.status_karyawan || employee.status) === 'Active' ? 'success' : (employee.status_karyawan || employee.status) === 'Outsource' ? 'warning' : 'danger'"
@@ -621,25 +584,25 @@ onMounted(() => {
                 </td>
 
                 <!-- Total Aset Badge Prominent -->
-                <td class="py-2.5 px-3.5 text-center">
+                <td class="py-4 px-4 text-center min-w-[110px]">
                   <span
-                    class="inline-flex h-6 min-w-[32px] items-center justify-center rounded-full px-2 text-[10px] font-extrabold shadow-xs transition-transform group-hover:scale-105"
+                    class="inline-flex h-6 min-w-[36px] items-center justify-center rounded-full px-2.5 text-[11px] font-bold transition-transform group-hover:scale-105 select-none"
                     :class="
                       parseInt(employee.jumlah_aset || 0) > 0
-                        ? 'bg-[#5D87FF] text-white'
-                        : 'bg-gray-100 text-gray-400'
+                        ? 'bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]/60'
+                        : 'bg-[#F1F5F9] text-[#64748B]'
                     "
                   >
                     {{ employee.jumlah_aset || 0 }} ASET
                   </span>
                 </td>
 
-                <td class="py-2.5 px-3.5 text-right">
+                <td class="py-4 pr-5 pl-4 text-right min-w-[60px]">
                   <button
                     type="button"
-                    class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[#7C8BAC] group-hover:bg-[#ECF2FF] group-hover:text-[#5D87FF] transition-all"
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] group-hover:bg-[#EFF6FF] group-hover:text-[#2563EB] transition-all cursor-pointer"
                   >
-                    <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                    <span class="material-symbols-outlined text-[18px]">chevron_right</span>
                   </button>
                 </td>
               </tr>

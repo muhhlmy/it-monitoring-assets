@@ -40,6 +40,7 @@ const notification = ref(null)
 const searchQuery = ref('')
 const filterStatus = ref('')
 const filterTipe = ref('')
+const viewMode = ref('rows') // 'rows' | 'table'
 const showFormModal = ref(false)
 const showDeleteModal = ref(false)
 const showDetailsModal = ref(false)
@@ -518,16 +519,33 @@ function openStatusChange(asset) {
 
 
 
+function formatKondisiText(kondisi) {
+  if (!kondisi) return 'Kondisi —'
+  const k = String(kondisi).trim().toLowerCase()
+  if (k === 'normal' || k === 'baik' || k === 'baru') return 'Kondisi normal'
+  return kondisi
+}
+
 function formatKondisiStyle(kondisi) {
   const k = (kondisi || '').toLowerCase()
   if (k.includes('rusak') || k.includes('perbaikan') || k.includes('berat')) {
-    return 'inline-flex items-center rounded-md bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#DC2626] border border-[#FECACA]/60'
+    return 'text-[#DC2626] font-medium'
   }
   if (k.includes('ringan') || k.includes('sedang')) {
-    return 'inline-flex items-center rounded-md bg-[#FFFBEB] px-2 py-0.5 text-[11px] font-semibold text-[#D97706] border border-[#FDE68A]/60'
+    return 'text-[#D97706] font-medium'
   }
-  // Normal / Baru / Baik: text biasa muted tanpa heavy badge
-  return 'text-[12px] font-normal text-[#64748B]'
+  return 'text-[#64748B] font-normal'
+}
+
+function formatKondisiDot(kondisi) {
+  const k = (kondisi || '').toLowerCase()
+  if (k.includes('rusak') || k.includes('perbaikan') || k.includes('berat')) {
+    return 'bg-[#DC2626]'
+  }
+  if (k.includes('ringan') || k.includes('sedang')) {
+    return 'bg-[#D97706]'
+  }
+  return 'bg-[#94A3B8]'
 }
 
 function getAssetActions(asset) {
@@ -634,17 +652,31 @@ onMounted(async () => {
 
 <template>
   <div class="space-y-4">
-    <!-- Header Banner & Toolbar (Clean Intentional 2-Row SaaS Layout) -->
-    <div class="flex flex-col gap-3.5 bg-white p-4 rounded-xl border border-[#E2E8F0] shadow-2xs">
-      <!-- Row 1: Page Info -->
-      <div class="w-full">
-        <h2 class="text-base font-bold text-[#0F172A] tracking-tight">Aset IT</h2>
-        <p class="text-xs text-[#64748B] mt-0.5 leading-normal">Monitor dan kelola seluruh perangkat IT perusahaan</p>
+    <!-- Simplified SaaS Header & Toolbar Container -->
+    <div class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
+      <!-- Row 1: Page Title & Primary CTA -->
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">Aset IT</h2>
+          <p class="text-xs text-[#64748B] mt-0.5 leading-normal">Monitor dan kelola seluruh perangkat IT perusahaan</p>
+        </div>
+
+        <!-- Primary Action CTA -->
+        <button
+          v-if="canWriteAssets"
+          type="button"
+          @click="openAdd"
+          class="h-9 shrink-0 whitespace-nowrap rounded-lg bg-[#2563EB] px-3.5 text-xs font-semibold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          title="Tambah aset baru"
+        >
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>Tambah Aset</span>
+        </button>
       </div>
 
-      <!-- Row 2: Full-Width Toolbar -->
-      <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full min-w-0">
-        <!-- Search input (Takes maximum flexible space) -->
+      <!-- Row 2: Search, Filters, Secondary Actions & View Switcher -->
+      <div class="flex flex-wrap items-center gap-2 w-full min-w-0 pt-2 border-t border-[#F1F5F9]">
+        <!-- Search Input -->
         <div class="relative flex-1 min-w-[200px]">
           <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[17px] text-[#94A3B8] pointer-events-none">search</span>
           <input
@@ -658,7 +690,7 @@ onMounted(async () => {
         <!-- Filter Status -->
         <select
           v-model="filterStatus"
-          class="h-9 w-[140px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
+          class="h-9 w-[135px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Status</option>
           <option v-for="s in ASSET_STATUSES" :key="s.value" :value="s.value">{{ s.label }}</option>
@@ -667,13 +699,13 @@ onMounted(async () => {
         <!-- Filter Tipe -->
         <select
           v-model="filterTipe"
-          class="h-9 w-[130px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
+          class="h-9 w-[125px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Tipe</option>
           <option v-for="tipe in availableTipeOptions" :key="tipe" :value="tipe">{{ tipe }}</option>
         </select>
 
-        <!-- Export Button (Secondary Action) -->
+        <!-- Export Button -->
         <button
           type="button"
           @click="openExport"
@@ -684,7 +716,7 @@ onMounted(async () => {
           <span>Ekspor</span>
         </button>
 
-        <!-- Import Button (Secondary Action) -->
+        <!-- Import Button -->
         <button
           v-if="canWriteAssets"
           type="button"
@@ -696,24 +728,34 @@ onMounted(async () => {
           <span>Impor</span>
         </button>
 
-        <!-- Add Asset Button (Primary CTA) -->
-        <button
-          v-if="canWriteAssets"
-          type="button"
-          @click="openAdd"
-          class="h-9 shrink-0 whitespace-nowrap rounded-lg bg-[#2563EB] px-3.5 text-xs font-semibold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-          title="Tambah aset baru"
-        >
-          <span class="material-symbols-outlined text-[16px]">add</span>
-          <span>Tambah Aset</span>
-        </button>
+        <!-- Subtle View Mode Switcher -->
+        <div class="flex items-center rounded-lg border border-[#E2E8F0]/80 bg-[#F8FAFC] p-0.5">
+          <button
+            type="button"
+            @click="viewMode = 'rows'"
+            class="flex h-7.5 w-7.5 items-center justify-center rounded-md transition-all cursor-pointer"
+            :class="viewMode === 'rows' ? 'bg-white text-[#2563EB] shadow-2xs font-bold' : 'text-[#94A3B8] hover:text-[#0F172A]'"
+            title="Tampilan SaaS Row Cards"
+          >
+            <span class="material-symbols-outlined text-[17px]">view_stream</span>
+          </button>
+          <button
+            type="button"
+            @click="viewMode = 'table'"
+            class="flex h-7.5 w-7.5 items-center justify-center rounded-md transition-all cursor-pointer"
+            :class="viewMode === 'table' ? 'bg-white text-[#2563EB] shadow-2xs font-bold' : 'text-[#94A3B8] hover:text-[#0F172A]'"
+            title="Tampilan Tabel Minimalis"
+          >
+            <span class="material-symbols-outlined text-[17px]">table_rows</span>
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- ─── MODERN ENTERPRISE SAAS ASSET TABLE ────────────────────────────── -->
-    <div class="overflow-hidden rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs">
+    <!-- ─── MODERN ENTERPRISE SAAS DATA MANAGEMENT CONTAINER ──────────────── -->
+    <div>
       <!-- Loading State Skeleton -->
-      <div v-if="isLoading" class="p-5 space-y-3">
+      <div v-if="isLoading" class="p-5 space-y-3 bg-white rounded-2xl border border-[#E2E8F0]/80">
         <div v-for="n in 5" :key="n" class="h-12 w-full animate-pulse rounded-xl bg-[#F8FAFC]"></div>
       </div>
 
@@ -721,132 +763,192 @@ onMounted(async () => {
       <div
         v-else-if="pageError"
         role="alert"
-        class="flex items-center gap-2 bg-rose-50 px-5 py-4 text-[12.5px] text-rose-600"
+        class="flex items-center gap-2 bg-rose-50 px-5 py-4 text-[12.5px] text-rose-600 rounded-2xl border border-rose-200"
       >
         <span class="material-symbols-outlined text-[18px]">error</span>
         <span class="flex-1 font-semibold">{{ pageError }}</span>
         <button type="button" class="font-bold underline cursor-pointer" @click="fetchData">Coba lagi</button>
       </div>
 
-      <!-- Table View -->
-      <div
-        v-else
-        class="overflow-x-auto"
-        tabindex="0"
-        aria-label="Tabel daftar aset TI"
-      >
-        <table class="w-full text-left border-collapse">
-          <caption class="sr-only">Daftar Master Aset IT</caption>
-          <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
-            <tr>
-              <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aset</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Penanggung Jawab</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Lokasi</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Perangkat</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Status</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Kondisi</th>
-              <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-[#F1F5F9]">
-            <tr
-              v-for="asset in paginatedAssets"
-              :key="asset.id_aset"
-              @click="openDetails(asset)"
-              class="group hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none"
-            >
-              <!-- 1. ASET Column -->
-              <td class="py-4 pl-5 pr-4 min-w-[170px]">
-                <div class="flex flex-col">
-                  <span class="text-[13.5px] font-semibold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate">
-                    {{ asset.hostname || asset.label_aset || '—' }}
-                  </span>
-                  <span class="font-mono text-[11px] font-normal text-[#64748B] mt-0.5 tracking-tight truncate">
-                    {{ asset.serial_number || asset.nomor_seri || '—' }}
-                  </span>
-                </div>
-              </td>
+      <!-- Empty State -->
+      <div v-else-if="filteredAssets.length === 0" class="py-12 px-4 text-center bg-white rounded-2xl border border-[#E2E8F0]/80">
+        <div class="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+          <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F1F5F9] text-[#64748B]">
+            <span class="material-symbols-outlined text-[24px]">devices_off</span>
+          </span>
+          <h3 class="text-[14px] font-bold text-[#0F172A] mt-1">Belum Ada Aset IT</h3>
+          <p class="text-[11.5px] text-[#64748B] leading-relaxed">
+            Belum ada aset IT yang terdaftar dalam inventaris atau sesuai dengan kata kunci pencarian.
+          </p>
+          <button
+            v-if="canWriteAssets"
+            type="button"
+            @click="openAdd"
+            class="mt-2 h-9 rounded-lg bg-[#2563EB] px-4 text-[12px] font-semibold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <span class="material-symbols-outlined text-[16px]">add</span>
+            <span>Tambah Aset</span>
+          </button>
+        </div>
+      </div>
 
-              <!-- 2. PENANGGUNG JAWAB Column -->
-              <td class="py-4 px-4 min-w-[170px]">
-                <div class="flex flex-col">
-                  <span class="text-[12.5px] leading-snug truncate" :class="asset.nama_karyawan ? 'font-medium text-[#1E293B]' : 'text-[#94A3B8] italic font-normal'">
-                    {{ asset.nama_karyawan || 'Belum ditetapkan' }}
+      <!-- PRIMARY VIEW MODE A: SaaS Row Cards (Linear/Vercel Concept) -->
+      <div v-else-if="viewMode === 'rows'" class="space-y-2.5">
+        <div
+          v-for="asset in paginatedAssets"
+          :key="asset.id_aset"
+          @click="openDetails(asset)"
+          class="group relative flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-[#E2E8F0]/80 bg-white p-4 shadow-2xs hover:border-[#2563EB]/40 hover:shadow-sm transition-all duration-200 cursor-pointer select-none"
+        >
+          <!-- 1. Asset Identity (Code & SN + Device Icon) -->
+          <div class="flex items-center gap-3.5 min-w-[210px]">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB] group-hover:scale-105 transition-transform">
+              <span class="material-symbols-outlined text-[20px]">{{ getDeviceIcon(asset.tipe_perangkat) }}</span>
+            </div>
+            <div class="flex flex-col min-w-0">
+              <span class="text-[14px] font-bold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate">
+                {{ asset.hostname || asset.label_aset || '—' }}
+              </span>
+              <span class="font-mono text-[11px] font-normal text-[#64748B] mt-0.5 tracking-tight truncate">
+                {{ asset.serial_number || asset.nomor_seri || '—' }}
+              </span>
+            </div>
+          </div>
+
+          <!-- 2. Perangkat & Model -->
+          <div class="flex flex-col min-w-[150px]">
+            <span class="text-[10px] font-semibold uppercase text-[#94A3B8] tracking-wider">Perangkat</span>
+            <span class="text-[12.5px] font-semibold text-[#1E293B] mt-0.5 truncate">
+              {{ asset.tipe_perangkat || '—' }}
+            </span>
+            <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate">
+              {{ [asset.merek || asset.brand_merek, asset.model].filter(Boolean).join(' ') || '—' }}
+            </span>
+          </div>
+
+          <!-- 3. Penanggung Jawab -->
+          <div class="flex flex-col min-w-[160px]">
+            <span class="text-[10px] font-semibold uppercase text-[#94A3B8] tracking-wider">Penanggung Jawab</span>
+            <span class="text-[12.5px] mt-0.5 truncate" :class="asset.nama_karyawan ? 'font-semibold text-[#1E293B]' : 'text-[#94A3B8] italic font-normal'">
+              {{ asset.nama_karyawan || 'Belum ditetapkan' }}
+            </span>
+            <span v-if="asset.nama_karyawan && asset.nik" class="font-mono text-[11px] text-[#64748B] mt-0.5 truncate">
+              NIK: {{ asset.nik }}
+            </span>
+          </div>
+
+          <!-- 4. Lokasi -->
+          <div class="flex flex-col min-w-[120px]">
+            <span class="text-[10px] font-semibold uppercase text-[#94A3B8] tracking-wider">Lokasi</span>
+            <span class="text-[12.5px] font-normal text-[#1E293B] mt-0.5 truncate">
+              {{ asset.lokasi_kerja || asset.lokasi_aset || '—' }}
+            </span>
+          </div>
+
+          <!-- 5. Unified Status & Kondisi Component Block + Action Menu -->
+          <div class="flex items-center justify-between md:justify-end gap-4 min-w-[150px]">
+            <div class="flex flex-col items-start min-w-[125px] select-none">
+              <!-- Primary Status Line -->
+              <div class="flex items-center gap-1.5 text-[12.5px] font-semibold" :class="formatStatusPill(asset.status_aset).text">
+                <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="formatStatusPill(asset.status_aset).dot"></span>
+                <span>{{ formatStatusPill(asset.status_aset).label }}</span>
+              </div>
+              <!-- Secondary Condition Line (Tight vertical spacing directly underneath) -->
+              <div class="flex items-center gap-1 text-[11px] mt-0.5" :class="formatKondisiStyle(asset.kondisi_aset)">
+                <span class="h-1 w-1 rounded-full shrink-0 opacity-60" :class="formatKondisiDot(asset.kondisi_aset)"></span>
+                <span>{{ formatKondisiText(asset.kondisi_aset) }}</span>
+              </div>
+            </div>
+
+            <!-- Action Menu -->
+            <div @click.stop class="pl-1">
+              <AppRowActions :actions="getAssetActions(asset)" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALTERNATIVE VIEW MODE B: Spacious Table View -->
+      <div v-else class="overflow-hidden rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs">
+        <div class="overflow-x-auto" tabindex="0" aria-label="Tabel daftar aset TI">
+          <table class="w-full text-left border-collapse">
+            <caption class="sr-only">Daftar Master Aset IT</caption>
+            <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
+              <tr>
+                <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aset</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Penanggung Jawab</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Lokasi</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Perangkat</th>
+                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Status & Kondisi</th>
+                <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[#F1F5F9]">
+              <tr
+                v-for="asset in paginatedAssets"
+                :key="asset.id_aset"
+                @click="openDetails(asset)"
+                class="group hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none"
+              >
+                <td class="py-4 pl-5 pr-4 min-w-[170px]">
+                  <div class="flex flex-col">
+                    <span class="text-[13.5px] font-semibold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate">
+                      {{ asset.hostname || asset.label_aset || '—' }}
+                    </span>
+                    <span class="font-mono text-[11px] font-normal text-[#64748B] mt-0.5 tracking-tight truncate">
+                      {{ asset.serial_number || asset.nomor_seri || '—' }}
+                    </span>
+                  </div>
+                </td>
+
+                <td class="py-4 px-4 min-w-[170px]">
+                  <div class="flex flex-col">
+                    <span class="text-[12.5px] leading-snug truncate" :class="asset.nama_karyawan ? 'font-medium text-[#1E293B]' : 'text-[#94A3B8] italic font-normal'">
+                      {{ asset.nama_karyawan || 'Belum ditetapkan' }}
+                    </span>
+                    <span v-if="asset.nama_karyawan && asset.nik" class="font-mono text-[11px] text-[#64748B] mt-0.5 tracking-tight truncate">
+                      NIK: {{ asset.nik }}
+                    </span>
+                  </div>
+                </td>
+
+                <td class="py-4 px-4 min-w-[140px]">
+                  <span class="text-[12.5px] font-normal text-[#1E293B] truncate block">
+                    {{ asset.lokasi_kerja || asset.lokasi_aset || '—' }}
                   </span>
-                  <span v-if="asset.nama_karyawan && asset.nik" class="font-mono text-[11px] text-[#64748B] mt-0.5 tracking-tight truncate">
-                    NIK: {{ asset.nik }}
-                  </span>
-                </div>
-              </td>
+                </td>
 
-              <!-- 3. LOKASI Column -->
-              <td class="py-4 px-4 min-w-[140px]">
-                <span class="text-[12.5px] font-normal text-[#1E293B] truncate block">
-                  {{ asset.lokasi_kerja || asset.lokasi_aset || '—' }}
-                </span>
-              </td>
+                <td class="py-4 px-4 min-w-[160px]">
+                  <div class="flex flex-col">
+                    <span class="text-[12.5px] font-semibold text-[#1E293B] leading-snug truncate">
+                      {{ asset.tipe_perangkat || '—' }}
+                    </span>
+                    <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate">
+                      {{ [asset.merek || asset.brand_merek, asset.model].filter(Boolean).join(' ') || '—' }}
+                    </span>
+                  </div>
+                </td>
 
-              <!-- 4. PERANGKAT Column -->
-              <td class="py-4 px-4 min-w-[160px]">
-                <div class="flex flex-col">
-                  <span class="text-[12.5px] font-semibold text-[#1E293B] leading-snug truncate">
-                    {{ asset.tipe_perangkat || '—' }}
-                  </span>
-                  <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate">
-                    {{ [asset.merek || asset.brand_merek, asset.model].filter(Boolean).join(' ') || '—' }}
-                  </span>
-                </div>
-              </td>
+                <td class="py-4 px-4 min-w-[150px]">
+                  <div class="flex flex-col items-start select-none">
+                    <div class="flex items-center gap-1.5 text-[12.5px] font-semibold" :class="formatStatusPill(asset.status_aset).text">
+                      <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="formatStatusPill(asset.status_aset).dot"></span>
+                      <span>{{ formatStatusPill(asset.status_aset).label }}</span>
+                    </div>
+                    <div class="flex items-center gap-1 text-[11px] mt-0.5" :class="formatKondisiStyle(asset.kondisi_aset)">
+                      <span class="h-1 w-1 rounded-full shrink-0 opacity-60" :class="formatKondisiDot(asset.kondisi_aset)"></span>
+                      <span>{{ formatKondisiText(asset.kondisi_aset) }}</span>
+                    </div>
+                  </div>
+                </td>
 
-              <!-- 5. STATUS Column -->
-              <td class="py-4 px-4 min-w-[130px]">
-                <span
-                  class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-all select-none"
-                  :class="[formatStatusPill(asset.status_aset).bg, formatStatusPill(asset.status_aset).text, formatStatusPill(asset.status_aset).border]"
-                >
-                  <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="formatStatusPill(asset.status_aset).dot"></span>
-                  {{ formatStatusPill(asset.status_aset).label }}
-                </span>
-              </td>
-
-              <!-- 6. KONDISI Column -->
-              <td class="py-4 px-4 min-w-[115px]">
-                <span :class="formatKondisiStyle(asset.kondisi_aset)">
-                  {{ asset.kondisi_aset || '—' }}
-                </span>
-              </td>
-
-              <!-- 7. AKSI Column -->
-              <td class="py-4 pr-5 pl-4 text-right" @click.stop>
-                <AppRowActions :actions="getAssetActions(asset)" />
-              </td>
-            </tr>
-
-            <!-- Intentional Empty State -->
-            <tr v-if="filteredAssets.length === 0">
-              <td colspan="7" class="py-12 px-4 text-center">
-                <div class="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
-                  <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F1F5F9] text-[#64748B]">
-                    <span class="material-symbols-outlined text-[24px]">devices_off</span>
-                  </span>
-                  <h3 class="text-[13.5px] font-semibold text-[#1E293B] mt-1">Belum Ada Aset IT</h3>
-                  <p class="text-[11.5px] text-[#64748B] leading-relaxed">
-                    Belum ada aset IT yang terdaftar dalam inventaris atau sesuai dengan kata kunci pencarian.
-                  </p>
-                  <button
-                    v-if="canWriteAssets"
-                    type="button"
-                    @click="openAdd"
-                    class="mt-2 h-8.5 rounded-lg bg-[#2563EB] px-3.5 text-[12px] font-semibold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span class="material-symbols-outlined text-[15px]">add</span>
-                    <span>Tambah Aset</span>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <td class="py-4 pr-5 pl-4 text-right" @click.stop>
+                  <AppRowActions :actions="getAssetActions(asset)" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Pagination Footer -->

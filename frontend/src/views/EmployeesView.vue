@@ -351,59 +351,53 @@ onMounted(() => {
       </div>
     </Transition>
 
-    <!-- Header & Action Bar -->
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-[#E5EAEF] pb-5">
-      <div>
-        <div class="flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#5D87FF]/10 text-[#5D87FF]">
-            <span class="material-symbols-outlined text-[24px]">person_search</span>
-          </div>
-          <div>
-            <h1 class="text-xl font-extrabold text-[#2A3547]">Master Data Karyawan</h1>
-            <p class="text-[12px] font-medium text-[#7C8BAC]">
-              Pengelolaan &amp; integrasi data karyawan perusahaan sesuai spesifikasi
-            </p>
-          </div>
+    <!-- Simplified SaaS Header & Toolbar Container -->
+    <div class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
+      <!-- Row 1: Page Title & Primary CTA -->
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">Master Data Karyawan</h2>
+          <p class="text-xs text-[#64748B] mt-0.5 leading-normal">Pengelolaan dan integrasi data karyawan perusahaan</p>
+        </div>
+
+        <div v-if="canWriteKaryawan" class="flex items-center gap-2">
+          <button
+            type="button"
+            @click="showImportModal = true"
+            class="h-9 shrink-0 whitespace-nowrap rounded-lg border border-[#E2E8F0] bg-white px-3 text-xs font-medium text-[#475569] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Import data karyawan dari Excel"
+          >
+            <span class="material-symbols-outlined text-[16px] text-[#64748B]">file_upload</span>
+            <span>Import Excel</span>
+          </button>
+
+          <button
+            type="button"
+            @click="openAdd"
+            class="h-9 shrink-0 whitespace-nowrap rounded-lg bg-[#2563EB] px-3.5 text-xs font-semibold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            title="Tambah karyawan baru"
+          >
+            <span class="material-symbols-outlined text-[16px]">person_add</span>
+            <span>Tambah Karyawan</span>
+          </button>
         </div>
       </div>
 
-      <div v-if="canWriteKaryawan" class="flex items-center gap-2">
-        <button
-          type="button"
-          @click="showImportModal = true"
-          class="flex items-center justify-center gap-2 rounded-xl border border-[#DFE5EF] bg-white px-4 py-2 text-[12px] font-bold text-[#2A3547] hover:bg-[#F8FAFC] transition-all cursor-pointer"
-        >
-          <span class="material-symbols-outlined text-[18px]">file_upload</span>
-          <span>Import Excel</span>
-        </button>
+      <!-- Row 2: Search Input & Filters -->
+      <div class="flex flex-wrap items-center gap-2 w-full min-w-0 pt-2 border-t border-[#F1F5F9]">
+        <div class="relative flex-1 min-w-[200px]">
+          <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[17px] text-[#94A3B8] pointer-events-none">search</span>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Cari NIK, nama, email, jabatan, atau departemen..."
+            class="h-9 w-full rounded-lg border border-[#E2E8F0] bg-white pl-8 pr-2.5 text-xs text-[#0F172A] placeholder-[#94A3B8] focus:border-[#2563EB] focus:outline-none transition-all shadow-2xs"
+          />
+        </div>
 
-        <button
-          type="button"
-          @click="openAdd"
-          class="flex items-center justify-center gap-2 rounded-xl bg-[#5D87FF] px-4 py-2 text-[12px] font-bold text-white shadow-md shadow-blue-500/20 hover:bg-[#4570EA] transition-all cursor-pointer"
-        >
-          <span class="material-symbols-outlined text-[18px]">person_add</span>
-          <span>Tambah Karyawan</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Search & Filters -->
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 bg-white p-2.5 rounded-xl border border-[#E5EAEF] shadow-xs">
-      <div class="relative flex-1">
-        <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[17px] text-[#7C8BAC]">search</span>
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Cari NIK, Nama, Email, Jabatan, Departemen..."
-          class="h-8 w-full rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] pl-8 pr-3 text-[11px] text-[#2A3547] focus:border-[#5D87FF] focus:bg-white focus:outline-none transition-all"
-        />
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2">
         <select
           v-model="filterDepartemen"
-          class="h-8 rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] px-2.5 text-[11px] font-semibold text-[#2A3547] focus:outline-none"
+          class="h-9 w-[140px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Departemen</option>
           <option v-for="dep in availableDepartemenOptions" :key="dep" :value="dep">{{ dep }}</option>
@@ -411,7 +405,7 @@ onMounted(() => {
 
         <select
           v-model="filterLokasi"
-          class="h-8 rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] px-2.5 text-[11px] font-semibold text-[#2A3547] focus:outline-none"
+          class="h-9 w-[130px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Lokasi</option>
           <option v-for="loc in availableLokasiOptions" :key="loc" :value="loc">{{ loc }}</option>
@@ -419,7 +413,7 @@ onMounted(() => {
 
         <select
           v-model="filterStatus"
-          class="h-8 rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] px-2.5 text-[11px] font-semibold text-[#2A3547] focus:outline-none"
+          class="h-9 w-[125px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Status</option>
           <option value="Active">Active</option>
@@ -463,11 +457,11 @@ onMounted(() => {
             <tr v-for="emp in paginatedEmployees" :key="emp.id_karyawan || emp.nik" class="group hover:bg-[#F8FAFC] transition-colors duration-150">
               <td class="py-4 pl-5 pr-4 min-w-[180px]">
                 <div class="flex flex-col">
-                  <span class="text-[13.5px] font-semibold text-[#0F172A] leading-snug truncate">
+                  <span class="text-[13.5px] font-bold text-[#0F172A] leading-snug truncate group-hover:text-[#2563EB] transition-colors">
                     {{ emp.nama_karyawan }}
                   </span>
                   <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate">
-                    {{ emp.email_kantor || '-' }}
+                    {{ emp.email_kantor || '—' }}
                   </span>
                 </div>
               </td>
@@ -475,16 +469,16 @@ onMounted(() => {
               <td class="py-4 px-4 font-mono text-[11.5px] font-semibold text-[#0F172A] min-w-[110px]">{{ emp.nik }}</td>
 
               <td class="py-4 px-4 min-w-[160px]">
-                <span class="text-[12.5px] font-medium text-[#1E293B]">{{ emp.jabatan || emp.title || '-' }}</span>
+                <span class="text-[12.5px] font-medium text-[#1E293B]">{{ emp.jabatan || emp.title || '—' }}</span>
               </td>
 
               <td class="py-4 px-4 min-w-[170px]">
                 <div class="flex flex-col">
                   <span class="text-[12.5px] font-medium text-[#1E293B] leading-snug truncate">
-                    {{ emp.departemen || '-' }}
+                    {{ emp.departemen || '—' }}
                   </span>
                   <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate">
-                    {{ emp.direktorat || emp.directorate || '-' }}
+                    {{ emp.direktorat || emp.directorate || '—' }}
                   </span>
                 </div>
               </td>
@@ -495,8 +489,8 @@ onMounted(() => {
                   :text="emp.status_karyawan || emp.status || 'Active'"
                 />
               </td>
-              <td class="py-4 px-4 text-[12.5px] font-normal text-[#475569] min-w-[130px]">{{ emp.lokasi_kerja || emp.work_location || '-' }}</td>
-              <td v-if="canWriteKaryawan" class="py-4 pr-5 pl-4 text-right">
+              <td class="py-4 px-4 text-[12.5px] font-normal text-[#1E293B] min-w-[130px]">{{ emp.lokasi_kerja || emp.work_location || '—' }}</td>
+              <td v-if="canWriteKaryawan" class="py-4 pr-5 pl-4 text-right" @click.stop>
                 <AppRowActions :actions="getEmployeeActions(emp)" />
               </td>
             </tr>

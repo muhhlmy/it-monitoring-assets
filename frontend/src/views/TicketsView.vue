@@ -959,26 +959,22 @@ function toast(message, type = 'success') {
       </div>
     </Transition>
 
-    <!-- ── Header Banner Card ──────────────────────────────── -->
-    <div class="relative overflow-hidden rounded-2xl bg-[#ECF2FF] p-6 border border-[#D2E3FF] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-      <div>
-        <div class="flex items-center gap-2 text-[11px] font-bold text-[#5D87FF] uppercase tracking-wider mb-1">
-          <span>Home</span>
-          <span>•</span>
-          <span>Tiket</span>
+    <!-- Simplified SaaS Header Container -->
+    <div class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">Tiket Kendala IT</h2>
+          <p class="text-xs text-[#64748B] mt-0.5 leading-normal">Routing tiket pengajuan &amp; bantuan IT berdasarkan unit — IT · HR · GA · OPS</p>
         </div>
-        <h2 class="text-[22px] font-extrabold text-[#2A3547]">Tiket Kendala</h2>
-        <p class="text-[12px] font-medium text-[#7C8BAC] mt-0.5">Routing tiket berdasarkan unit — IT · HR · GA · OPS</p>
-      </div>
 
-      <div class="flex items-center gap-3">
         <button
           type="button"
           @click="openAdd"
-          class="flex items-center gap-2 rounded-xl bg-[#5D87FF] px-5 py-3 text-[13px] font-bold text-white shadow-md shadow-blue-500/20 hover:bg-[#4570EA] transition-all cursor-pointer"
+          class="h-9 shrink-0 whitespace-nowrap rounded-lg bg-[#2563EB] px-3.5 text-xs font-semibold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          title="Buat tiket baru"
         >
-          <span class="material-symbols-outlined text-[18px]">add</span>
-          Buat Tiket Baru
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>Buat Tiket Baru</span>
         </button>
       </div>
     </div>
