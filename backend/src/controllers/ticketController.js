@@ -590,15 +590,15 @@ export async function getTicketCaspStats(req, res) {
   const result = await pool.query(
     `
     SELECT
-      COUNT(*)::int                                          AS "totalRatings",
-      COALESCE(AVG(cr.rating), 0)::float                     AS "averageRating",
-      COUNT(CASE WHEN cr.rating = 1 THEN 1 END)::int         AS "r1",
-      COUNT(CASE WHEN cr.rating = 2 THEN 1 END)::int         AS "r2",
-      COUNT(CASE WHEN cr.rating = 3 THEN 1 END)::int         AS "r3",
-      COUNT(CASE WHEN cr.rating = 4 THEN 1 END)::int         AS "r4",
-      COUNT(CASE WHEN cr.rating = 5 THEN 1 END)::int         AS "r5"
+      COUNT(*)::int                                               AS "totalRatings",
+      COALESCE(AVG(cr.rating_score), 0)::float                    AS "averageRating",
+      COUNT(CASE WHEN cr.rating_score = 1 THEN 1 END)::int         AS "r1",
+      COUNT(CASE WHEN cr.rating_score = 2 THEN 1 END)::int         AS "r2",
+      COUNT(CASE WHEN cr.rating_score = 3 THEN 1 END)::int         AS "r3",
+      COUNT(CASE WHEN cr.rating_score = 4 THEN 1 END)::int         AS "r4",
+      COUNT(CASE WHEN cr.rating_score = 5 THEN 1 END)::int         AS "r5"
     FROM ticket_casp_ratings cr
-    JOIN tickets t ON t.id = cr.ticket_id
+    JOIN tickets t ON t.id = cr.id_tiket
     ${whereClause}
   `,
     params,
@@ -637,10 +637,10 @@ export async function getCaspTrend(req, res) {
     SELECT
       TO_CHAR(cr.submitted_at, 'Mon YYYY') AS "period",
       TO_CHAR(cr.submitted_at, 'YYYY-MM')  AS "ym",
-      ROUND(AVG(cr.rating)::numeric, 2)    AS "averageRating",
+      ROUND(AVG(cr.rating_score)::numeric, 2) AS "averageRating",
       COUNT(*)::int                         AS "totalRatings"
     FROM ticket_casp_ratings cr
-    JOIN tickets t ON t.id = cr.ticket_id
+    JOIN tickets t ON t.id = cr.id_tiket
     ${whereClause}
     GROUP BY TO_CHAR(cr.submitted_at, 'Mon YYYY'), TO_CHAR(cr.submitted_at, 'YYYY-MM')
     ORDER BY TO_CHAR(cr.submitted_at, 'YYYY-MM') DESC

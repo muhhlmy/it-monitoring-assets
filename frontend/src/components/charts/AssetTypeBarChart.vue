@@ -26,7 +26,7 @@ const { chartColors, palette } = useChartTheme()
 const isEmpty = computed(() => !props.data || props.data.length === 0)
 
 const chartData = computed(() => ({
-  labels: props.data.map((d) => d.device_type || 'Tanpa Tipe'),
+  labels: props.data.map((d) => d.device_type || d.tipe || d.type || 'Tanpa Tipe'),
   datasets: [
     {
       label: 'Jumlah Unit',

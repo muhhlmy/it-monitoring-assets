@@ -294,6 +294,25 @@ CREATE TABLE log_riwayat_tiket (
 CREATE INDEX idx_log_riwayat_tiket_id ON log_riwayat_tiket(id_tiket, created_at DESC);
 
 -- =====================================================================
+-- TABEL 9B: Asset History Log (Audit Trail Aset IT)
+-- =====================================================================
+CREATE TABLE log_riwayat_aset (
+    id                          SERIAL          PRIMARY KEY,
+    id_aset                     INTEGER         NOT NULL,
+    label_aset                  VARCHAR(100),
+    aksi                        VARCHAR(50)     NOT NULL,
+    perubahan                   TEXT,
+    oleh_pengguna               VARCHAR(150)    NOT NULL DEFAULT 'Sistem',
+    dibuat_pada                 TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_log_aset
+        FOREIGN KEY (id_aset) REFERENCES aset_ti(id) ON DELETE CASCADE
+);
+
+-- Index
+CREATE INDEX idx_log_riwayat_aset_id ON log_riwayat_aset(id_aset, dibuat_pada DESC);
+
+-- =====================================================================
 -- TABEL 10: Asset Usage History
 -- =====================================================================
 CREATE TABLE riwayat_pemakaian_aset (

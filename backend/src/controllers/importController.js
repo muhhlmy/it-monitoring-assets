@@ -1,42 +1,29 @@
 import { pool, withTransaction } from "../config/database.js";
 
-// Placeholder values yang tidak boleh dianggap sebagai identifier valid
-const PLACEHOLDER_VALUES = new Set([
-  "label placeholder", "asset placeholder", "placeholder", "xxxxx", "", null, undefined
-]);
-
-function isPlaceholderIdentifier(value) {
-  if (!value || typeof value !== "string") return true;
-  const lowerValue = value.toLowerCase().trim();
-  return PLACEHOLDER_VALUES.has(lowerValue);
-}
-
 function cleanText(value) {
   if (value === undefined || value === null) return null;
   const text = String(value).trim();
   return text === "" ? null : text;
 }
 
-function createHttpError(statusCode, message) {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  return error;
+function getPropCaseInsensitive(row, keys) {
+  if (!row || typeof row !== 'object') return null;
+  const rowKeys = Object.keys(row);
+  for (const key of keys) {
+    const foundKey = rowKeys.find(k => k.trim().toLowerCase() === key.toLowerCase());
+    if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null) {
+      const val = cleanText(row[foundKey]);
+      if (val !== null) return val;
+    }
+  }
+  return null;
 }
 
 export async function importExcelData(req, res) {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: "File Excel tidak ditemukan." });
-    }
+    let karyawanRows = req.body?.karyawanRows || [];
+    let assetRows = req.body?.assetRows || [];
 
-    // Import exceljs untuk parsing Excel file
-    const ExcelJS = await import('exceljs');
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(req.file.buffer);
-    
-    const worksheet = workbook.getWorksheet(1);
-    const rows = worksheet.filterRows(row => row.getCell(1)?.value !== ""); // Filter empty rows
-    
     let importedKaryawanCount = 0;
     let updatedKaryawanCount = 0;
     let createdUserCount = 0;
@@ -44,70 +31,56 @@ export async function importExcelData(req, res) {
     let updatedAssetCount = 0;
     const warnings = [];
 
-    for (let rowIndex = 2; rowIndex <= worksheet.rowCount; rowIndex++) {
-      const row = worksheet.getRow(rowIndex);
-      const cellNik = row.getCell("A").value;
-      const cellNama = row.getCell("B").value;
-      
-      // Skip jika baris kosong atau header
-      if (!cellNik && !cellNama) continue;
+    // Process Karyawan Rows
+    for (let i = 0; i < karyawanRows.length; i++) {
+      const row = karyawanRows[i];
+      const nik = getPropCaseInsensitive(row, ['NIK', 'nik', 'nomor_induk']);
+      const nama = getPropCaseInsensitive(row, ['Nama Karyawan', 'Nama', 'nama_karyawan', 'nama']);
+      const email = getPropCaseInsensitive(row, ['Email Kantor', 'Email', 'email_kantor', 'email']) || (nik ? `${nik.toLowerCase()}@esb.co.id` : null);
+      const lokasi = getPropCaseInsensitive(row, ['Lokasi Kerja', 'Lokasi', 'lokasi_kerja', 'lokasi']);
+      const title = getPropCaseInsensitive(row, ['Title', 'Jabatan', 'title']) || 'User';
+      const jobLevel = getPropCaseInsensitive(row, ['Job Level', 'Level', 'job_level']) || 'S1';
+      const departemen = getPropCaseInsensitive(row, ['Departemen', 'Department', 'departemen']);
+      const direktorat = getPropCaseInsensitive(row, ['Directorate', 'Direktorat', 'directorate']);
+      const tanggalMulai = getPropCaseInsensitive(row, ['Tanggal Mulai Bekerja', 'Tanggal Mulai', 'tanggal_mulai_bekerja']) || new Date().toISOString().split('T')[0];
+      const status = getPropCaseInsensitive(row, ['Status', 'status']) || 'Active';
 
-      const spName = `sp_row_${rowIndex}`;
-      
+      if (!nik || !nama) continue;
+
       try {
         await withTransaction(async (client) => {
-          // Create savepoint untuk setiap baris
-          await client.query(`SAVEPOINT ${spName}`);
+          const existingEmpRes = await client.query(`SELECT id FROM karyawan WHERE nik = $1`, [nik]);
 
-          // ========== IMPORT KARYAWAN ==========
-          const nik = cleanText(cellNik);
-          const nama = cleanText(cellNama);
-          const email = cleanText(row.getCell("C").value) || `${nik?.toLowerCase()}@esb.co.id`;
-          const lokasi = cleanText(row.getCell("D").value);
-          const title = cleanText(row.getCell("E").value) || "User";
-          const jobLevel = cleanText(row.getCell("F").value) || "S1";
-          const departemen = cleanText(row.getCell("G").value);
-          const direktorat = cleanText(row.getCell("H").value);
-          const tanggalMulai = cleanText(row.getCell("I").value);
-          const status = cleanText(row.getCell("J").value) || "Active";
-
-          if (nik && nama) {
-            const existingEmpRes = await client.query(
-              `SELECT id FROM karyawan WHERE nik = $1`,
-              [nik]
+          if (existingEmpRes.rows.length > 0) {
+            await client.query(
+              `UPDATE karyawan SET
+                nama_karyawan = $2, email_kantor = $3, lokasi_kerja = $4,
+                title = $5, job_level = $6, departemen = $7, directorate = $8,
+                status = $9, updated_at = CURRENT_TIMESTAMP
+               WHERE id = $1`,
+              [existingEmpRes.rows[0].id, nama, email, lokasi, title, jobLevel, departemen, direktorat, status]
             );
+            updatedKaryawanCount++;
+          } else {
+            await client.query(
+              `INSERT INTO karyawan (nik, nama_karyawan, email_kantor, lokasi_kerja, 
+                                     title, job_level, departemen, directorate, status,
+                                     tanggal_mulai_bekerja, employeement_status)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Permanent')`,
+              [nik, nama, email, lokasi, title, jobLevel, departemen, direktorat, status, tanggalMulai]
+            );
+            importedKaryawanCount++;
+          }
 
-            if (existingEmpRes.rows.length > 0) {
-              // Update existing
-              await client.query(
-                `UPDATE karyawan SET
-                  nama_karyawan = $2, email_kantor = $3, lokasi_kerja = $4,
-                  title = $5, job_level = $6, departemen = $7, directorate = $8,
-                  status = $9, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = $1`,
-                [existingEmpRes.rows[0].id, nama, email, lokasi, title, jobLevel, departemen, direktorat, status]
-              );
-              updatedKaryawanCount++;
-            } else {
-              // Insert new
-              await client.query(
-                `INSERT INTO karyawan (nik, nama_karyawan, email_kantor, lokasi_kerja, 
-                                       title, job_level, departemen, directorate, status,
-                                       tanggal_mulai_bekerja, employeement_status)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Permanent')`,
-                [nik, nama, email, lokasi, title, jobLevel, departemen, direktorat, status, tanggalMulai]
-              );
-              importedKaryawanCount++;
-            }
-
-            // Auto-create user account if not exists
+          // Auto-create user account if not exists
+          if (email) {
             const existingUserRes = await client.query(
               `SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))`,
               [email]
             );
             
             if (existingUserRes.rows.length === 0) {
-              const defaultPasswordHash = "$2b$10$defaultHashPlaceholder";
+              const defaultPasswordHash = "$2b$10$4qCKXNwFhrWZaPeErQOjNenTxUdV7t99RkI7lI3qkd0zlBL7fJtPm";
               await client.query(
                 `INSERT INTO users (nama, email, password_hash, role, permissions, is_active)
                  VALUES ($1, $2, $3, 'user', '{}'::jsonb, true)`,
@@ -116,63 +89,83 @@ export async function importExcelData(req, res) {
               createdUserCount++;
             }
           }
+        });
+      } catch (err) {
+        warnings.push(`Karyawan ${nik} (${nama}) gagal: ${err.message}`);
+      }
+    }
 
-          // ========== IMPORT ASET IT ==========
-          const cellHostname = row.getCell("K").value;
-          const cellSerial = row.getCell("L").value;
-          const cellLabel = row.getCell("M").value;
-          const cellSpesifikasi = row.getCell("N").value;
-          const cellBrand = rowgetCell("O").value;
-          const cellModel = row.getCell("P").value;
-          const cellStatus = row.getCell("Q").value;
-          const cellCondition = row.getCell("R").value;
-          const cellNote = row.getCell("S").value;
-          
-          // Get employee ID for asset assignment
-          const empIdResult = await client.query(
-            `SELECT id FROM karyawan WHERE nik = $1`,
-            [cleanText(cellNik)]
-          );
-          const empId = empIdResult.rows[0]?.id;
+    // Process Asset Rows
+    for (let i = 0; i < assetRows.length; i++) {
+      const row = assetRows[i];
+      const hostname = getPropCaseInsensitive(row, ['Hostname', 'Label Aset', 'Label', 'hostname', 'label_aset']);
+      const serialNumber = getPropCaseInsensitive(row, ['Serial Number', 'Serial', 'SN', 'serial_number', 'nomor_seri']);
+      const spesifikasi = getPropCaseInsensitive(row, ['Spesifikasi', 'Spec', 'spesifikasi']);
+      const nikPemegang = getPropCaseInsensitive(row, ['NIK Pemegang', 'NIK', 'nik_pemegang_asset', 'nik']);
+      const namaPemegang = getPropCaseInsensitive(row, ['Nama Karyawan Pemegang', 'Nama Karyawan', 'nama_karyawan_pemegang_asset', 'nama_karyawan']);
+      const deptPemegang = getPropCaseInsensitive(row, ['Departemen Pemegang', 'Departemen', 'departemen_pemegang_asset', 'departemen']);
+      const lokasiAset = getPropCaseInsensitive(row, ['Lokasi Aset', 'Lokasi', 'lokasi_asset', 'lokasi_kerja']);
+      const tipePerangkat = getPropCaseInsensitive(row, ['Tipe Perangkat', 'Tipe', 'tipe_perangkat']) || 'Laptop';
+      const brandMerek = getPropCaseInsensitive(row, ['Brand/Merek', 'Merek', 'Brand', 'brand_merek']);
+      const model = getPropCaseInsensitive(row, ['Model', 'model']);
+      const status = getPropCaseInsensitive(row, ['Status', 'status']) || 'In Use';
+      const kondisi = getPropCaseInsensitive(row, ['Kondisi', 'kondisi']) || 'Normal';
+      const noteAsset = getPropCaseInsensitive(row, ['Note Asset', 'Catatan', 'note_asset']);
 
-          const hostnameFinal = cleanText(cellHostname) || cleanText(cellSerial);
-          const serialFinal = cleanText(cellSerial) || cleanText(cellHostname);
-          const labelFinal = cleanText(cellLabel) || hostnameFinal;
-          
-          if (hostnameFinal) {
-            const existingAssetRes = await client.query(
-              `SELECT id FROM aset_ti WHERE hostname = $1 OR serial_number = $2 ORDER BY id ASC LIMIT 1`,
-              [hostnameFinal, serialFinal]
-            );
-            
-            if (existingAssetRes.rows.length > 0) {
-              // Update existing
-              await client.query(
-                `UPDATE aset_ti SET
-                  hostname = $2, serial_number = $3, spesifikasi = $4,
-                  brand_merek = $5, model = $6, status = $7, kondisi = $8,
-                  note_asset = $9, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = $1`,
-                [existingAssetRes.rows[0].id, hostnameFinal, serialFinal, cellSpesifikasi, 
-                 cellBrand, cellModel, cellStatus, cellCondition, cellNote]
-              );
-              updatedAssetCount++;
-            } else {
-              // Insert new
-              await client.query(
-                `INSERT INTO aset_ti (hostname, serial_number, spesifikasi, nik_pemegang_asset,
-                                      brand_merek, model, status, kondisi, note_asset)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [hostnameFinal, serialFinal, cellSpesifikasi, empId, cellBrand, cellModel, cellStatus, cellCondition, cellNote]
-              );
-              importedAssetCount++;
+      const hostnameFinal = hostname || serialNumber;
+      const serialFinal = serialNumber || hostname;
+
+      if (!hostnameFinal && !serialFinal) continue;
+
+      try {
+        await withTransaction(async (client) => {
+          // Verify employee info if NIK provided
+          let resolvedNama = namaPemegang;
+          let resolvedDept = deptPemegang;
+          let resolvedLokasi = lokasiAset;
+
+          if (nikPemegang) {
+            const empRes = await client.query(`SELECT nama_karyawan, departemen, lokasi_kerja FROM karyawan WHERE nik = $1`, [nikPemegang]);
+            if (empRes.rows.length > 0) {
+              resolvedNama = empRes.rows[0].nama_karyawan;
+              resolvedDept = empRes.rows[0].departemen;
+              if (!resolvedLokasi) resolvedLokasi = empRes.rows[0].lokasi_kerja;
             }
           }
-        }, spName);
 
+          const existingAssetRes = await client.query(
+            `SELECT id FROM aset_ti WHERE (hostname = $1 OR serial_number = $2) AND deleted_at IS NULL ORDER BY id ASC LIMIT 1`,
+            [hostnameFinal, serialFinal]
+          );
+
+          if (existingAssetRes.rows.length > 0) {
+            await client.query(
+              `UPDATE aset_ti SET
+                hostname = $2, serial_number = $3, spesifikasi = $4, nik_pemegang_asset = $5,
+                nama_karyawan_pemegang_asset = $6, departemen_pemegang_asset = $7, lokasi_asset = $8,
+                tipe_perangkat = $9, brand_merek = $10, model = $11, status = $12, kondisi = $13,
+                note_asset = $14, updated_at = CURRENT_TIMESTAMP
+               WHERE id = $1`,
+              [existingAssetRes.rows[0].id, hostnameFinal, serialFinal, spesifikasi, nikPemegang,
+               resolvedNama, resolvedDept, resolvedLokasi, tipePerangkat, brandMerek, model,
+               status, kondisi, noteAsset]
+            );
+            updatedAssetCount++;
+          } else {
+            await client.query(
+              `INSERT INTO aset_ti (hostname, serial_number, spesifikasi, nik_pemegang_asset,
+                                    nama_karyawan_pemegang_asset, departemen_pemegang_asset, lokasi_asset,
+                                    tipe_perangkat, brand_merek, model, status, kondisi, note_asset)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+              [hostnameFinal, serialFinal, spesifikasi, nikPemegang,
+               resolvedNama, resolvedDept, resolvedLokasi, tipePerangkat, brandMerek, model,
+               status, kondisi, noteAsset]
+            );
+            importedAssetCount++;
+          }
+        });
       } catch (err) {
-        await pool.query(`ROLLBACK TO SAVEPOINT ${spName}`);
-        warnings.push(`Baris ${rowIndex} gagal: ${err.message}`);
+        warnings.push(`Aset ${hostnameFinal} (${serialFinal}) gagal: ${err.message}`);
       }
     }
 

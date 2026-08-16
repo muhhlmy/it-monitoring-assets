@@ -120,12 +120,21 @@ const REQUIRED_RUNTIME_SCHEMA = Object.freeze({
   riwayat_pemakaian_aset: {
     id: nn('int4'),
     id_aset: nn('int4'),
-    nik_pemegang: nn('varchar'),
+    nik_pemegang: optional('varchar'),
     tanggal_mulai: nn('timestamp'),
     tanggal_selesai: optional('timestamp'),
     catatan: optional('text'),
     created_at: nn('timestamp'),
     updated_at: nn('timestamp'),
+  },
+  log_riwayat_aset: {
+    id: nn('int4'),
+    id_aset: nn('int4'),
+    label_aset: optional('varchar'),
+    aksi: nn('varchar'),
+    perubahan: optional('text'),
+    oleh_pengguna: nn('varchar'),
+    dibuat_pada: nn('timestamp'),
   },
   log_audit_login: {
     id: nn('int4'),
@@ -148,6 +157,7 @@ const REQUIRED_RELATION_KINDS = Object.freeze({
   ticket_casp_ratings: 'r',
   user_ticket_queues: 'r',
   log_riwayat_tiket: 'r',
+  log_riwayat_aset: 'r',
   riwayat_pemakaian_aset: 'r',
   log_audit_login: 'r',
 })

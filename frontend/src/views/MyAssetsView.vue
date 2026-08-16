@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
+import { formatStatusPill, getAssetStatusLabel } from '../utils/assetStatus.js'
 import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
@@ -35,10 +36,28 @@ const showDetailsModal = ref(false)
 const showSpecificationModal = ref(false)
 const activeModalAsset = ref(null)
 
-// State Device Cycle / Audit Log
+// State Device Cycle & Real Audit Logs
 const deviceCycle = ref([])
+const realAssetLogs = ref([])
 const isLoadingCycle = ref(false)
-const cycleError = ref('')
+const isLoadingLogs = ref(false)
+
+async function fetchAssetLogs(idAset) {
+  if (!idAset) {
+    realAssetLogs.value = []
+    return
+  }
+  isLoadingLogs.value = true
+  try {
+    const data = await get(`/api/logs/assets/${idAset}`)
+    realAssetLogs.value = Array.isArray(data) ? data : []
+  } catch (error) {
+    console.error('Error fetching real asset logs:', error)
+    realAssetLogs.value = []
+  } finally {
+    isLoadingLogs.value = false
+  }
+}
 
 // ── Computed Level 1: Filter & Pagination Karyawan ────────────────────────────
 const departemenOptions = computed(() => {
@@ -110,7 +129,7 @@ const availableTipeOptions = computed(() =>
   [...new Set(myAssets.value.map(a => a.tipe_perangkat).filter(Boolean))]
 )
 
-// ── Computed Level 3: Audit & History Log Timeline ─────────────────────────────
+// ── Computed Level 3: Audit & History Log Timeline (Synchronized with Real Logs) ──
 const assetHistoryTimeline = computed(() => {
   if (!selectedAsset.value) return []
 
@@ -118,7 +137,38 @@ const assetHistoryTimeline = computed(() => {
   const asset = selectedAsset.value
   const emp = selectedEmployee.value
 
-  // Ambil data cycle yang cocok dengan aset ini
+  // 1. Real Audit Logs from log_riwayat_aset (/api/logs/assets/:id)
+  if (realAssetLogs.value.length > 0) {
+    realAssetLogs.value.forEach((log) => {
+      let icon = 'edit'
+      let type = 'status_change'
+      let actionTitle = log.aksi === 'TAMBAH' ? 'Aset Didaftarkan' : log.aksi === 'UBAH' ? 'Perubahan Data Aset' : 'Aset Dihapus'
+      
+      if (log.aksi === 'TAMBAH') {
+        icon = 'add_circle'
+        type = 'creation'
+      } else if (log.aksi === 'HAPUS') {
+        icon = 'delete'
+        type = 'deletion'
+      } else if (log.perubahan?.includes('NIK Pemegang') || log.perubahan?.includes('nama_karyawan')) {
+        icon = 'person_add'
+        type = 'assignment'
+        actionTitle = 'Penugasan Aset Diperbarui'
+      }
+
+      list.push({
+        date: log.dibuat_pada || log.created_at,
+        action: actionTitle,
+        actor: log.oleh_pengguna || log.nama_user || log.username || 'Sistem',
+        status: log.aksi,
+        detail: log.perubahan || 'Perubahan data aset',
+        icon,
+        type,
+      })
+    })
+  }
+
+  // 2. Usage Cycles from riwayat_pemakaian_aset
   const cycles = deviceCycle.value.filter(
     (c) =>
       c.nomor_seri === asset.nomor_seri ||
@@ -126,63 +176,41 @@ const assetHistoryTimeline = computed(() => {
       c.label_aset === asset.label_aset,
   )
 
-  if (cycles.length > 0) {
-    cycles.forEach((c) => {
-      list.push({
-        date: c.tanggal_mulai,
-        action: `Aset ditugaskan kepada ${emp?.nama_karyawan || 'Karyawan'}`,
-        actor: 'Admin IT System',
-        status: c.status_pemakaian || 'Aktif',
-        detail: `Status: ${c.status_pemakaian || 'Aktif'}${c.catatan ? ' · Catatan: ' + c.catatan : ''}`,
-        icon: 'assignment_ind',
-        type: 'assignment',
-      })
-      if (c.tanggal_selesai) {
-        list.push({
-          date: c.tanggal_selesai,
-          action: 'Penugasan aset selesai',
-          actor: 'Admin IT System',
-          status: 'Selesai',
-          detail: 'Aset dikembalikan ke gudang/stok',
-          icon: 'assignment_return',
-          type: 'return',
-        })
-      }
+  cycles.forEach((c) => {
+    list.push({
+      date: c.tanggal_mulai,
+      action: `Aset dialokasikan kepada ${emp?.nama_karyawan || 'Karyawan'}`,
+      actor: 'Admin IT System',
+      status: c.status_pemakaian || 'Aktif',
+      detail: `Catatan Penugasan: ${c.catatan || 'Aset aktif digunakan'}`,
+      icon: 'assignment_ind',
+      type: 'assignment',
     })
-  } else {
-    // Log entri standar jika belum ada riwayat cycle
+    if (c.tanggal_selesai) {
+      list.push({
+        date: c.tanggal_selesai,
+        action: 'Penugasan aset selesai / dikembalikan',
+        actor: 'Admin IT System',
+        status: 'Selesai',
+        detail: 'Aset dikembalikan ke stok gudang',
+        icon: 'assignment_return',
+        type: 'return',
+      })
+    }
+  })
+
+  // 3. Fallback entry if no logs or cycles exist
+  if (list.length === 0) {
     list.push({
       date: asset.created_at || new Date().toISOString(),
       action: `Aset ditugaskan kepada ${emp?.nama_karyawan || 'Karyawan'}`,
-      actor: 'Admin IT System',
+      actor: 'Sistem',
       status: asset.status_aset || 'Digunakan',
       detail: `Pemegang: ${emp?.nama_karyawan || 'Karyawan'} (NIK: ${emp?.nik || '—'})`,
       icon: 'person_add',
       type: 'assignment',
     })
   }
-
-  // Log status & kondisi saat ini
-  list.push({
-    date: asset.updated_at || asset.created_at || '2026-08-15T10:00:00Z',
-    action: `Status aset diperbarui ke "${asset.status_aset || 'Digunakan'}"`,
-    actor: 'Admin IT',
-    status: asset.status_aset || 'Digunakan',
-    detail: `Kondisi fisik: ${asset.kondisi_aset || 'Baik'}`,
-    icon: 'fact_check',
-    type: 'status_change',
-  })
-
-  // Log registrasi awal aset
-  list.push({
-    date: asset.created_at || '2026-08-01T08:00:00Z',
-    action: 'Aset terdaftar dalam database sistem',
-    actor: 'System Administrator',
-    status: 'Registered',
-    detail: `Merek: ${asset.merek || '—'} · Model: ${asset.model || '—'}`,
-    icon: 'inventory_2',
-    type: 'creation',
-  })
 
   return list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
 })
@@ -195,6 +223,49 @@ function goToLevel1() {
   selectedAsset.value = null
   myAssets.value = []
   deviceCycle.value = []
+  realAssetLogs.value = []
+}
+
+function normalizeAsset(a) {
+  if (!a || typeof a !== 'object') return a
+  const hostname = a.hostname || a.label_aset || ''
+  const serial_number = a.serial_number || a.nomor_seri || ''
+  const nik = a.nik_pemegang_asset || a.nik || ''
+  const nama = a.nama_karyawan_pemegang_asset || a.nama_karyawan || ''
+  const dept = a.departemen_pemegang_asset || a.departemen || ''
+  const lokasi = a.lokasi_asset || a.lokasi_aset || a.lokasi_kerja || a.lokasi || ''
+  const status = a.status || a.status_aset || 'In Use'
+  const kondisi = a.kondisi || a.kondisi_aset || 'Normal'
+  const note = a.note_asset || a.catatan_aset || ''
+  const brand = a.brand_merek || a.merek || ''
+
+  return {
+    ...a,
+    id_aset: a.id_aset || a.id,
+    id: a.id || a.id_aset,
+    hostname,
+    label_aset: hostname,
+    serial_number,
+    nomor_seri: serial_number,
+    nik_pemegang_asset: nik,
+    nik,
+    nama_karyawan_pemegang_asset: nama,
+    nama_karyawan: nama,
+    departemen_pemegang_asset: dept,
+    departemen: dept,
+    lokasi_asset: lokasi,
+    lokasi_aset: lokasi,
+    lokasi_kerja: lokasi,
+    lokasi,
+    brand_merek: brand,
+    merek: brand,
+    status,
+    status_aset: status,
+    kondisi,
+    kondisi_aset: kondisi,
+    note_asset: note,
+    catatan_aset: note,
+  }
 }
 
 async function goToLevel2(employee) {
@@ -205,13 +276,14 @@ async function goToLevel2(employee) {
   filterTipe.value = ''
   myAssets.value = []
   deviceCycle.value = []
+  realAssetLogs.value = []
   assetError.value = ''
 
   isLoadingAssets.value = true
   try {
     const nik = employee.nik || ''
     const assetData = await get(`/api/assets/my?nik=${encodeURIComponent(nik)}`)
-    myAssets.value = Array.isArray(assetData) ? assetData : []
+    myAssets.value = Array.isArray(assetData) ? assetData.map(normalizeAsset) : []
 
     if ((isAdmin.value || isSuperAdmin.value) && nik) {
       isLoadingCycle.value = true
@@ -231,9 +303,10 @@ async function goToLevel2(employee) {
   }
 }
 
-function goToLevel3(asset) {
-  selectedAsset.value = asset
+async function goToLevel3(asset) {
+  selectedAsset.value = normalizeAsset(asset)
   currentLevel.value = 3
+  await fetchAssetLogs(selectedAsset.value.id_aset || selectedAsset.value.id)
 }
 
 // ── Methods Fetching ───────────────────────────────────────────────────────────
@@ -257,7 +330,7 @@ async function loadMyOwnAssets() {
   assetError.value = ''
   try {
     const assetData = await get('/api/assets/my-assets')
-    myAssets.value = Array.isArray(assetData) ? assetData : []
+    myAssets.value = Array.isArray(assetData) ? assetData.map(normalizeAsset) : []
   } catch (err) {
     assetError.value = err.message || 'Gagal memuat data aset Anda.'
   } finally {
@@ -277,9 +350,10 @@ function resetAssetFilters() {
 }
 
 // ── Modal Helpers ──────────────────────────────────────────────────────────────
-function openDetails(asset) {
+async function openDetails(asset) {
   activeModalAsset.value = asset
   showDetailsModal.value = true
+  await fetchAssetLogs(asset.id_aset || asset.id)
 }
 
 function openSpecification(asset) {
@@ -736,7 +810,13 @@ onMounted(() => {
                   <p class="font-bold">{{ [asset.merek, asset.model].filter(Boolean).join(' ') || '—' }}</p>
                 </td>
                 <td class="py-2.5 px-3.5">
-                  <AppBadge :type="getStatusBadgeType(asset.status_aset)" :text="asset.status_aset || '—'" />
+                  <span
+                    class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-all select-none"
+                    :class="[formatStatusPill(asset.status_aset).bg, formatStatusPill(asset.status_aset).text, formatStatusPill(asset.status_aset).border]"
+                  >
+                    <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="formatStatusPill(asset.status_aset).dot"></span>
+                    {{ formatStatusPill(asset.status_aset).label }}
+                  </span>
                 </td>
                 <td class="py-2.5 px-3.5 font-semibold text-[#2A3547]">{{ asset.kondisi_aset || '—' }}</td>
 

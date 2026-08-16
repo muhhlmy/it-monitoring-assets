@@ -41,6 +41,19 @@ process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 try {
   // Coba koneksi sebelum menjalankan server
   await query("SELECT 1");
+  await query(`
+    CREATE TABLE IF NOT EXISTS log_riwayat_aset (
+      id            SERIAL PRIMARY KEY,
+      id_aset       INTEGER NOT NULL,
+      label_aset    VARCHAR(100),
+      aksi          VARCHAR(50) NOT NULL,
+      perubahan     TEXT,
+      oleh_pengguna VARCHAR(150) NOT NULL DEFAULT 'Sistem',
+      dibuat_pada   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_log_riwayat_aset_id ON log_riwayat_aset(id_aset, dibuat_pada DESC);
+    ALTER TABLE riwayat_pemakaian_aset ALTER COLUMN nik_pemegang DROP NOT NULL;
+  `);
   await verifyRuntimeSchema(pool);
 } catch (error) {
   console.error("Database belum siap digunakan:", error.message);

@@ -6,11 +6,11 @@ const props = defineProps({
   isOpen:   { type: Boolean, default: false },
   title:    { type: String,  default: 'Modal' },
   subtitle: { type: String,  default: '' },
-  // 'sm' | 'md' | 'lg'
+  // 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
   size: {
     type: String,
     default: 'md',
-    validator: (value) => ['sm', 'md', 'lg'].includes(value),
+    validator: (value) => ['sm', 'md', 'lg', 'xl', '2xl', 'full'].includes(value),
   },
 })
 const emit = defineEmits(['close'])
@@ -102,25 +102,28 @@ onBeforeUnmount(() => {
     <Transition name="modal">
       <div
         v-if="isOpen"
-        class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
+        class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/40 backdrop-blur-xs"
         @mousedown.self="close"
       >
-        <!-- Panel Modal -->
+        <!-- Panel Modal Container (Fixed Outer Box with Overflow Hidden) -->
         <div
           ref="panelRef"
           role="dialog"
           aria-modal="true"
           :aria-labelledby="titleId"
           tabindex="-1"
-          class="modal-panel max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-2xl border border-[#E5EAEF] bg-white shadow-2xl outline-none"
+          class="modal-panel flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl border border-[#E5EAEF] bg-white shadow-2xl outline-none"
           :class="{
-            'max-w-sm':  size === 'sm',
-            'max-w-lg':  size === 'md',
-            'max-w-2xl': size === 'lg',
+            'max-w-sm':   size === 'sm',
+            'max-w-lg':   size === 'md',
+            'max-w-2xl':  size === 'lg',
+            'max-w-4xl':  size === 'xl',
+            'max-w-6xl':  size === '2xl',
+            'max-w-full': size === 'full',
           }"
         >
-          <!-- Header Modal -->
-          <div class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[#E5EAEF] bg-white px-4 py-3 sm:px-5">
+          <!-- Header Modal (Fixed Non-Scrollable Header) -->
+          <div class="flex shrink-0 items-center justify-between gap-3 border-b border-[#E5EAEF] bg-white px-4 py-3 sm:px-5">
             <div class="flex items-center gap-2.5 min-w-0">
               <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#ECF2FF] text-[#5D87FF]">
                 <span aria-hidden="true" class="material-symbols-outlined text-[17px]">inventory_2</span>
@@ -134,14 +137,14 @@ onBeforeUnmount(() => {
               type="button"
               aria-label="Tutup dialog"
               @click="close"
-              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#7C8BAC] transition-colors hover:bg-[#ECF2FF] hover:text-[#5D87FF]"
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#7C8BAC] transition-colors hover:bg-[#ECF2FF] hover:text-[#5D87FF] cursor-pointer"
             >
               <span aria-hidden="true" class="material-symbols-outlined text-[18px]">close</span>
             </button>
           </div>
 
-          <!-- Konten Modal (slot) -->
-          <div class="p-3.5 sm:p-4">
+          <!-- Body Konten Modal (Sole Scrollable Area) -->
+          <div class="modal-body flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-4">
             <slot />
           </div>
         </div>
@@ -155,4 +158,19 @@ onBeforeUnmount(() => {
 .modal-enter-from, .modal-leave-to { opacity: 0; }
 .modal-enter-from .modal-panel { transform: translateY(12px) scale(0.98); }
 .modal-leave-to .modal-panel   { transform: translateY(8px) scale(0.98); }
+
+/* Custom Sleek Scrollbar for Modal Body */
+.modal-body::-webkit-scrollbar {
+  width: 5px;
+}
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal-body::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
 </style>

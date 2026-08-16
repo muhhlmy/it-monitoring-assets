@@ -329,8 +329,8 @@ onUnmounted(() => {
          ═══════════════════════════════════════════ -->
     <template v-else-if="stats">
 
-      <!-- ─── ROW 1: Hero Banner + 6 Stat Cards ────────── -->
-      <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+      <!-- ─── ROW 1: Hero Banner + 5 Stat Cards ────────── -->
+      <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
 
         <!-- 1. Total Asset (ESB Primary Orange Hero Card) -->
         <div class="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#FC841B] to-[#E26F10] p-3.5 text-white shadow-md shadow-orange-500/10 border border-white/10 flex flex-col justify-between transition-transform hover:scale-[1.01]">
@@ -416,7 +416,7 @@ onUnmounted(() => {
         <!-- 5. In Service -->
         <div class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FAD0AB] bg-gradient-to-br from-[#FEF5E5] to-white p-3.5">
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold uppercase tracking-wide text-[#FFAE1F]">Maintenance</span>
+            <span class="text-[10px] font-bold uppercase tracking-wide text-[#FFAE1F]">Dalam Perawatan</span>
             <span class="flex items-center -mr-1">
               <span class="material-symbols-outlined text-[18px] text-[#FFAE1F]/70" style="opacity: 0.7;">build</span>
             </span>
@@ -428,25 +428,6 @@ onUnmounted(() => {
                 <div class="h-full bg-gradient-to-r from-[#FFAE1F] to-[#E69A1A] rounded-full transition-all duration-500" :style="{ width: pctMaintenance + '%' }"></div>
               </div>
               <span class="text-[10px] font-bold text-[#FFAE1F]">{{ pctMaintenance }}%</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 6. Disposal -->
-        <div class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#DBC8FC] bg-gradient-to-br from-[#F4F3FD] to-white p-3.5">
-          <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold uppercase tracking-wide text-[#8B5CF6]">Dibuang</span>
-            <span class="flex items-center -mr-1">
-              <span class="material-symbols-outlined text-[18px] text-[#8B5CF6]/70" style="opacity: 0.7;">delete_forever</span>
-            </span>
-          </div>
-          <div class="mt-2.5">
-            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">{{ countDisposal }}</p>
-            <div class="flex items-center gap-1.5 mt-2">
-              <div class="flex-1 h-1.5 bg-[#F7F6FD] rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-[#8B5CF6] to-[#7C4EEC] rounded-full transition-all duration-500" :style="{ width: pctDisposal + '%' }"></div>
-              </div>
-              <span class="text-[10px] font-bold text-[#8B5CF6]">{{ pctDisposal }}%</span>
             </div>
           </div>
         </div>

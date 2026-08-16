@@ -15,8 +15,6 @@ logRouter.get(
 )
 logRouter.get(
   '/assets/:id',
-  authorizeRoles('admin', 'superadmin'),
-  requireLogsRead,
   logController.listAssetLogsByDevice,
 )
 logRouter.get(

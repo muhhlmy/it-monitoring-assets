@@ -13,10 +13,170 @@ function requireAssetAuditActor(req) {
   const actorId = Number(req.user?.id);
   const actorName = typeof req.user?.nama === "string" ? req.user.nama.trim() : "";
   if (!Number.isSafeInteger(actorId) || actorId <= 0 || !actorName) {
-    throw createHttpError(403, "Identitas actor aset tidak valid.");
+    return req.user?.username || req.user?.email || "Super Administrator";
   }
-  const stablePrefix = `user:${actorId} `;
-  return stablePrefix + actorName.slice(0, 150 - stablePrefix.length);
+  return actorName;
+}
+
+async function recordAssetLog(databaseClient, idAset, labelAset, aksi, perubahan, olehPengguna) {
+  try {
+    const client = databaseClient || pool;
+    await client.query(
+      `INSERT INTO log_riwayat_aset (id_aset, label_aset, aksi, perubahan, oleh_pengguna, dibuat_pada)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
+      [idAset, labelAset || `Aset #${idAset}`, aksi, perubahan, olehPengguna || 'Sistem']
+    );
+  } catch (err) {
+    console.error('Error recording asset log:', err);
+  }
+}
+
+// PUT /api/assets/:id
+export async function replaceAsset(req, res) {
+  try {
+    const id = validateAssetId(req.params.id);
+    const auditActor = requireAssetAuditActor(req);
+    const asset = validateAssetPayload(req.body);
+
+    async function updateInsideTransaction(databaseClient) {
+      const lockResult = await databaseClient.query(
+        "SELECT * FROM aset_ti WHERE id = $1 AND deleted_at IS NULL FOR UPDATE", [id]
+      );
+
+      if (lockResult.rowCount === 0) throw createHttpError(404, "Aset tidak ditemukan.");
+
+      const oldAsset = lockResult.rows[0];
+      const oldNik = oldAsset.nik_pemegang_asset;
+      if (asset.nik_pemegang_asset) {
+        const emp = await findEmployeeByNik(asset.nik_pemegang_asset, databaseClient);
+        asset.nama_karyawan_pemegang_asset = emp.nama_karyawan;
+        asset.departemen_pemegang_asset = emp.departemen;
+        if (!asset.lokasi_asset) {
+          asset.lokasi_asset = emp.lokasi_kerja || null;
+        }
+      } else {
+        asset.nama_karyawan_pemegang_asset = null;
+        asset.departemen_pemegang_asset = null;
+      }
+
+      const sql = `UPDATE aset_ti SET
+          hostname = $2, serial_number = $3, spesifikasi = $4, nik_pemegang_asset = $5,
+          nama_karyawan_pemegang_asset = $6, departemen_pemegang_asset = $7, lokasi_asset = $8,
+          tipe_perangkat = $9, brand_merek = $10, model = $11, status = $12, kondisi = $13,
+          note_asset = $14, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1 RETURNING *`;
+
+      const values = [id, asset.hostname, asset.serial_number, asset.spesifikasi,
+        asset.nik_pemegang_asset, asset.nama_karyawan_pemegang_asset, asset.departemen_pemegang_asset,
+        asset.lokasi_asset, asset.tipe_perangkat, asset.brand_merek, asset.model,
+        asset.status, asset.kondisi, asset.note_asset];
+
+      const updateResult = await databaseClient.query(sql, values);
+      const updatedAsset = updateResult.rows[0];
+
+      await syncDeviceCycle(databaseClient, id, oldNik, asset.nik_pemegang_asset, updatedAsset);
+
+      // Record Audit Log
+      const diffs = [];
+      if (oldAsset.hostname !== updatedAsset.hostname) diffs.push(`Hostname: ${oldAsset.hostname || '-'} -> ${updatedAsset.hostname || '-'}`);
+      if (oldAsset.serial_number !== updatedAsset.serial_number) diffs.push(`Serial Number: ${oldAsset.serial_number || '-'} -> ${updatedAsset.serial_number || '-'}`);
+      if (oldAsset.status !== updatedAsset.status) diffs.push(`Status: ${oldAsset.status || '-'} -> ${updatedAsset.status || '-'}`);
+      if (oldAsset.kondisi !== updatedAsset.kondisi) diffs.push(`Kondisi: ${oldAsset.kondisi || '-'} -> ${updatedAsset.kondisi || '-'}`);
+      if (oldAsset.nik_pemegang_asset !== updatedAsset.nik_pemegang_asset) diffs.push(`NIK Pemegang: ${oldAsset.nik_pemegang_asset || '-'} -> ${updatedAsset.nik_pemegang_asset || '-'}`);
+      if (oldAsset.nama_karyawan_pemegang_asset !== updatedAsset.nama_karyawan_pemegang_asset) diffs.push(`Pemegang: ${oldAsset.nama_karyawan_pemegang_asset || '-'} -> ${updatedAsset.nama_karyawan_pemegang_asset || '-'}`);
+      if (oldAsset.departemen_pemegang_asset !== updatedAsset.departemen_pemegang_asset) diffs.push(`Departemen: ${oldAsset.departemen_pemegang_asset || '-'} -> ${updatedAsset.departemen_pemegang_asset || '-'}`);
+      if (oldAsset.lokasi_asset !== updatedAsset.lokasi_asset) diffs.push(`Lokasi: ${oldAsset.lokasi_asset || '-'} -> ${updatedAsset.lokasi_asset || '-'}`);
+      if (oldAsset.tipe_perangkat !== updatedAsset.tipe_perangkat) diffs.push(`Tipe: ${oldAsset.tipe_perangkat || '-'} -> ${updatedAsset.tipe_perangkat || '-'}`);
+      if (oldAsset.brand_merek !== updatedAsset.brand_merek) diffs.push(`Merek: ${oldAsset.brand_merek || '-'} -> ${updatedAsset.brand_merek || '-'}`);
+      if (oldAsset.model !== updatedAsset.model) diffs.push(`Model: ${oldAsset.model || '-'} -> ${updatedAsset.model || '-'}`);
+
+      const changeSummary = diffs.length > 0 ? `Perubahan data: ${diffs.join(', ')}` : 'Informasi aset diperbarui';
+      await recordAssetLog(databaseClient, id, updatedAsset.hostname, 'UBAH', changeSummary, auditActor);
+
+      return updatedAsset;
+    }
+
+    const updatedAsset = await withTransaction(updateInsideTransaction);
+    res.json(updatedAsset);
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(400).json({ error: 'Hostname atau Serial Number sudah digunakan oleh aset lain.' });
+    }
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    console.error('Error updating asset:', error);
+    res.status(500).json({ error: 'Gagal memperbarui aset.' });
+  }
+}
+
+// DELETE /api/assets/:id
+export async function deleteAsset(req, res) {
+  try {
+    const id = validateAssetId(req.params.id);
+    const auditActor = requireAssetAuditActor(req);
+    const asset = await findAssetById(id);
+    if (!asset) throw createHttpError(404, "Aset tidak ditemukan.");
+
+    await withTransaction(async (databaseClient) => {
+      await databaseClient.query("UPDATE aset_ti SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
+      await recordAssetLog(databaseClient, id, asset.hostname, 'HAPUS', `Aset ${asset.hostname} (${asset.serial_number}) dihapus dari sistem.`, auditActor);
+    });
+    res.status(204).send();
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    console.error('Error deleting asset:', error);
+    res.status(500).json({ error: 'Gagal menghapus aset.' });
+  }
+}
+
+// POST /api/assets
+export async function addAsset(req, res) {
+  try {
+    const auditActor = requireAssetAuditActor(req);
+    const asset = validateAssetPayload(req.body);
+
+    async function insertInsideTransaction(databaseClient) {
+      if (asset.nik_pemegang_asset) {
+        const emp = await findEmployeeByNik(asset.nik_pemegang_asset, databaseClient);
+        asset.nama_karyawan_pemegang_asset = emp.nama_karyawan;
+        asset.departemen_pemegang_asset = emp.departemen;
+        if (!asset.lokasi_asset) {
+          asset.lokasi_asset = emp.lokasi_kerja || null;
+        }
+      }
+
+      const sql = `INSERT INTO aset_ti (hostname, serial_number, spesifikasi, nik_pemegang_asset,
+                nama_karyawan_pemegang_asset, departemen_pemegang_asset, lokasi_asset, tipe_perangkat,
+                brand_merek, model, status, kondisi, note_asset)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`;
+
+      const values = [asset.hostname, asset.serial_number, asset.spesifikasi,
+        asset.nik_pemegang_asset, asset.nama_karyawan_pemegang_asset, asset.departemen_pemegang_asset,
+        asset.lokasi_asset, asset.tipe_perangkat, asset.brand_merek, asset.model,
+        asset.status, asset.kondisi, asset.note_asset];
+
+      const insertResult = await databaseClient.query(sql, values);
+      const newAsset = insertResult.rows[0];
+      await syncDeviceCycle(databaseClient, newAsset.id, null, asset.nik_pemegang_asset, newAsset);
+      await recordAssetLog(databaseClient, newAsset.id, newAsset.hostname, 'TAMBAH', `Aset baru didaftarkan dengan nomor seri ${newAsset.serial_number}, tipe: ${newAsset.tipe_perangkat || '-'}, merek: ${newAsset.brand_merek || '-'}, status: ${newAsset.status}, kondisi: ${newAsset.kondisi}.`, auditActor);
+      return newAsset;
+    }
+
+    const createdAsset = await withTransaction(insertInsideTransaction);
+    res.status(201).json(createdAsset);
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(400).json({ error: 'Hostname atau Serial Number sudah terdaftar.' });
+    }
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    console.error('Error adding asset:', error);
+    res.status(500).json({ error: 'Gagal menambahkan aset.' });
+  }
 }
 
 function validateAssetPayload(body) {
@@ -145,12 +305,6 @@ async function syncDeviceCycle(databaseClient, idAset, oldNik, newNik, assetInfo
        VALUES ($1, $2, CURRENT_TIMESTAMP, $3)`,
       [idAset, newNik, `Aset dialokasikan ke ${newNik}`]
     );
-  } else {
-    await databaseClient.query(
-      `INSERT INTO riwayat_pemakaian_aset (id_aset, nik_pemegang, tanggal_mulai, catatan) 
-       VALUES ($1, $2, CURRENT_TIMESTAMP, $3)`,
-      [idAset, null, "Aset dikembalikan ke stock"]
-    );
   }
 }
 
@@ -159,12 +313,20 @@ export async function listMyAssets(req, res) {
   try {
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorized" });
     
-    const sql = `SELECT ` + assetColumns + `
-                 FROM aset_ti 
-                 WHERE deleted_at IS NULL
-                 ORDER BY created_at DESC`;
-                 
-    const results = await pool.query(sql);
+    let sql = `SELECT ` + assetColumns + ` FROM aset_ti WHERE deleted_at IS NULL`;
+    const params = [];
+
+    const queryNik = req.query.nik;
+    if (queryNik) {
+      sql += ` AND nik_pemegang_asset = $1`;
+      params.push(queryNik);
+    } else if (req.user.nik && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      sql += ` AND nik_pemegang_asset = $1`;
+      params.push(req.user.nik);
+    }
+    sql += ` ORDER BY created_at DESC`;
+
+    const results = await pool.query(sql, params);
     res.json(results.rows);
   } catch (error) {
     console.error('Error listing my assets:', error);
@@ -175,17 +337,89 @@ export async function listMyAssets(req, res) {
 // GET /api/assets/stats
 export async function showAssetStats(req, res) {
   try {
-    const statsSql = `
+    // 1. Total Assets
+    const totalResult = await pool.query(`
+      SELECT COUNT(*)::int AS total FROM aset_ti WHERE deleted_at IS NULL
+    `);
+    const totalAssets = totalResult.rows[0]?.total || 0;
+
+    // 2. By Status
+    const statusResult = await pool.query(`
+      SELECT status, COUNT(*)::int AS count
+      FROM aset_ti
+      WHERE deleted_at IS NULL
+      GROUP BY status
+    `);
+    const byStatus = statusResult.rows.map((r) => ({ status: r.status, count: r.count }));
+
+    // 3. By Type / Tipe
+    const typeResult = await pool.query(`
+      SELECT COALESCE(tipe_perangkat, 'Lainnya') AS type, COUNT(*)::int AS count
+      FROM aset_ti
+      WHERE deleted_at IS NULL
+      GROUP BY tipe_perangkat
+    `);
+    const byType = typeResult.rows.map((r) => ({
+      type: r.type,
+      tipe: r.type,
+      device_type: r.type,
+      count: r.count,
+    }));
+
+    // 4. By Condition / Kondisi
+    const conditionResult = await pool.query(`
+      SELECT COALESCE(kondisi, 'Normal') AS condition, COUNT(*)::int AS count
+      FROM aset_ti
+      WHERE deleted_at IS NULL
+      GROUP BY kondisi
+    `);
+    const byCondition = conditionResult.rows.map((r) => ({ condition: r.condition, count: r.count }));
+
+    // 5. By Location
+    const locationResult = await pool.query(`
+      SELECT COALESCE(lokasi_asset, 'Belum ditentukan') AS location, COUNT(*)::int AS count
+      FROM aset_ti
+      WHERE deleted_at IS NULL
+      GROUP BY lokasi_asset
+    `);
+    const byLocation = locationResult.rows.map((r) => ({ location: r.location, count: r.count }));
+
+    // 6. Recent Assets (5 terbaru)
+    const recentResult = await pool.query(`
+      SELECT id AS id_aset, hostname AS label_aset, serial_number AS nomor_seri,
+             tipe_perangkat, brand_merek AS merek, model, status AS status_aset,
+             kondisi AS kondisi_aset, nama_karyawan_pemegang_asset AS nama_karyawan,
+             departemen_pemegang_asset AS departemen, lokasi_asset AS lokasi_kerja,
+             created_at AS dibuat_pada
+      FROM aset_ti
+      WHERE deleted_at IS NULL
+      ORDER BY created_at DESC
+      LIMIT 5
+    `);
+    const recentAssets = recentResult.rows;
+
+    // 7. Monthly Trend (6 bulan terakhir)
+    const trendResult = await pool.query(`
       SELECT 
-        COUNT(*) FILTER (WHERE status = 'In Use') AS in_use_count,
-        COUNT(*) FILTER (WHERE status = 'Stock') AS stock_count,
-        COUNT(*) FILTER (WHERE status = 'Damaged') AS damaged_count,
-        COUNT(*) FILTER (WHERE status IS NOT NULL) AS total_assets
-      FROM aset_ti WHERE deleted_at IS NULL
-    `;
-    
-    const result = await pool.query(statsSql);
-    res.json(result.rows[0]);
+        TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YYYY') AS month,
+        COUNT(*)::int AS count
+      FROM aset_ti
+      WHERE deleted_at IS NULL
+      GROUP BY DATE_TRUNC('month', created_at)
+      ORDER BY DATE_TRUNC('month', created_at) ASC
+      LIMIT 6
+    `);
+    const monthlyTrend = trendResult.rows;
+
+    res.json({
+      totalAssets,
+      byStatus,
+      byType,
+      byCondition,
+      byLocation,
+      recentAssets,
+      monthlyTrend,
+    });
   } catch (error) {
     console.error('Error getting asset stats:', error);
     res.status(500).json({ error: 'Failed to get asset stats' });
@@ -227,129 +461,6 @@ export async function fetchAsset(req, res) {
   }
 }
 
-// PUT /api/assets/:id
-export async function replaceAsset(req, res) {
-  try {
-    const id = validateAssetId(req.params.id);
-    const asset = validateAssetPayload(req.body);
-
-    async function updateInsideTransaction(databaseClient) {
-      const lockResult = await databaseClient.query(
-        "SELECT id, nik_pemegang_asset FROM aset_ti WHERE id = $1 AND deleted_at IS NULL FOR UPDATE", [id]
-      );
-
-      if (lockResult.rowCount === 0) throw createHttpError(404, "Aset tidak ditemukan.");
-
-      const oldNik = lockResult.rows[0].nik_pemegang_asset;
-      if (asset.nik_pemegang_asset) {
-        const emp = await findEmployeeByNik(asset.nik_pemegang_asset, databaseClient);
-        asset.nama_karyawan_pemegang_asset = emp.nama_karyawan;
-        asset.departemen_pemegang_asset = emp.departemen;
-        if (!asset.lokasi_asset) {
-          asset.lokasi_asset = emp.lokasi_kerja || null;
-        }
-      } else {
-        asset.nama_karyawan_pemegang_asset = null;
-        asset.departemen_pemegang_asset = null;
-      }
-
-      const sql = `UPDATE aset_ti SET
-          hostname = $2, serial_number = $3, spesifikasi = $4, nik_pemegang_asset = $5,
-          nama_karyawan_pemegang_asset = $6, departemen_pemegang_asset = $7, lokasi_asset = $8,
-          tipe_perangkat = $9, brand_merek = $10, model = $11, status = $12, kondisi = $13,
-          note_asset = $14, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1 RETURNING *`;
-
-      const values = [id, asset.hostname, asset.serial_number, asset.spesifikasi,
-        asset.nik_pemegang_asset, asset.nama_karyawan_pemegang_asset, asset.departemen_pemegang_asset,
-        asset.lokasi_asset, asset.tipe_perangkat, asset.brand_merek, asset.model,
-        asset.status, asset.kondisi, asset.note_asset];
-
-      const updateResult = await databaseClient.query(sql, values);
-      await syncDeviceCycle(databaseClient, id, oldNik, asset.nik_pemegang_asset, updateResult.rows[0]);
-      return updateResult.rows[0];
-    }
-
-    const updatedAsset = await withTransaction(updateInsideTransaction);
-    res.json(updatedAsset);
-  } catch (error) {
-    if (error.code === '23505') {
-      return res.status(400).json({ error: 'Hostname atau Serial Number sudah digunakan oleh aset lain.' });
-    }
-    if (error.statusCode) {
-      return res.status(error.statusCode).json({ error: error.message });
-    }
-    console.error('Error updating asset:', error);
-    res.status(500).json({ error: 'Gagal memperbarui aset.' });
-  }
-}
-
-// DELETE /api/assets/:id
-export async function deleteAsset(req, res) {
-  try {
-    const id = validateAssetId(req.params.id);
-    const asset = await findAssetById(id);
-    if (!asset) throw createHttpError(404, "Aset tidak ditemukan.");
-
-    await withTransaction(async (databaseClient) => {
-      await databaseClient.query("UPDATE aset_ti SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
-    });
-    res.status(204).send();
-  } catch (error) {
-    if (error.statusCode) {
-      return res.status(error.statusCode).json({ error: error.message });
-    }
-    console.error('Error deleting asset:', error);
-    res.status(500).json({ error: 'Gagal menghapus aset.' });
-  }
-}
-
-// POST /api/assets
-export async function addAsset(req, res) {
-  try {
-    const auditActor = requireAssetAuditActor(req);
-    const asset = validateAssetPayload(req.body);
-
-    async function insertInsideTransaction(databaseClient) {
-      if (asset.nik_pemegang_asset) {
-        const emp = await findEmployeeByNik(asset.nik_pemegang_asset, databaseClient);
-        asset.nama_karyawan_pemegang_asset = emp.nama_karyawan;
-        asset.departemen_pemegang_asset = emp.departemen;
-        if (!asset.lokasi_asset) {
-          asset.lokasi_asset = emp.lokasi_kerja || null;
-        }
-      }
-
-      const sql = `INSERT INTO aset_ti (hostname, serial_number, spesifikasi, nik_pemegang_asset,
-                nama_karyawan_pemegang_asset, departemen_pemegang_asset, lokasi_asset, tipe_perangkat,
-                brand_merek, model, status, kondisi, note_asset)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`;
-
-      const values = [asset.hostname, asset.serial_number, asset.spesifikasi,
-        asset.nik_pemegang_asset, asset.nama_karyawan_pemegang_asset, asset.departemen_pemegang_asset,
-        asset.lokasi_asset, asset.tipe_perangkat, asset.brand_merek, asset.model,
-        asset.status, asset.kondisi, asset.note_asset];
-
-      const insertResult = await databaseClient.query(sql, values);
-      const newAsset = insertResult.rows[0];
-      await syncDeviceCycle(databaseClient, newAsset.id, null, asset.nik_pemegang_asset, newAsset);
-      return newAsset;
-    }
-
-    const createdAsset = await withTransaction(insertInsideTransaction);
-    res.status(201).json(createdAsset);
-  } catch (error) {
-    if (error.code === '23505') {
-      return res.status(400).json({ error: 'Hostname atau Serial Number sudah terdaftar.' });
-    }
-    if (error.statusCode) {
-      return res.status(error.statusCode).json({ error: error.message });
-    }
-    console.error('Error adding asset:', error);
-    res.status(500).json({ error: 'Gagal menambahkan aset.' });
-  }
-}
-
 // GET /api/assets (list all assets)
 export async function listAssets(req, res) {
   try {
@@ -365,3 +476,4 @@ export async function listAssets(req, res) {
     res.status(500).json({ error: 'Gagal memuat daftar aset.' });
   }
 }
+
