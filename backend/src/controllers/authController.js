@@ -1,5 +1,4 @@
 import { pool } from '../config/database.js';
-import bcrypt from 'bcryptjs'
 import { env } from '../config/env.js';
 import jwt from 'jsonwebtoken';
 import {
@@ -9,22 +8,7 @@ import {
 } from '../services/permissionService.js';
 import { verifyPassword, hashPassword } from '../security/passwordService.js';
 import { parseRequiredEmail } from '../security/requestValidation.js';
-import fs from 'fs';
 
-// Log function for debugging - removes problematic flush()
-function log(msg) {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] LOGIN: ${msg}`);
-  
-  // Write to local log file using relative path (Windows compatible)
-  try {
-    fs.appendFileSync('./login_debug.log', `[${timestamp}] LOGIN: ${msg}\n`);
-  } catch (e) {
-    // Ignore file write errors
-  }
-}
-
-const UNKNOWN_LOGIN_ACTOR = 'Tidak Diketahui'
 const MAX_LOGIN_EMAIL_LENGTH = 150
 const MAX_LOGIN_PASSWORD_LENGTH = 255
 
@@ -51,23 +35,14 @@ export function normalizeLoginCredentials(body) {
 }
 
 export async function login(req, res) {
-  log('=== LOGIN REQUEST STARTED ===');
-  
   try {
-    log('Step 1: Checking credentials...');
-    
     const credentials = normalizeLoginCredentials(req.body)
-    log('Step 2: Credentials normalized to:', credentials ? `email=${credentials.email}` : 'NULL');
     
     if (!credentials) {
-      log('Step 3: FAILED - Invalid credentials');
       return res.status(400).json({ message: 'Format email atau password tidak valid.' })
     }
     
     const { email, password } = credentials;
-    log(`Step 4: Email=${email}, Password length=${password?.length || 0}`);
-
-    log('Step 5: Running database query...');
 
     // Cari user berdasarkan email beserta NIK & Jabatan dari tabel karyawan (jika terhubung)
     const result = await pool.query(`
@@ -87,35 +62,20 @@ export async function login(req, res) {
         AND u.deleted_at IS NULL
     `, [email]);
     
-    log('Step 6: Query returned ' + result.rowCount + ' rows');
-    
     if (result.rowCount === 0) {
-      log('Step 7: FAILED - User not found');
       return res.status(401).json({ message: 'Email atau password salah.' });
     }
 
     const user = result.rows[0];
-    log('Step 8: User found - id=' + user.id + ', email=' + user.email + ', role=' + user.role + ', is_active=' + user.is_active);
     
-    log('Step 9: Checking account status...');
-
     // Cek apakah akun aktif
     if (!user.is_active) {
-      log('Step 10: FAILED - Account inactive');
       return res.status(403).json({ message: 'Akun Anda telah dinonaktifkan.' });
     }
 
-    log('Step 11: Account active. Verifying password...');
-    log('Step 12: User password_hash type=' + typeof user.password_hash + ', starts_with_[$]:' + (user.password_hash || '').startsWith('$'));
-    
-    // FIX: Gunakan user.password_hash bukan user.password
-    log('Step 13: Calling verifyPassword(' + (password || '').substr(0, 3) + '..., stored_hash=' + (user.password_hash || '').substr(0, 20) + '...)');
-    
     const isPasswordValid = await verifyPassword(password, user.password_hash);
-    log('Step 14: verifyPassword returned: ' + isPasswordValid);
     
     if (!isPasswordValid) {
-      log('Step 15: FAILED - Password invalid');
       await pool.query(
         'INSERT INTO log_audit_login (user_id, email, login_time, ip_address, user_agent) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4)',
         [user.id, user.email, req.ip, req.headers['user-agent']]
@@ -123,8 +83,6 @@ export async function login(req, res) {
       return res.status(401).json({ message: 'Email atau password salah.' });
     }
 
-    log('Step 16: Password VALID! Creating JWT payload...');
-    
     const userRole = (user.role || '').trim().toLowerCase()
     const isSuper = userRole === 'superadmin' || userRole === 'super admin'
     const permissions = isSuper
@@ -142,19 +100,13 @@ export async function login(req, res) {
       permissions
     };
 
-    log('Step 17: Signing JWT token with secret length=' + (env.jwt.secret || 'undefined').length);
-    
     const token = jwt.sign(payload, env.jwt.secret, { expiresIn: '12h' });
-    log('Step 18: Token generated successfully!');
 
     // Catat log sukses
     await pool.query(
       'INSERT INTO log_audit_login (user_id, email, login_time, ip_address, user_agent) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4)',
       [user.id, user.email, req.ip, req.headers['user-agent']]
     );
-
-    log('Step 19: SUCCESS! Login completed');
-    log('Response user: id=' + payload.id + ', email=' + payload.email + ', role=' + payload.role);
 
     res.json({
       message: 'Login berhasil.',
@@ -163,15 +115,8 @@ export async function login(req, res) {
     });
     
   } catch (error) {
-    log('!!!!!!!!!! FATAL ERROR !!!!!!!!!!');
-    log('Error message: ' + error.message);
-    log('Error stack: ' + error.stack);
-    log('!!!!!!!!!! END ERROR !!!!!!!!!!');
-    res.status(500).json({ 
-      message: 'Terjadi kesalahan pada server.',
-      error: error.message,
-      stack: error.stack
-    });
+    console.error('Error login:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan pada server.' });
   }
 }
 
@@ -202,7 +147,7 @@ export async function getMe(req, res) {
 
     res.json(user);
   } catch (error) {
-    log('Error getMe: ' + error.message);
+    console.error('Error getMe:', error);
     res.status(500).json({ message: 'Terjadi kesalahan pada server.' });
   }
 }
@@ -251,7 +196,7 @@ export async function changePassword(req, res) {
 
     res.json({ message: 'Password berhasil diperbarui.' });
   } catch (error) {
-    log('Error changePassword: ' + error.message);
+    console.error('Error changePassword:', error);
     res.status(500).json({ message: 'Terjadi kesalahan pada server.' });
   }
 }
