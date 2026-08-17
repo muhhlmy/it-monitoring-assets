@@ -84,7 +84,7 @@ watch(
       return
     }
 
-    document.body.style.overflow = previousBodyOverflow
+    document.body.style.overflow = ''
     previouslyFocusedElement?.focus?.()
     previouslyFocusedElement = null
   },
@@ -93,7 +93,7 @@ watch(
 onMounted(() => document.addEventListener('keydown', handleKeydown))
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeydown)
-  if (props.isOpen) document.body.style.overflow = previousBodyOverflow
+  document.body.style.overflow = ''
 })
 </script>
 

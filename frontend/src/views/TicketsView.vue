@@ -663,6 +663,8 @@ function openDelete(ticket) {
   showDeleteModal.value = true
 }
 
+const isUpdatingStatus = ref(false)
+
 function closeModal() {
   ticketAttachmentRequestVersion += 1
   isTicketAttachmentLoading.value = false
@@ -670,8 +672,59 @@ function closeModal() {
   showFormModal.value = false
   showDeleteModal.value = false
   showDetailModal.value = false
+  selectedTicket.value = null
   modalError.value = ''
   stopChatPoll()
+  document.body.style.overflow = ''
+}
+
+async function updateTicketStatus(ticket, newStatus) {
+  if (!ticket || !newStatus || isUpdatingStatus.value) return
+  const oldStatus = ticket.status_tiket
+  if (oldStatus === newStatus) return
+
+  isUpdatingStatus.value = true
+  try {
+    // 1. Optimistic Update local ticket in state
+    const idx = tickets.value.findIndex((t) => t.id === ticket.id)
+    if (idx >= 0) {
+      tickets.value[idx] = { ...tickets.value[idx], status_tiket: newStatus }
+    }
+    if (selectedTicket.value?.id === ticket.id) {
+      selectedTicket.value = { ...selectedTicket.value, status_tiket: newStatus }
+    }
+
+    // 2. Perform API Mutation
+    await put(`/api/tickets/${ticket.id}`, { status_tiket: newStatus })
+
+    toast(`Status tiket ${ticket.nomor_tiket || ''} berhasil diubah menjadi '${newStatus}'.`)
+
+    // 3. Revalidate ticket list & stats counters without full page reload
+    await fetchTickets(true)
+
+    // 4. If status changed to Closed, close modal and cleanup state cleanly
+    if (newStatus === 'Closed') {
+      closeModal()
+    } else {
+      // Re-fetch detail history & comments
+      if (selectedTicket.value?.id === ticket.id) {
+        fetchTicketHistory(ticket.id)
+        fetchTicketComments(ticket.id)
+      }
+    }
+  } catch (err) {
+    // Rollback on error
+    const idx = tickets.value.findIndex((t) => t.id === ticket.id)
+    if (idx >= 0) {
+      tickets.value[idx] = { ...tickets.value[idx], status_tiket: oldStatus }
+    }
+    if (selectedTicket.value?.id === ticket.id) {
+      selectedTicket.value = { ...selectedTicket.value, status_tiket: oldStatus }
+    }
+    toast(err.message || 'Gagal memperbarui status tiket.', 'error')
+  } finally {
+    isUpdatingStatus.value = false
+  }
 }
 
 async function saveTicket() {
@@ -911,6 +964,53 @@ function formatDateTime(iso) {
   })
 }
 
+function formatRelativeTime(iso) {
+  if (!iso) return '-'
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return '-'
+  const diffSec = Math.floor((nowTick.value - date.getTime()) / 1000)
+  if (diffSec < 60) return 'Baru saja'
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m lalu`
+  const diffHours = Math.floor(diffMin / 60)
+  if (diffHours < 24) return `${diffHours}j lalu`
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffDays < 7) return `${diffDays}h lalu`
+  return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })
+}
+
+function getStatusDotInfo(status) {
+  const s = (status || '').toLowerCase()
+  if (s === 'open') return { dotClass: 'bg-emerald-500', textClass: 'text-emerald-700 font-semibold', label: 'Open' }
+  if (s === 'in progress') return { dotClass: 'bg-blue-500', textClass: 'text-blue-700 font-semibold', label: 'In Progress' }
+  if (s === 'pending') return { dotClass: 'bg-amber-500', textClass: 'text-amber-700 font-semibold', label: 'Pending' }
+  if (s === 'resolved') return { dotClass: 'bg-teal-500', textClass: 'text-teal-700 font-semibold', label: 'Resolved' }
+  if (s === 'closed') return { dotClass: 'bg-slate-400', textClass: 'text-slate-600 font-medium', label: 'Closed' }
+  if (s === 'cancelled') return { dotClass: 'bg-rose-500', textClass: 'text-rose-600 font-medium', label: 'Cancelled' }
+  return { dotClass: 'bg-slate-400', textClass: 'text-slate-600 font-medium', label: status || 'Open' }
+}
+
+function getPriorityInfo(prioritas) {
+  const p = (prioritas || '').toLowerCase()
+  if (p.includes('urgent') || p.includes('4h')) {
+    return { label: 'Critical', class: 'text-rose-600 font-bold bg-rose-50 border-rose-200' }
+  }
+  if (p.includes('high') || p.includes('1day')) {
+    return { label: 'High', class: 'text-amber-700 font-semibold bg-amber-50 border-amber-200' }
+  }
+  if (p.includes('medium') || p.includes('3d')) {
+    return { label: 'Medium', class: 'text-slate-700 font-medium bg-slate-100 border-slate-200' }
+  }
+  return { label: 'Low', class: 'text-slate-500 font-medium bg-slate-50 border-slate-200' }
+}
+
+function getSlaInfo(ticket) {
+  const sla = getSlaCountdownInfo(ticket)
+  if (sla.isClosed) return { text: '✓ Selesai', class: 'text-slate-400 font-medium' }
+  if (sla.isOverdue) return { text: sla.text, class: 'text-rose-600 font-semibold' }
+  return { text: sla.text, class: 'text-slate-500 font-medium' }
+}
+
 function getTicketActions(ticket) {
   const actions = [
     {
@@ -919,13 +1019,25 @@ function getTicketActions(ticket) {
       onClick: () => openDetail(ticket),
     },
   ]
-  if (isAdmin.value && hasWritePermission('tickets')) {
-    actions.push({
-      label: 'Edit Tiket',
-      icon: 'edit',
-      onClick: () => openEdit(ticket),
-    })
+
+  if (isAdmin.value || isSuperAdmin.value) {
+    if (!ticket.assigned_to_user_id && !['Closed', 'Resolved', 'Cancelled'].includes(ticket.status_tiket)) {
+      actions.push({
+        label: 'Ambil Tiket Ini',
+        icon: 'person_add',
+        onClick: () => claimTicket(ticket),
+      })
+    }
+
+    if (hasWritePermission('tickets')) {
+      actions.push({
+        label: 'Edit & Status Tiket',
+        icon: 'edit',
+        onClick: () => openEdit(ticket),
+      })
+    }
   }
+
   if (isSuperAdmin.value) {
     actions.push({
       label: 'Hapus Tiket',
@@ -935,6 +1047,25 @@ function getTicketActions(ticket) {
     })
   }
   return actions
+}
+
+function getInitial(val) {
+  if (!val) return '?'
+  if (typeof val === 'string') return val.trim().charAt(0).toUpperCase() || '?'
+  if (typeof val === 'object' && val !== null) {
+    const name = val.nama || val.name || val.username || ''
+    if (name) return String(name).trim().charAt(0).toUpperCase() || '?'
+  }
+  return String(val).trim().charAt(0).toUpperCase() || '?'
+}
+
+function getAssigneeName(val, fallback = 'Unassigned') {
+  if (!val) return fallback
+  if (typeof val === 'string') return val
+  if (typeof val === 'object' && val !== null) {
+    return val.nama || val.name || val.username || fallback
+  }
+  return String(val)
 }
 
 let toastTimer
@@ -962,323 +1093,299 @@ function toast(message, type = 'success') {
       </div>
     </Transition>
 
-    <!-- Simplified SaaS Header Container -->
-    <div class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">Tiket Kendala IT</h2>
-          <p class="text-xs text-[#64748B] mt-0.5 leading-normal">
-            {{ (isAdmin || isSuperAdmin) ? 'Kelola dan tangani tiket IT' : 'Ajukan permintaan bantuan IT' }}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          @click="openAdd"
-          class="h-9 shrink-0 whitespace-nowrap rounded-lg bg-[#2563EB] px-3.5 text-xs font-semibold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-          :title="(isAdmin || isSuperAdmin) ? 'Buat tiket baru' : 'Request ticket baru'"
-        >
-          <span class="material-symbols-outlined text-[16px]">add</span>
-          <span>{{ (isAdmin || isSuperAdmin) ? 'Buat Tiket' : 'Request Ticket' }}</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- ── 4/5 Interactive Stat Cards ────────── -->
-    <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2" :class="isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'">
-      
-      <!-- Total Tickets -->
-      <div
-        @click="filterByStat('all')"
-        class="shadow-card shadow-card-hover flex items-center gap-3 rounded-xl border p-3.5 cursor-pointer transition-all hover:scale-[1.01] active:scale-95"
-        :class="
-          activeTab !== 'unassigned' && !filterStatus
-            ? 'border-[#5D87FF] bg-[#ECF2FF] ring-2 ring-[#5D87FF]/30 shadow-xs font-semibold'
-            : 'border-[#D2E3FF] bg-[#ECF2FF] hover:border-[#5D87FF]'
-        "
-        title="Klik untuk melihat semua tiket"
-      >
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#5D87FF] shadow-xs">
-          <span class="material-symbols-outlined text-[18px]">confirmation_number</span>
-        </div>
-        <div>
-          <span class="font-num block text-[20px] font-extrabold leading-none text-[#2A3547]">{{ stats.totalTickets }}</span>
-          <span class="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#5D87FF]">Total Tickets</span>
-        </div>
+    <!-- ── 1. Page Header ───────────────────────────────── -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
+      <div>
+        <h1 class="text-xl font-bold text-[#0F172A] tracking-tight">
+          {{ (isAdmin || isSuperAdmin) ? 'Ticket Inbox' : 'Tiket' }}
+        </h1>
+        <p class="text-xs font-normal text-[#64748B] mt-0.5">
+          {{ (isAdmin || isSuperAdmin) ? 'Kelola pengajuan dan kendala IT' : 'Pengajuan dan layanan IT' }}
+        </p>
       </div>
 
-      <!-- Pending Tickets -->
-      <div
-        @click="filterByStat('Pending')"
-        class="shadow-card shadow-card-hover flex items-center gap-3 rounded-xl border p-3.5 cursor-pointer transition-all hover:scale-[1.01] active:scale-95"
-        :class="
-          filterStatus === 'Pending'
-            ? 'border-[#FFAE1F] bg-[#FEF5E5] ring-2 ring-[#FFAE1F]/30 shadow-xs font-semibold'
-            : 'border-[#FCE6BE] bg-[#FEF5E5] hover:border-[#FFAE1F]'
-        "
-        title="Klik untuk filter tiket status Pending"
-      >
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#FFAE1F] shadow-xs">
-          <span class="material-symbols-outlined text-[18px]">pending_actions</span>
-        </div>
-        <div>
-          <span class="font-num block text-[20px] font-extrabold leading-none text-[#2A3547]">{{ stats.pendingTickets }}</span>
-          <span class="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#FFAE1F]">Pending Tickets</span>
-        </div>
-      </div>
-
-      <!-- Open Tickets -->
-      <div
-        @click="filterByStat('Open')"
-        class="shadow-card shadow-card-hover flex items-center gap-3 rounded-xl border p-3.5 cursor-pointer transition-all hover:scale-[1.01] active:scale-95"
-        :class="
-          filterStatus === 'Open'
-            ? 'border-[#13DEB9] bg-[#EDFBF7] ring-2 ring-[#13DEB9]/30 shadow-xs font-semibold'
-            : 'border-[#C3F3E8] bg-[#EDFBF7] hover:border-[#13DEB9]'
-        "
-        title="Klik untuk filter tiket status Open"
-      >
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#13DEB9] shadow-xs">
-          <span class="material-symbols-outlined text-[18px]">adjust</span>
-        </div>
-        <div>
-          <span class="font-num block text-[20px] font-extrabold leading-none text-[#2A3547]">{{ stats.openTickets }}</span>
-          <span class="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#13DEB9]">Open Tickets</span>
-        </div>
-      </div>
-
-      <!-- Closed Tickets -->
-      <div
-        @click="filterByStat('Closed')"
-        class="shadow-card shadow-card-hover flex items-center gap-3 rounded-xl border p-3.5 cursor-pointer transition-all hover:scale-[1.01] active:scale-95"
-        :class="
-          filterStatus === 'Closed'
-            ? 'border-[#FA896B] bg-[#FDEDE8] ring-2 ring-[#FA896B]/30 shadow-xs font-semibold'
-            : 'border-[#FAD9D0] bg-[#FDEDE8] hover:border-[#FA896B]'
-        "
-        title="Klik untuk filter tiket status Closed"
-      >
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#FA896B] shadow-xs">
-          <span class="material-symbols-outlined text-[18px]">task_alt</span>
-        </div>
-        <div>
-          <span class="font-num block text-[20px] font-extrabold leading-none text-[#2A3547]">{{ stats.closedTickets }}</span>
-          <span class="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#FA896B]">Closed Tickets</span>
-        </div>
-      </div>
-
-      <!-- Unassigned Tickets -->
-      <div
-        v-if="isAdmin"
-        @click="filterByStat('unassigned')"
-        class="shadow-card shadow-card-hover flex items-center gap-3 rounded-xl border p-3.5 cursor-pointer transition-all hover:scale-[1.01] active:scale-95"
-        :class="
-          activeTab === 'unassigned'
-            ? 'border-[#5D87FF] bg-[#ECF2FF] ring-2 ring-[#5D87FF]/30 shadow-xs font-semibold'
-            : 'border-[#E5EAEF] bg-white hover:border-[#5D87FF]'
-        "
-        title="Klik untuk melihat tiket belum diambil"
-      >
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ECF2FF] text-[#5D87FF] shadow-xs">
-          <span class="material-symbols-outlined text-[18px]">inbox</span>
-        </div>
-        <div>
-          <span class="font-num block text-[20px] font-extrabold leading-none text-[#2A3547]">{{ stats.unassignedTickets }}</span>
-          <span class="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#5D87FF]">Belum Diambil</span>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ── Tab Strip ──────────────────────────────────────── -->
-    <div class="flex items-center gap-1 rounded-2xl border border-[#E5EAEF] bg-white p-1 shadow-card overflow-x-auto">
       <button
-        v-for="tab in (!isAdmin
-          ? [
-              { key: 'all', label: 'Semua Tiket Saya', icon: 'list_alt' },
-              { key: 'open', label: 'Proses / Open', icon: 'pending_actions' },
-              { key: 'closed', label: 'Selesai / Closed', icon: 'task_alt' }
-            ]
-          : [
-              { key: 'all', label: 'Semua Tiket', icon: 'list_alt' },
-              { key: 'unassigned', label: 'Belum Diambil', icon: 'inbox' },
-              { key: 'assigned', label: 'Ditangani Saya', icon: 'assignment_ind' },
-              { key: 'reported', label: 'Dibuat Saya', icon: 'edit_note' }
-            ]
-        )"
-        :key="tab.key"
         type="button"
-        @click="switchTab(tab.key)"
-        class="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-bold transition-all whitespace-nowrap"
-        :class="activeTab === tab.key
-          ? 'bg-[#5D87FF] text-white shadow-sm'
-          : 'text-[#7C8BAC] hover:bg-[#F1F5F9] hover:text-[#2A3547]'"
+        @click="openAdd"
+        class="h-9 shrink-0 whitespace-nowrap rounded-xl bg-[#2563EB] px-4 text-xs font-bold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all flex items-center justify-center gap-1.5 cursor-pointer self-start sm:self-auto"
+        :title="(isAdmin || isSuperAdmin) ? 'Buat tiket baru' : 'Request ticket baru'"
       >
-        <span class="material-symbols-outlined text-[16px]">{{ tab.icon }}</span>
-        {{ tab.label }}
-        <span
-          v-if="tab.key === 'unassigned' && stats.unassignedTickets > 0"
-          class="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#FA896B] px-1 text-[9px] font-black text-white"
-        >{{ stats.unassignedTickets }}</span>
+        <span class="material-symbols-outlined text-[16px]">add</span>
+        <span>{{ (isAdmin || isSuperAdmin) ? 'Buat Tiket' : 'Request Ticket' }}</span>
       </button>
-
-      <!-- Spacer -->
-      <div class="flex-1"></div>
-
-      <!-- Queue Filter -->
-      <select
-        v-model="filterQueue"
-        @change="fetchTickets"
-        class="h-9 rounded-xl border border-[#DFE5EF] bg-[#F8FAFC] px-3 text-[12px] font-semibold text-[#2A3547] focus:border-[#5D87FF] focus:outline-none mr-1"
-      >
-        <option value="">Semua Unit</option>
-        <option v-for="q in queues" :key="q.id" :value="q.id">{{ q.kode }} — {{ q.nama }}</option>
-      </select>
     </div>
 
-    <!-- ── Filter & Search Control Bar ─────────────────────── -->
-    <div class="shadow-card flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E5EAEF] bg-white p-4">
-      <div class="relative flex-1 min-w-[240px]">
-        <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-[#7C8BAC] pointer-events-none">search</span>
-        <input
-          v-model="searchQuery"
-          type="search"
-          placeholder="Cari judul, nomor tiket, pelapor, assignee..."
-          class="h-10 w-full rounded-xl border border-[#DFE5EF] bg-[#F8FAFC] pl-10 pr-4 text-[12px] font-medium text-[#2A3547] focus:border-[#5D87FF] focus:bg-white focus:outline-none"
-          @keyup.enter="fetchTickets"
-        />
+    <!-- ── 2. Integrated Control Bar & Workspace Navigation ─ -->
+    <div class="flex flex-col gap-3 bg-white p-4 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
+      
+      <!-- Top Row: Queue Tabs & Secondary Summary -->
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#F1F5F9] pb-3">
+        <!-- Ticket Queue Navigation (Tabs) -->
+        <div class="flex items-center gap-1.5 overflow-x-auto">
+          <button
+            v-for="tab in (!isAdmin && !isSuperAdmin
+              ? [
+                  { key: 'all', label: 'Semua Request' },
+                  { key: 'open', label: 'Sedang Diproses' },
+                  { key: 'closed', label: 'Selesai' }
+                ]
+              : [
+                  { key: 'all', label: 'Inbox', count: stats.totalTickets },
+                  { key: 'unassigned', label: 'Belum Diambil', count: stats.unassignedTickets },
+                  { key: 'assigned', label: 'Ditangani Saya', count: stats.openTickets },
+                  { key: 'closed', label: 'Selesai', count: stats.closedTickets }
+                ]
+            )"
+            :key="tab.key"
+            type="button"
+            @click="switchTab(tab.key)"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
+            :class="activeTab === tab.key
+              ? 'bg-[#2563EB] text-white shadow-2xs'
+              : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
+          >
+            <span>{{ tab.label }}</span>
+            <span
+              v-if="tab.count !== undefined"
+              class="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
+              :class="activeTab === tab.key
+                ? 'bg-white/20 text-white'
+                : (tab.key === 'unassigned' && tab.count > 0 ? 'bg-rose-500 text-white' : 'bg-[#F1F5F9] text-[#64748B]')"
+            >
+              {{ tab.count }}
+            </span>
+          </button>
+        </div>
+
+        <!-- Secondary Summary (Quiet metadata) -->
+        <div class="text-[12px] font-medium text-[#64748B] flex items-center gap-1.5 shrink-0 select-none">
+          <span><strong class="text-[#0F172A] font-bold">{{ stats.totalTickets }}</strong> Inbox</span>
+          <span>·</span>
+          <span><strong class="text-emerald-600 font-bold">{{ stats.openTickets }}</strong> Open</span>
+          <span>·</span>
+          <span><strong class="text-amber-600 font-bold">{{ stats.pendingTickets }}</strong> Pending</span>
+          <span>·</span>
+          <span><strong class="text-slate-600 font-bold">{{ stats.closedTickets }}</strong> Closed</span>
+        </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-3">
-        <select v-model="filterStatus" @change="fetchTickets" class="h-10 rounded-xl border border-[#DFE5EF] bg-white px-3 text-[12px] font-semibold text-[#2A3547]">
-          <option value="">Semua Status</option>
-          <option value="Open">Open</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Pending">Pending</option>
-          <option value="Resolved">Resolved</option>
-          <option value="Closed">Closed</option>
-        </select>
+      <!-- Bottom Row: Toolbar (Search + Filters) -->
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <!-- Search Input -->
+        <div class="relative flex-1 min-w-[220px]">
+          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#94A3B8] pointer-events-none">search</span>
+          <input
+            v-model="searchQuery"
+            type="search"
+            placeholder="Cari ticket, judul, nomor, pelapor..."
+            class="h-9 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] pl-9 pr-3 text-xs font-medium text-[#0F172A] placeholder-[#94A3B8] focus:border-[#2563EB] focus:bg-white focus:outline-none transition-all"
+            @keyup.enter="fetchTickets"
+          />
+        </div>
 
-        <select v-model="filterPrioritas" @change="fetchTickets" class="h-10 rounded-xl border border-[#DFE5EF] bg-white px-3 text-[12px] font-semibold text-[#2A3547]">
-          <option value="">Semua Prioritas (SLA)</option>
-          <option value="Urgent (4h)">Urgent (4h)</option>
-          <option value="High (1day)">High (1day)</option>
-          <option value="Medium (3d)">Medium (3d)</option>
-          <option value="Low (7d)">Low (7d)</option>
-        </select>
+        <!-- Filter Options -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <select
+            v-model="filterStatus"
+            @change="fetchTickets"
+            class="h-9 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-xs font-semibold text-[#334155] focus:border-[#2563EB] focus:outline-none cursor-pointer"
+          >
+            <option value="">Status: Semua</option>
+            <option value="Open">Open</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Pending">Pending</option>
+            <option value="Resolved">Resolved</option>
+            <option value="Closed">Closed</option>
+          </select>
+
+          <select
+            v-model="filterPrioritas"
+            @change="fetchTickets"
+            class="h-9 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-xs font-semibold text-[#334155] focus:border-[#2563EB] focus:outline-none cursor-pointer"
+          >
+            <option value="">Priority: Semua</option>
+            <option value="Urgent (4h)">Critical</option>
+            <option value="High (1day)">High</option>
+            <option value="Medium (3d)">Medium</option>
+            <option value="Low (7d)">Low</option>
+          </select>
+
+          <select
+            v-model="filterQueue"
+            @change="fetchTickets"
+            class="h-9 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-xs font-semibold text-[#334155] focus:border-[#2563EB] focus:outline-none cursor-pointer"
+          >
+            <option value="">Unit: Semua</option>
+            <option v-for="q in queues" :key="q.id" :value="q.id">{{ q.kode }} — {{ q.nama }}</option>
+          </select>
+        </div>
       </div>
+
     </div>
 
-    <!-- ── Tickets Table Card ──────────────────────────────── -->
+    <!-- ── 3. Ticket Inbox / Issue List Surface ───────────── -->
     <div class="rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs overflow-hidden">
-      <div v-if="isLoading" class="p-5 space-y-3">
-        <div v-for="n in 5" :key="n" class="h-12 w-full animate-pulse rounded-xl bg-[#F8FAFC]"></div>
+      
+      <!-- Loading Skeleton -->
+      <div v-if="isLoading" class="p-4 space-y-3">
+        <div v-for="n in 5" :key="n" class="h-16 w-full animate-pulse rounded-xl bg-[#F8FAFC]"></div>
       </div>
 
+      <!-- Error State -->
       <div v-else-if="pageError" class="bg-[#FDEDE8] p-5 text-[13px] font-semibold text-[#FA896B]">
         {{ pageError }}
       </div>
 
-      <div v-else class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
-            <tr>
-              <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Tiket</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Judul & Pelapor</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Unit</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Prioritas</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">SLA</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Assignee</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Status</th>
-              <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Tanggal</th>
-              <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-[#F1F5F9]">
-            <tr v-for="ticket in paginatedTickets" :key="ticket.id" class="group hover:bg-[#F8FAFC] transition-colors duration-150">
-              <td class="py-4 pl-5 pr-4 min-w-[140px] align-top">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="font-mono text-[12px] font-semibold text-[#2563EB]">{{ ticket.nomor_tiket || `TCK-${ticket.id}` }}</span>
-                  <span
-                    v-if="ticket.kategori"
-                    class="inline-flex items-center rounded-md px-1.5 py-0.2 text-[9.5px] font-extrabold uppercase tracking-wide"
-                    :class="ticket.kategori.toLowerCase() === 'request' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-sky-50 text-sky-700 border border-sky-200'"
-                  >
-                    {{ ticket.kategori }}
-                  </span>
-                  <span v-if="ticket.has_attachment" class="material-symbols-outlined text-[14px] text-[#2563EB]">attach_file</span>
-                </div>
-              </td>
-              <td class="py-4 px-4 min-w-[220px] align-top">
-                <div class="flex items-start gap-2">
-                  <p class="text-[13.5px] font-semibold text-[#0F172A] leading-snug truncate">{{ ticket.judul }}</p>
-                  <span v-if="ticket.total_komentar > 0" class="inline-flex items-center gap-0.5 rounded-md bg-[#EFF6FF] px-1.5 py-0.5 text-[10px] font-semibold text-[#2563EB] shrink-0">
-                    <span class="material-symbols-outlined text-[11px]">chat_bubble</span>
-                    {{ ticket.total_komentar }}
-                  </span>
-                </div>
-                <p class="mt-0.5 text-[11.5px] font-normal text-[#64748B] truncate">{{ ticket.deskripsi || '-' }}</p>
-                <p class="mt-0.5 text-[10.5px] font-medium text-[#94A3B8]">👤 {{ ticket.pelapor_nama || ticket.pelapor || '-' }}</p>
-              </td>
-              <td class="py-4 px-4 align-top min-w-[90px]">
-                <AppBadge :type="getQueueBadgeType(ticket.queue_kode)" :text="ticket.queue_kode || 'IT'" />
-              </td>
-              <td class="py-4 px-4 align-top min-w-[120px]">
-                <AppBadge :type="getPriorityBadgeType(ticket.prioritas)" :text="ticket.prioritas || 'Medium (3d)'" small />
-              </td>
-              <td class="py-4 px-4 align-top min-w-[120px]">
-                <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium border"
-                      :class="getSlaCountdownInfo(ticket).isClosed ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : getSlaCountdownInfo(ticket).isOverdue ? 'bg-red-50 text-red-700 border-red-200 animate-pulse'
-                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'">
-                  {{ getSlaCountdownInfo(ticket).text }}
+      <!-- Content Surface (Horizontal Flex Issue Items) -->
+      <div v-else class="divide-y divide-[#F1F5F9]">
+        
+        <!-- ── USER ROLE ISSUE LIST ITEMS ── -->
+        <template v-if="!isAdmin && !isSuperAdmin">
+          <div
+            v-for="ticket in paginatedTickets"
+            :key="ticket.id"
+            @click="openDetail(ticket)"
+            class="group flex items-center justify-between gap-4 px-6 py-4 hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none min-h-[76px]"
+          >
+            <!-- Left Zone: Ticket Identity & Metadata Stack -->
+            <div class="flex flex-col gap-1 min-w-0 flex-1">
+              <!-- Title (16px semibold/bold focal point) -->
+              <h3 class="text-[16px] font-semibold text-[#0F172A] group-hover:text-[#2563EB] transition-colors line-clamp-1">
+                {{ ticket.judul }}
+              </h3>
+
+              <!-- Description Snippet (13.5px muted) -->
+              <p v-if="ticket.deskripsi" class="text-[13.5px] font-normal text-[#64748B] line-clamp-1">
+                {{ ticket.deskripsi }}
+              </p>
+
+              <!-- Single Muted Sub-metadata Line -->
+              <div class="flex items-center gap-2 text-[12px] text-[#94A3B8] flex-wrap mt-0.5">
+                <span class="font-mono text-[#64748B]">{{ ticket.nomor_tiket || `TCK-${ticket.id}` }}</span>
+                <span>·</span>
+                <span>{{ ticket.queue_kode || 'IT' }}</span>
+                <span>·</span>
+                <span>{{ getPriorityInfo(ticket.prioritas).label }}</span>
+                <span>·</span>
+                <span>{{ formatRelativeTime(ticket.diperbarui_pada || ticket.dibuat_pada) }}</span>
+                <span v-if="ticket.total_komentar > 0">· {{ ticket.total_komentar }} comments</span>
+                <span v-if="ticket.has_attachment" class="flex items-center gap-0.5"><span class="material-symbols-outlined text-[13px]">attach_file</span></span>
+              </div>
+            </div>
+
+            <!-- Right Zone: Status Indicator & Chevron -->
+            <div class="flex items-center gap-3 shrink-0">
+              <div class="flex items-center gap-1.5 min-w-[95px] justify-end">
+                <span class="h-2 w-2 rounded-full shrink-0" :class="getStatusDotInfo(ticket.status_tiket).dotClass"></span>
+                <span class="text-[13.5px] font-semibold" :class="getStatusDotInfo(ticket.status_tiket).textClass">
+                  {{ getStatusDotInfo(ticket.status_tiket).label }}
                 </span>
-              </td>
-              <td class="py-4 px-4 align-top min-w-[160px]">
-                <div class="flex items-center gap-2">
-                  <div class="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold shrink-0"
-                       :class="ticket.assigned_to_user_id ? 'bg-[#EFF6FF] text-[#2563EB]' : 'bg-[#F1F5F9] text-[#64748B]'">
-                    {{ (ticket.assigned_to_nama || ticket.assigned_to || '?').charAt(0).toUpperCase() }}
-                  </div>
-                  <span class="text-[12px] font-medium truncate" :class="ticket.assigned_to_user_id ? 'text-[#1E293B]' : 'text-[#94A3B8] italic'">
-                    {{ ticket.assigned_to_nama || ticket.assigned_to || 'Belum diambil' }}
-                  </span>
-                </div>
-                
-                <!-- Assign dropdown for Superadmin -->
-                <select v-if="isSuperAdmin && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
-                        :value="ticket.assigned_to_user_id || ''" @change="assignTicketToUser(ticket, $event.target.value)"
-                        :disabled="isReassigning === ticket.id || isClaiming === ticket.id"
-                        class="mt-1.5 w-full rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-2 py-1 text-[10px] font-semibold text-[#2563EB] focus:border-[#2563EB] focus:outline-none disabled:opacity-50 cursor-pointer shadow-2xs">
-                  <option value="" disabled>Assign to {{ ticket.queue_kode || 'Queue' }}</option>
-                  <option v-for="adm in getAdminsForQueue(ticket.queue_id)" :key="adm.id" :value="adm.id">{{ adm.nama }}</option>
-                </select>
-                
-                <!-- Claim button for Admin -->
-                <button v-if="isAdmin && !isSuperAdmin && hasWritePermission('tickets') && !ticket.assigned_to_user_id && !['Closed','Resolved','Cancelled'].includes(ticket.status_tiket)"
-                        type="button" @click.stop="claimTicket(ticket)"
-                        :disabled="isClaiming === ticket.id || isReassigning === ticket.id"
-                        class="mt-1.5 flex items-center justify-center gap-1 rounded-lg bg-[#2563EB] px-2.5 py-1 text-[10.5px] font-semibold text-white hover:bg-[#1D4ED8] disabled:opacity-50 cursor-pointer shadow-2xs">
-                  <span v-if="isClaiming === ticket.id" class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                  <span v-else class="material-symbols-outlined text-[13px]">person_add</span>
-                  {{ isClaiming === ticket.id ? 'Mengambil...' : 'Ambil' }}
-                </button>
-              </td>
-              <td class="py-4 px-4 align-top min-w-[110px]">
-                <AppBadge :type="getStatusBadgeType(ticket.status_tiket)" :text="ticket.status_tiket" small />
-              </td>
-              <td class="py-4 px-4 align-top text-[11.5px] font-normal text-[#64748B] min-w-[110px]">{{ formatDate(ticket.dibuat_pada) }}</td>
-              <td class="py-4 pr-5 pl-4 align-top text-right min-w-[80px]">
+              </div>
+
+              <span class="material-symbols-outlined text-[18px] text-[#CBD5E1] group-hover:text-[#2563EB] group-hover:translate-x-0.5 transition-all">
+                chevron_right
+              </span>
+            </div>
+          </div>
+        </template>
+
+        <!-- ── ADMIN / SUPERADMIN ROLE ISSUE LIST ITEMS ── -->
+        <template v-else>
+          <div
+            v-for="ticket in paginatedTickets"
+            :key="ticket.id"
+            @click="openDetail(ticket)"
+            class="group flex items-center justify-between gap-4 px-6 py-4 hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none min-h-[76px]"
+          >
+            <!-- Left Zone: Ticket Identity & Metadata Stack -->
+            <div class="flex flex-col gap-1 min-w-0 flex-1">
+              <!-- Title (16px semibold/bold focal point) -->
+              <h3 class="text-[16px] font-semibold text-[#0F172A] group-hover:text-[#2563EB] transition-colors line-clamp-1">
+                {{ ticket.judul }}
+              </h3>
+
+              <!-- Description Snippet (13.5px muted) -->
+              <p v-if="ticket.deskripsi" class="text-[13.5px] font-normal text-[#64748B] line-clamp-1">
+                {{ ticket.deskripsi }}
+              </p>
+
+              <!-- Single Muted Sub-metadata Line -->
+              <div class="flex items-center gap-2 text-[12px] text-[#94A3B8] flex-wrap mt-0.5">
+                <span class="font-mono text-[#64748B]">{{ ticket.nomor_tiket || `TCK-${ticket.id}` }}</span>
+                <span>·</span>
+                <span class="text-[#334155] font-medium">{{ ticket.pelapor_nama || ticket.pelapor || 'User' }}</span>
+                <span>·</span>
+                <span>{{ ticket.queue_kode || 'IT' }}</span>
+                <span>·</span>
+                <span>{{ getPriorityInfo(ticket.prioritas).label }}</span>
+                <span>·</span>
+                <span>SLA {{ getSlaInfo(ticket).text }}</span>
+                <span>·</span>
+                <span>{{ getAssigneeName(ticket.assigned_to_nama || ticket.assigned_to) }}</span>
+                <span>·</span>
+                <span>{{ formatRelativeTime(ticket.diperbarui_pada || ticket.dibuat_pada) }}</span>
+                <span v-if="ticket.total_komentar > 0">· {{ ticket.total_komentar }} comments</span>
+                <span v-if="ticket.has_attachment" class="flex items-center gap-0.5"><span class="material-symbols-outlined text-[13px]">attach_file</span></span>
+              </div>
+            </div>
+
+            <!-- Right Zone: Status Indicator & Actions -->
+            <div class="flex items-center gap-3 shrink-0">
+              <div class="flex items-center gap-1.5 min-w-[100px] justify-end">
+                <span class="h-2 w-2 rounded-full shrink-0" :class="getStatusDotInfo(ticket.status_tiket).dotClass"></span>
+                <span class="text-[13.5px] font-semibold" :class="getStatusDotInfo(ticket.status_tiket).textClass">
+                  {{ getStatusDotInfo(ticket.status_tiket).label }}
+                </span>
+              </div>
+
+              <!-- Row Action Kebab Menu -->
+              <div @click.stop class="shrink-0">
                 <AppRowActions :actions="getTicketActions(ticket)" />
-              </td>
-            </tr>
-            <tr v-if="filteredTickets.length === 0">
-              <td colspan="9" class="py-12 text-center text-[12px] text-[#64748B]">Tidak ada tiket yang ditemukan.</td>
-            </tr>
-          </tbody>
-        </table>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ── EMPTY STATES ── -->
+        <div v-if="filteredTickets.length === 0" class="py-16 text-center">
+          <div class="mx-auto flex max-w-sm flex-col items-center justify-center text-center">
+            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F1F5F9] text-[#94A3B8] mb-3">
+              <span class="material-symbols-outlined text-[24px]">inbox</span>
+            </div>
+
+            <!-- Empty state title -->
+            <h3 class="text-sm font-bold text-[#0F172A]">
+              {{ (searchQuery || filterStatus || filterPrioritas || filterQueue)
+                  ? 'Tidak ada ticket yang cocok'
+                  : (!isAdmin && !isSuperAdmin)
+                    ? 'Belum ada request'
+                    : (activeTab === 'all' ? 'Inbox kosong' : 'Tidak ada ticket') }}
+            </h3>
+
+            <!-- Empty state description -->
+            <p class="mt-1 text-xs text-[#64748B] max-w-xs">
+              {{ (searchQuery || filterStatus || filterPrioritas || filterQueue)
+                  ? 'Coba ubah pencarian atau filter.'
+                  : (!isAdmin && !isSuperAdmin)
+                    ? 'Pengajuan bantuan IT Anda akan muncul di sini.'
+                    : (activeTab === 'all' ? 'Tidak ada ticket yang menunggu penanganan.' : 'Belum ada ticket pada kategori ini.') }}
+            </p>
+
+            <button
+              v-if="!searchQuery && !filterStatus && !filterPrioritas && !filterQueue"
+              type="button"
+              @click="openAdd"
+              class="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-3.5 py-2 text-xs font-bold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all cursor-pointer"
+            >
+              <span class="material-symbols-outlined text-[16px]">add</span>
+              <span>{{ (!isAdmin && !isSuperAdmin) ? 'Request Ticket Pertama' : 'Buat Tiket Baru' }}</span>
+            </button>
+          </div>
+        </div>
+
       </div>
 
+      <!-- Pagination -->
       <AppPagination
         v-if="!isLoading && !pageError"
         v-model:currentPage="currentPage"
@@ -1477,230 +1584,262 @@ function toast(message, type = 'success') {
       </form>
     </AppModal>
 
-    <!-- ── Detail Ticket Modal ───────────────────────────── -->
-    <AppModal :is-open="showDetailModal" title="Detail & Riwayat Tiket" size="lg" @close="closeModal">
-      <div v-if="selectedTicket" class="space-y-4">
+    <!-- ── Detail Ticket Modal (Modern SaaS Ticket Workspace) ─ -->
+    <AppModal :is-open="showDetailModal" title="" size="lg" @close="closeModal">
+      <div v-if="selectedTicket" class="flex flex-col h-[85vh] max-h-[720px] -m-6 bg-white rounded-2xl overflow-hidden text-[#0F172A]">
         
-        <!-- Tab Navigation Header -->
-        <div class="flex items-center gap-2 border-b border-[#E5EAEF] pb-3 flex-wrap">
+        <!-- STICKY HEADER AREA -->
+        <div class="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-[#F1F5F9] bg-white px-6 py-4">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="flex flex-col min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-xs font-bold text-[#475569] bg-[#F1F5F9] px-2 py-0.5 rounded-md">
+                  {{ selectedTicket.nomor_tiket }}
+                </span>
+                <div class="flex items-center gap-1.5 ml-1">
+                  <span class="h-2 w-2 rounded-full shrink-0" :class="getStatusDotInfo(selectedTicket.status_tiket).dotClass"></span>
+                  <span class="text-xs" :class="getStatusDotInfo(selectedTicket.status_tiket).textClass">
+                    {{ getStatusDotInfo(selectedTicket.status_tiket).label }}
+                  </span>
+                </div>
+              </div>
+              <h2 class="text-base font-bold text-[#0F172A] truncate mt-1">
+                {{ selectedTicket.judul }}
+              </h2>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            @click="closeModal"
+            class="flex h-8 w-8 items-center justify-center rounded-xl text-[#94A3B8] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-colors cursor-pointer shrink-0"
+            title="Tutup Modal"
+          >
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        <!-- STICKY TABS AREA -->
+        <div class="sticky top-[68px] z-10 flex items-center gap-2 border-b border-[#F1F5F9] bg-white px-6 py-2.5">
           <button
             type="button"
             @click="activeDetailTab = 'detail'"
-            class="flex items-center gap-2 rounded-xl px-4 py-2 text-[12px] font-bold transition-all cursor-pointer"
-            :class="activeDetailTab === 'detail' ? 'bg-[#5D87FF] text-white shadow-md shadow-blue-500/20' : 'bg-[#F8FAFC] text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF]'"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer"
+            :class="activeDetailTab === 'detail' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
           >
-            <span class="material-symbols-outlined text-[18px]">info</span>
-            Rincian Tiket
+            <span class="material-symbols-outlined text-[16px]">info</span>
+            <span>Overview</span>
           </button>
+
           <button
             type="button"
             @click="activeDetailTab = 'history'"
-            class="flex items-center gap-2 rounded-xl px-4 py-2 text-[12px] font-bold transition-all cursor-pointer"
-            :class="activeDetailTab === 'history' ? 'bg-[#5D87FF] text-white shadow-md shadow-blue-500/20' : 'bg-[#F8FAFC] text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF]'"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer"
+            :class="activeDetailTab === 'history' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
           >
-            <span class="material-symbols-outlined text-[18px]">history</span>
-            Riwayat Perubahan ({{ ticketHistory.length }})
+            <span class="material-symbols-outlined text-[16px]">history</span>
+            <span>Activity</span>
+            <span class="ml-0.5 rounded-full bg-[#F1F5F9] px-1.5 py-0.2 text-[10px] font-extrabold text-[#64748B]">
+              {{ ticketHistory.length }}
+            </span>
           </button>
+
           <button
             type="button"
             @click="activeDetailTab = 'comments'"
-            class="flex items-center gap-2 rounded-xl px-4 py-2 text-[12px] font-bold transition-all cursor-pointer"
-            :class="activeDetailTab === 'comments' ? 'bg-[#5D87FF] text-white shadow-md shadow-blue-500/20' : 'bg-[#F8FAFC] text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF]'"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer"
+            :class="activeDetailTab === 'comments' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
           >
-            <span class="material-symbols-outlined text-[18px]">forum</span>
-            Diskusi & Komentar ({{ ticketComments.length }})
+            <span class="material-symbols-outlined text-[16px]">forum</span>
+            <span>Discussion</span>
+            <span class="ml-0.5 rounded-full bg-[#F1F5F9] px-1.5 py-0.2 text-[10px] font-extrabold text-[#64748B]">
+              {{ ticketComments.length }}
+            </span>
           </button>
         </div>
 
-        <!-- TAB 1: Rincian Tiket -->
-        <div v-if="activeDetailTab === 'detail'" class="space-y-4">
-          <div class="flex items-center justify-between rounded-2xl bg-[#ECF2FF] p-4 border border-[#D2E3FF]">
-            <div>
-              <span class="font-mono text-[12px] font-extrabold text-[#5D87FF]">{{ selectedTicket.nomor_tiket }}</span>
-              <h4 class="text-[16px] font-extrabold text-[#2A3547] mt-0.5">{{ selectedTicket.judul }}</h4>
-            </div>
-            <AppBadge :type="getStatusBadgeType(selectedTicket.status_tiket)" :text="selectedTicket.status_tiket" />
-          </div>
-
-          <div class="grid grid-cols-2 gap-3 text-[12px]">
-            <div class="rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] p-3">
-              <span class="block text-[10px] font-bold uppercase text-[#7C8BAC]">Pelapor</span>
-              <span class="font-bold text-[#2A3547]">{{ selectedTicket.pelapor_nama || selectedTicket.pelapor || '—' }}</span>
-              <p v-if="selectedTicket.pelapor_jabatan || selectedTicket.pelapor_nik" class="text-[10px] text-[#7C8BAC] mt-0.5 font-medium">
-                {{ selectedTicket.pelapor_jabatan || 'User' }}
-                <span v-if="selectedTicket.pelapor_nik" class="font-mono text-[#94A3B8]">({{ selectedTicket.pelapor_nik }})</span>
-              </p>
-            </div>
-            <div class="rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] p-3">
-              <span class="block text-[10px] font-bold uppercase text-[#7C8BAC]">Petugas IT (Assigned)</span>
-              <span class="font-bold" :class="selectedTicket.assigned_to ? 'text-[#2A3547]' : 'text-[#7C8BAC] italic'">
-                {{ selectedTicket.assigned_to || 'Belum ditugaskan' }}
-              </span>
-            </div>
-            <div class="rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] p-3">
-              <span class="block text-[10px] font-bold uppercase text-[#7C8BAC]">Kategori</span>
-              <span class="font-bold text-[#5D87FF]">{{ selectedTicket.kategori || '—' }}</span>
-            </div>
-            <div class="rounded-xl border border-[#E5EAEF] bg-[#F8FAFC] p-3">
-              <span class="block text-[10px] font-bold uppercase text-[#7C8BAC]">Prioritas (SLA)</span>
-              <AppBadge :type="getPriorityBadgeType(selectedTicket.prioritas)" :text="selectedTicket.prioritas" />
-            </div>
-          </div>
-
-          <div>
-            <span class="block text-[11px] font-bold uppercase text-[#7C8BAC] mb-1">Deskripsi Kendala</span>
-            <div class="min-h-20 whitespace-pre-wrap rounded-2xl border border-[#E5EAEF] bg-white p-4 text-[12px] text-[#2A3547]">
-              {{ selectedTicket.deskripsi || 'Tidak ada catatan deskripsi rincian.' }}
-            </div>
-          </div>
-
-          <!-- Component CASP Rating Bintang 1-5 untuk Tiket Resolved -->
-          <div class="pt-2">
-            <TicketCaspRating
-              :ticket-id="selectedTicket.id"
-              @rated="fetchTickets"
-            />
-          </div>
-
-          <!-- Attachment Image Display in Detail Modal -->
-          <div v-if="isTicketAttachmentLoading" class="rounded-2xl border border-[#E5EAEF] bg-[#F8FAFC] p-4 text-[12px] text-[#7C8BAC]">
-            Memuat lampiran tiket...
-          </div>
-          <div v-if="selectedTicket.attachment">
-            <span class="block text-[11px] font-bold uppercase text-[#7C8BAC] mb-1.5 flex items-center gap-1">
-              <span class="material-symbols-outlined text-[16px] text-[#5D87FF]">attach_file</span> Lampiran Gambar
-            </span>
-            <div class="overflow-hidden rounded-2xl border border-[#E5EAEF] bg-[#F8FAFC] p-2">
-              <img :src="selectedTicket.attachment" alt="Attachment Kendala" class="max-h-64 w-full object-contain rounded-xl" />
-            </div>
-          </div>
-          <p v-else-if="ticketAttachmentError" class="text-[11px] font-medium text-red-600">
-            {{ ticketAttachmentError }}
-          </p>
-        </div>
-
-        <!-- TAB 2: Riwayat Perubahan (Audit Log Style) -->
-        <div v-else-if="activeDetailTab === 'history'" class="space-y-3">
-          <div v-if="isHistoryLoading" class="flex flex-col items-center justify-center py-12 gap-2 text-[#7C8BAC]">
-            <span class="material-symbols-outlined text-[28px] animate-spin text-[#5D87FF]">progress_activity</span>
-            <span class="text-[12px] font-medium">Memuat riwayat perubahan...</span>
-          </div>
-
-          <div v-else-if="ticketHistory.length === 0" class="rounded-2xl border border-[#E5EAEF] bg-[#F8FAFC] p-8 text-center text-[12px] text-[#7C8BAC]">
-            Belum ada catatan riwayat perubahan pada tiket ini.
-          </div>
-
-          <!-- Audit Log Cards Container -->
-          <div v-else class="divide-y divide-[#F3F4F6] rounded-2xl border border-[#E8EDF3] bg-white overflow-hidden max-h-96 overflow-y-auto">
-            <div
-              v-for="log in ticketHistory"
-              :key="log.id"
-              class="group flex gap-3.5 px-4 py-3.5 hover:bg-[#FAFBFD] transition-colors"
-            >
-              <!-- Left: Icon Block -->
-              <div class="flex flex-col items-center pt-0.5">
-                <div
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
-                  :class="getActionColor(log.aksi)"
-                >
-                  <span class="material-symbols-outlined text-[16px]">{{ getActionIcon(log.aksi) }}</span>
-                </div>
+        <!-- MAIN SCROLLABLE CONTENT BODY -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+          
+          <!-- TAB 1: OVERVIEW -->
+          <div v-if="activeDetailTab === 'detail'" class="space-y-6">
+            <!-- Ticket Title & Description -->
+            <div class="space-y-2">
+              <h3 class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">Deskripsi Kendala</h3>
+              <div class="rounded-xl border border-[#F1F5F9] bg-[#F8FAFC] p-4 text-xs leading-relaxed text-[#334155] whitespace-pre-wrap">
+                {{ selectedTicket.deskripsi || 'Tidak ada catatan deskripsi rincian.' }}
               </div>
+            </div>
 
-              <!-- Middle & Right: Main content -->
-              <div class="flex-1 min-w-0">
-                <!-- Top row: Badge + Ticket No + Clock Timestamp -->
-                <div class="flex items-center justify-between gap-2 mb-2">
-                  <div class="flex items-center gap-2 min-w-0">
-                    <AppBadge :type="getActionBadgeType(log.aksi)" :text="log.aksi" />
-                    <span class="text-[12px] font-extrabold text-[#111827] font-mono tracking-tight">{{ log.nomor_tiket }}</span>
+            <!-- Flat Compact Metadata Grid -->
+            <div class="space-y-2">
+              <h3 class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">Informasi Rincian</h3>
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 text-xs divide-y sm:divide-y-0 sm:divide-x divide-[#F1F5F9]">
+                
+                <div class="space-y-3 pr-2">
+                  <div class="flex flex-col gap-0.5">
+                    <span class="text-[11px] font-medium text-[#94A3B8]">Pelapor</span>
+                    <span class="font-bold text-[#0F172A]">{{ selectedTicket.pelapor_nama || selectedTicket.pelapor || '—' }}</span>
+                    <span v-if="selectedTicket.pelapor_jabatan || selectedTicket.pelapor_nik" class="text-[11px] text-[#64748B]">
+                      {{ selectedTicket.pelapor_jabatan || 'User' }} {{ selectedTicket.pelapor_nik ? '· NIK ' + selectedTicket.pelapor_nik : '' }}
+                    </span>
                   </div>
-                  <span class="text-[10px] text-[#94A3B8] font-medium shrink-0 flex items-center gap-1">
-                    <span class="material-symbols-outlined text-[13px]">schedule</span>
-                    {{ formatDateTime(log.dibuat_pada) }}
-                  </span>
+
+                  <div class="flex flex-col gap-0.5">
+                    <span class="text-[11px] font-medium text-[#94A3B8]">Kategori</span>
+                    <span class="font-semibold text-[#0F172A]">{{ selectedTicket.kategori || 'Support' }}</span>
+                  </div>
+
+                  <div class="flex flex-col gap-0.5">
+                    <span class="text-[11px] font-medium text-[#94A3B8]">Unit Tujuan</span>
+                    <span class="font-semibold text-[#0F172A]">{{ selectedTicket.queue_nama || selectedTicket.queue_kode || 'IT Support' }}</span>
+                  </div>
                 </div>
 
-                <!-- Structured Change Diffs -->
-                <div v-if="parseTicketPerubahan(log.perubahan).length > 0" class="space-y-1.5 my-1">
-                  <div
-                    v-for="(row, idx) in parseTicketPerubahan(log.perubahan)"
-                    :key="idx"
-                    class="text-[11px]"
-                  >
-                    <!-- Row with old -> new comparison -->
-                    <div v-if="row.field && row.old !== undefined" class="flex items-center gap-2 flex-wrap">
-                      <span class="w-32 shrink-0 text-[10px] font-bold text-[#6B7280] uppercase tracking-wide">{{ row.field }}</span>
-                      <span class="inline-flex items-center gap-1.5 min-w-0 flex-wrap">
-                        <span class="inline-flex items-center gap-1 rounded-md bg-[#FEF2F2] px-2 py-0.5 text-[10px] font-semibold text-[#991B1B] line-through decoration-[#FECACA]">{{ row.old }}</span>
-                        <span class="material-symbols-outlined text-[12px] text-[#CBD5E1] shrink-0">arrow_forward</span>
-                        <span class="inline-flex items-center gap-1 rounded-md bg-[#F0FDF4] px-2 py-0.5 text-[10px] font-bold text-[#166534]">{{ row.new }}</span>
+                <div class="space-y-3 sm:pl-4 pt-3 sm:pt-0">
+                  <div class="flex flex-col gap-0.5">
+                    <span class="text-[11px] font-medium text-[#94A3B8]">Penanggung Jawab (Assignee)</span>
+                    <div class="flex items-center gap-2">
+                      <div class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                           :class="(selectedTicket.assigned_to_nama || selectedTicket.assigned_to) ? 'bg-[#EFF6FF] text-[#2563EB]' : 'bg-[#F1F5F9] text-[#94A3B8]'">
+                        {{ getInitial(selectedTicket.assigned_to_nama || selectedTicket.assigned_to) }}
+                      </div>
+                      <span class="font-semibold" :class="(selectedTicket.assigned_to_nama || selectedTicket.assigned_to) ? 'text-[#0F172A]' : 'text-[#94A3B8] italic'">
+                        {{ getAssigneeName(selectedTicket.assigned_to_nama || selectedTicket.assigned_to, 'Belum ditugaskan') }}
                       </span>
                     </div>
+                  </div>
 
-                    <!-- Single text line -->
-                    <p v-else class="text-[11px] font-medium text-[#475569] leading-relaxed">{{ row.text }}</p>
+                  <div class="flex flex-col gap-0.5">
+                    <span class="text-[11px] font-medium text-[#94A3B8]">Prioritas & SLA</span>
+                    <div class="flex items-center gap-2">
+                      <span :class="getPriorityInfo(selectedTicket.prioritas).class" class="px-1.5 py-0.2 rounded border text-[10px] uppercase font-bold">
+                        {{ getPriorityInfo(selectedTicket.prioritas).label }}
+                      </span>
+                      <span class="text-[11px]" :class="getSlaInfo(selectedTicket).class">
+                        {{ getSlaInfo(selectedTicket).text }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col gap-0.5">
+                    <span class="text-[11px] font-medium text-[#94A3B8]">Dibuat Pada</span>
+                    <span class="font-medium text-[#64748B]">{{ formatDateTime(selectedTicket.dibuat_pada) }}</span>
                   </div>
                 </div>
 
-                <!-- Fallback text -->
-                <p v-else class="text-[11px] font-medium text-[#475569] leading-relaxed">{{ log.perubahan }}</p>
+              </div>
+            </div>
 
-                <!-- Bottom User Author -->
-                <div class="flex items-center gap-1 mt-2">
-                  <span class="material-symbols-outlined text-[12px] text-[#94A3B8]">person</span>
-                  <span class="text-[10px] font-bold text-[#94A3B8]">{{ log.oleh_pengguna || 'Sistem' }}</span>
+            <!-- Attachment Image Display -->
+            <div v-if="isTicketAttachmentLoading" class="rounded-xl border border-[#F1F5F9] bg-[#F8FAFC] p-4 text-xs text-[#64748B]">
+              Memuat lampiran tiket...
+            </div>
+            <div v-else-if="selectedTicket.attachment" class="space-y-2">
+              <h3 class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] flex items-center gap-1">
+                <span class="material-symbols-outlined text-[16px] text-[#2563EB]">attach_file</span> Lampiran Gambar
+              </h3>
+              <div class="overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2">
+                <img :src="selectedTicket.attachment" alt="Attachment Kendala" class="max-h-64 w-full object-contain rounded-lg" />
+              </div>
+            </div>
+
+            <!-- Dedicated CASP Rating Section -->
+            <div class="border-t border-[#F1F5F9] pt-5 space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-xs font-bold text-[#0F172A] uppercase tracking-wider">CASP Assessment</h3>
+                  <p class="text-[11px] text-[#64748B]">Evaluasi kualitas penanganan ticket</p>
+                </div>
+              </div>
+
+              <TicketCaspRating
+                :ticket="selectedTicket"
+                :ticket-id="selectedTicket.id"
+                :ticket-status="selectedTicket.status_tiket"
+                @rated="fetchTickets"
+              />
+            </div>
+
+          </div>
+
+          <!-- TAB 2: ACTIVITY TIMELINE -->
+          <div v-else-if="activeDetailTab === 'history'" class="space-y-4">
+            <div v-if="isHistoryLoading" class="flex flex-col items-center justify-center py-12 gap-2 text-[#94A3B8]">
+              <span class="material-symbols-outlined text-[24px] animate-spin text-[#2563EB]">progress_activity</span>
+              <span class="text-xs font-medium">Memuat riwayat aktivitas...</span>
+            </div>
+
+            <div v-else-if="ticketHistory.length === 0" class="rounded-xl border border-[#F1F5F9] bg-[#F8FAFC] p-8 text-center text-xs text-[#64748B]">
+              Belum ada riwayat aktivitas pada ticket ini.
+            </div>
+
+            <!-- Activity Timeline -->
+            <div v-else class="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#E2E8F0]">
+              <div
+                v-for="log in ticketHistory"
+                :key="log.id"
+                class="relative flex flex-col gap-1 text-xs"
+              >
+                <!-- Dot on Timeline -->
+                <div class="absolute -left-6 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white border border-[#E2E8F0]">
+                  <span class="h-2 w-2 rounded-full bg-[#2563EB]"></span>
+                </div>
+
+                <!-- Event Header & Actor -->
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-[#0F172A]">{{ log.aksi }}</span>
+                    <span class="text-[11px] text-[#64748B]">oleh <strong>{{ log.oleh_pengguna || 'Sistem' }}</strong></span>
+                  </div>
+                  <span class="text-[11px] text-[#94A3B8]">{{ formatDateTime(log.dibuat_pada) }}</span>
+                </div>
+
+                <!-- Details / Diffs -->
+                <div class="text-[11.5px] text-[#475569] bg-[#F8FAFC] p-2.5 rounded-lg border border-[#F1F5F9] mt-0.5">
+                  {{ log.perubahan }}
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- TAB 3: Diskusi & Komentar (Chat Feed) -->
-        <div v-else-if="activeDetailTab === 'comments'" class="flex flex-col gap-3">
-          <!-- Scrollable Chat Bubble Area -->
-          <div ref="chatContainer" class="rounded-2xl border border-[#E5EAEF] bg-[#F8FAFC] p-4 flex flex-col gap-3.5 min-h-[260px] max-h-96 overflow-y-auto">
-            <div v-if="isCommentsLoading" class="flex flex-col items-center justify-center py-10 gap-2 text-[#7C8BAC]">
-              <span class="material-symbols-outlined text-[26px] animate-spin text-[#5D87FF]">progress_activity</span>
-              <span class="text-[12px] font-medium">Memuat percakapan...</span>
-            </div>
-
-            <div v-else-if="ticketComments.length === 0" class="flex flex-col items-center justify-center py-12 gap-2 text-center text-[#7C8BAC]">
-              <span class="material-symbols-outlined text-[36px] text-[#CBD5E1]">chat_bubble_outline</span>
-              <p class="text-[12px] font-bold text-[#475569]">Belum ada komentar pada tiket ini.</p>
-              <p class="text-[11px]">Mulai diskusi atau berikan catatan perbaikan melalui form di bawah.</p>
-            </div>
-
-            <!-- Chat Bubble Item -->
-            <div
-              v-for="c in ticketComments"
-              :key="c.id"
-              class="flex items-start gap-2.5 max-w-[85%]"
-              :class="c.nama_pengguna === user?.nama ? 'self-end flex-row-reverse' : 'self-start'"
-            >
-              <!-- User Avatar Circle -->
-              <div
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold text-white shadow-xs"
-                :class="c.nama_pengguna === user?.nama ? 'bg-[#5D87FF]' : 'bg-[#FA896B]'"
-              >
-                {{ (c.nama_pengguna || 'U').charAt(0).toUpperCase() }}
+          <!-- TAB 3: DISCUSSION THREAD -->
+          <div v-else-if="activeDetailTab === 'comments'" class="flex flex-col gap-4">
+            <!-- Messages Container -->
+            <div ref="chatContainer" class="flex flex-col gap-3 min-h-[220px] max-h-[360px] overflow-y-auto pr-1">
+              <div v-if="isCommentsLoading" class="flex flex-col items-center justify-center py-10 gap-2 text-[#94A3B8]">
+                <span class="material-symbols-outlined text-[24px] animate-spin text-[#2563EB]">progress_activity</span>
+                <span class="text-xs font-medium">Memuat percakapan...</span>
               </div>
 
-              <!-- Message Bubble Box -->
-              <div class="flex flex-col gap-1 min-w-0" :class="c.nama_pengguna === user?.nama ? 'items-end' : 'items-start'">
-                <div class="flex items-center gap-2 text-[10px]">
-                  <span class="font-bold text-[#2A3547]">{{ c.nama_pengguna }}</span>
-                  <span class="rounded-full bg-[#ECF2FF] px-1.5 py-0.5 font-bold text-[#5D87FF] capitalize">{{ c.role_pengguna || 'user' }}</span>
-                  <span class="text-[#94A3B8]">{{ formatDateTime(c.dibuat_pada) }}</span>
+              <div v-else-if="ticketComments.length === 0" class="flex flex-col items-center justify-center py-10 gap-2 text-center text-[#94A3B8]">
+                <span class="material-symbols-outlined text-[32px]">chat_bubble_outline</span>
+                <p class="text-xs font-bold text-[#334155]">Belum ada diskusi pada ticket ini.</p>
+                <p class="text-[11px]">Berikan catatan atau instruksi melalui form di bawah.</p>
+              </div>
+
+              <!-- Message Bubbles -->
+              <div
+                v-for="c in ticketComments"
+                :key="c.id"
+                class="flex flex-col gap-1 max-w-[85%]"
+                :class="c.nama_pengguna === user?.nama ? 'self-end items-end' : 'self-start items-start'"
+              >
+                <div class="flex items-center gap-2 text-[10.5px] text-[#94A3B8]">
+                  <span class="font-bold text-[#334155]">{{ c.nama_pengguna }}</span>
+                  <span class="capitalize">({{ c.role_pengguna || 'user' }})</span>
+                  <span>·</span>
+                  <span>{{ formatDateTime(c.dibuat_pada) }}</span>
                 </div>
 
                 <div
-                  class="rounded-2xl p-3 text-[12px] leading-relaxed shadow-xs"
-                  :class="c.nama_pengguna === user?.nama ? 'bg-[#5D87FF] text-white rounded-tr-xs' : 'bg-white text-[#2A3547] border border-[#E5EAEF] rounded-tl-xs'"
+                  class="rounded-2xl px-4 py-2.5 text-xs leading-relaxed"
+                  :class="c.nama_pengguna === user?.nama
+                    ? 'bg-[#2563EB] text-white rounded-tr-xs'
+                    : 'bg-[#F8FAFC] text-[#0F172A] border border-[#E2E8F0] rounded-tl-xs'"
                 >
                   <p class="whitespace-pre-wrap">{{ c.pesan }}</p>
-                  
-                  <!-- Comment attachments are fetched only after an explicit click. -->
+
                   <button
                     v-if="c.has_attachment && !c.attachment"
                     type="button"
@@ -1711,68 +1850,102 @@ function toast(message, type = 'success') {
                     <span class="material-symbols-outlined text-[14px]">image</span>
                     {{ c.is_attachment_loading ? 'Memuat...' : 'Tampilkan lampiran' }}
                   </button>
-                  <p v-if="c.attachment_error" class="mt-1 text-[10px] font-medium text-red-200">
-                    {{ c.attachment_error }}
-                  </p>
+
                   <div v-if="c.attachment" class="mt-2 overflow-hidden rounded-xl border border-white/20">
                     <img :src="c.attachment" alt="Attachment Komentar" class="max-h-40 w-full object-cover" />
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- Chat Bottom Input Bar / Locked Banner -->
-          <div v-if="['Resolved', 'Closed', 'Cancelled'].includes(selectedTicket.status_tiket)" class="flex items-center justify-center gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 text-[12px] font-bold text-[#64748B]">
-            <span class="material-symbols-outlined text-[18px] text-[#94A3B8]">lock</span>
-            Diskusi untuk tiket ini telah ditutup karena status tiket sudah {{ selectedTicket.status_tiket }}.
-          </div>
-
-          <div v-else class="flex flex-col gap-2 rounded-2xl border border-[#DFE5EF] bg-white p-3 shadow-xs">
-            <!-- Attachment Preview Bar if selected -->
-            <div v-if="commentAttachment" class="flex items-center justify-between gap-2 rounded-xl bg-[#F8FAFC] p-2 border border-[#E5EAEF]">
-              <div class="flex items-center gap-2 min-w-0">
-                <img :src="commentAttachment" alt="Preview Attachment" class="h-10 w-10 rounded-lg object-cover" />
-                <span class="text-[11px] font-bold text-[#2A3547] truncate">Lampiran gambar siap dikirim</span>
-              </div>
-              <button type="button" @click="removeCommentAttachment" class="text-red-500 hover:text-red-700 cursor-pointer">
-                <span class="material-symbols-outlined text-[18px]">close</span>
-              </button>
+            <!-- Comment Composer -->
+            <div v-if="['Resolved', 'Closed', 'Cancelled'].includes(selectedTicket.status_tiket)" class="flex items-center justify-center gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs font-medium text-[#64748B]">
+              <span class="material-symbols-outlined text-[16px]">lock</span>
+              <span>Diskusi ditutup karena status ticket sudah {{ selectedTicket.status_tiket }}.</span>
             </div>
 
-            <form class="flex items-center gap-2" @submit.prevent="sendComment">
-              <!-- Attachment Icon Button -->
-              <label title="Tambah Lampiran Gambar" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer">
-                <span class="material-symbols-outlined text-[20px]">add_a_photo</span>
-                <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="handleCommentFileChange" />
-              </label>
+            <div v-else class="flex flex-col gap-2 rounded-xl border border-[#E2E8F0] bg-white p-3">
+              <div v-if="commentAttachment" class="flex items-center justify-between gap-2 rounded-lg bg-[#F8FAFC] p-2 border border-[#E2E8F0]">
+                <div class="flex items-center gap-2 min-w-0">
+                  <img :src="commentAttachment" alt="Preview Attachment" class="h-9 w-9 rounded-lg object-cover" />
+                  <span class="text-xs font-bold text-[#0F172A] truncate">Gambar lampiran siap dikirim</span>
+                </div>
+                <button type="button" @click="removeCommentAttachment" class="text-rose-500 hover:text-rose-700 cursor-pointer">
+                  <span class="material-symbols-outlined text-[16px]">close</span>
+                </button>
+              </div>
 
-              <!-- Input Message Field -->
-              <input
-                v-model="newCommentText"
-                type="text"
-                placeholder="Tulis komentar atau catatan perbaikan..."
-                class="h-10 flex-1 rounded-xl border border-[#DFE5EF] bg-[#F8FAFC] px-4 text-[12px] font-medium text-[#2A3547] outline-none transition-all focus:bg-white focus:border-[#5D87FF]"
-              />
+              <form class="flex items-center gap-2" @submit.prevent="sendComment">
+                <label title="Tambah Lampiran Gambar" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#2563EB] transition-all cursor-pointer">
+                  <span class="material-symbols-outlined text-[18px]">add_a_photo</span>
+                  <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="handleCommentFileChange" />
+                </label>
 
-              <!-- Send Button -->
-              <button
-                type="submit"
-                :disabled="isSubmittingComment || (!newCommentText.trim() && !commentAttachment)"
-                class="flex h-10 px-5 items-center justify-center gap-1.5 rounded-xl bg-[#5D87FF] text-[12px] font-bold text-white shadow-md shadow-blue-500/20 hover:bg-[#4570EA] disabled:opacity-40 transition-all cursor-pointer"
-              >
-                <span class="material-symbols-outlined text-[18px]">send</span>
-                <span>Kirim</span>
-              </button>
-            </form>
+                <input
+                  v-model="newCommentText"
+                  type="text"
+                  placeholder="Tulis komentar atau catatan perbaikan..."
+                  class="h-9 flex-1 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 text-xs font-medium text-[#0F172A] outline-none transition-all focus:bg-white focus:border-[#2563EB]"
+                />
+
+                <button
+                  type="submit"
+                  :disabled="isSubmittingComment || (!newCommentText.trim() && !commentAttachment)"
+                  class="flex h-9 px-4 items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] text-xs font-bold text-white shadow-2xs hover:bg-[#1D4ED8] disabled:opacity-40 transition-all cursor-pointer"
+                >
+                  <span class="material-symbols-outlined text-[16px]">send</span>
+                  <span>Kirim</span>
+                </button>
+              </form>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- STICKY FOOTER ACTION AREA -->
+        <div class="sticky bottom-0 z-20 flex items-center justify-between gap-4 border-t border-[#F1F5F9] bg-white px-6 py-3.5">
+          <!-- Admin Status Control & Claim Actions -->
+          <div v-if="isAdmin || isSuperAdmin" class="flex items-center gap-2">
+            <!-- Compact Status Selector -->
+            <select
+              v-if="!['Closed','Resolved','Cancelled'].includes(selectedTicket.status_tiket)"
+              :value="selectedTicket.status_tiket"
+              :disabled="isUpdatingStatus"
+              @change="updateTicketStatus(selectedTicket, $event.target.value)"
+              class="h-9 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-xs font-bold text-[#0F172A] focus:border-[#2563EB] focus:outline-none cursor-pointer disabled:opacity-50"
+            >
+              <option value="Open">● Open</option>
+              <option value="In Progress">● In Progress</option>
+              <option value="Pending">● Pending</option>
+              <option value="Resolved">● Resolved</option>
+              <option value="Closed">● Closed</option>
+            </select>
+
+            <!-- Claim Button if Unassigned -->
+            <button
+              v-if="!selectedTicket.assigned_to_user_id && !['Closed','Resolved','Cancelled'].includes(selectedTicket.status_tiket)"
+              type="button"
+              @click="claimTicket(selectedTicket)"
+              :disabled="isClaiming === selectedTicket.id"
+              class="h-9 inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-3 text-xs font-bold text-white hover:bg-[#1D4ED8] disabled:opacity-50 transition-all cursor-pointer"
+            >
+              <span class="material-symbols-outlined text-[16px]">person_add</span>
+              <span>{{ isClaiming === selectedTicket.id ? 'Mengambil...' : 'Ambil Ticket Ini' }}</span>
+            </button>
+          </div>
+
+          <!-- Default Close Button -->
+          <div class="flex items-center justify-end gap-2 ml-auto">
+            <button
+              type="button"
+              @click="closeModal"
+              class="h-9 rounded-xl border border-[#E2E8F0] px-4 text-xs font-semibold text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-colors cursor-pointer"
+            >
+              Tutup
+            </button>
           </div>
         </div>
 
-        <div class="flex justify-end border-t border-[#F1F5F9] pt-4">
-          <button type="button" @click="closeModal" class="h-10 rounded-xl bg-[#5D87FF] px-6 text-[12px] font-bold text-white hover:bg-[#4570EA]">
-            Tutup
-          </button>
-        </div>
       </div>
     </AppModal>
 

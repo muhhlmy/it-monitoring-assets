@@ -1,26 +1,29 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useApi } from '@/composables/useApi'
+import { useAuth } from '@/composables/useAuth'
 import CsatStars from './CsatStars.vue'
 
 const props = defineProps({
   ticketId: { type: Number, required: true },
+  ticketStatus: { type: String, default: '' },
+  ticket: { type: Object, default: null },
 })
 const emit = defineEmits(['rated'])
 
 const { get, post } = useApi()
+const { user, isAdmin, isSuperAdmin } = useAuth()
 
-const isEligible    = ref(false)
-const reason        = ref('')
+const reason = ref('')
 const existingRating = ref(null)
-const isLoading     = ref(true)
-const isSubmitting  = ref(false)
-const submitError   = ref('')
-const submitSuccess = ref(false)
+const backendEligible = ref(null)
+const isLoading = ref(true)
+const isSubmitting = ref(false)
+const submitError = ref('')
 
 const selectedRating = ref(5)
-const hoverRating    = ref(0)
-const feedback       = ref('')
+const hoverRating = ref(0)
+const feedback = ref('')
 
 const ratingLabels = {
   1: 'Sangat Tidak Puas',
@@ -30,13 +33,51 @@ const ratingLabels = {
   5: 'Sangat Puas',
 }
 
+// ── Normalize status: "Resolved" and "Closed" (case-insensitive) = finished ──
+function isTicketFinished(status) {
+  if (typeof status !== 'string') return false
+  const norm = status.trim().toLowerCase()
+  return norm === 'resolved' || norm === 'closed'
+}
+
+const currentStatus = computed(() => {
+  return props.ticketStatus || props.ticket?.status_tiket || ''
+})
+
+const isFinished = computed(() => {
+  return isTicketFinished(currentStatus.value)
+})
+
+// ── Check if logged-in user is the ticket reporter / owner ──
+const isUserReporter = computed(() => {
+  if (!user.value) return false
+  const currentUserId = Number(user.value.id)
+  const pelaporId = Number(
+    props.ticket?.pelapor_user_id ||
+    props.ticket?.pelapor_id ||
+    (typeof props.ticket?.pelapor === 'number' ? props.ticket.pelapor : null)
+  )
+  if (currentUserId && pelaporId && currentUserId === pelaporId) return true
+  // Fallback: If role is USER / REPORTER
+  const role = (user.value.role || '').trim().toLowerCase()
+  return role === 'user' || role === 'reporter'
+})
+
+// ── Eligibility calculation ──
+const isEligible = computed(() => {
+  if (existingRating.value !== null) return false
+  if (!isFinished.value) return false
+  if (backendEligible.value !== null && backendEligible.value) return true
+  return isUserReporter.value
+})
+
 async function fetchCasp() {
   if (!props.ticketId) return
   isLoading.value = true
   submitError.value = ''
   try {
     const data = await get(`/api/tickets/${props.ticketId}/casp`)
-    isEligible.value = Boolean(data.eligible)
+    backendEligible.value = Boolean(data.eligible)
     reason.value = data.reason || ''
     existingRating.value = data.rating || null
   } catch (err) {
@@ -55,7 +96,6 @@ async function submitCasp() {
       rating: selectedRating.value,
       feedback: feedback.value.trim(),
     })
-    submitSuccess.value = true
     await fetchCasp()
     emit('rated')
   } catch (err) {
@@ -65,47 +105,64 @@ async function submitCasp() {
   }
 }
 
-watch(() => props.ticketId, fetchCasp, { immediate: true })
+watch(
+  [() => props.ticketId, () => props.ticketStatus, () => props.ticket?.status_tiket],
+  fetchCasp,
+  { immediate: true },
+)
 </script>
 
 <template>
-  <div class="rounded-2xl border border-[#D2E3FF] bg-[#F4F8FF] p-5 shadow-xs transition-all">
-    <div v-if="isLoading" class="flex items-center gap-3 py-4 text-[#7C8BAC]">
-      <div class="h-5 w-5 animate-spin rounded-full border-2 border-[#D2E3FF] border-t-[#5D87FF]"></div>
-      <span class="text-[12px] font-medium">Memeriksa status penilaian CASP...</span>
+  <div class="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 text-xs transition-all">
+    <!-- Loading State -->
+    <div v-if="isLoading" class="flex items-center gap-2 py-2 text-[#64748B]">
+      <span class="material-symbols-outlined text-[16px] animate-spin text-[#2563EB]">progress_activity</span>
+      <span>Memeriksa status penilaian CASP...</span>
     </div>
 
-    <!-- Rating Sudah Dikirim (Existing Rating) -->
+    <!-- Rating Sudah Dikirim (Submitted Result) -->
     <div v-else-if="existingRating" class="flex flex-col gap-2">
       <div class="flex items-center justify-between">
-        <span class="text-[11px] font-extrabold uppercase tracking-wider text-[#5D87FF]">Penilaian CASP Pelapor</span>
-        <span class="text-[10px] text-[#7C8BAC]">Terkirim</span>
-      </div>
-      <div class="flex items-center gap-1 my-1">
-        <CsatStars :value="existingRating.value" size="24px" />
-        <span class="ml-2 text-[13px] font-bold text-[#2A3547]">
-          {{ existingRating.value }}/5 — {{ existingRating.label }}
+        <h4 class="text-xs font-bold text-[#0F172A]">
+          {{ isUserReporter && !isAdmin && !isSuperAdmin ? 'Penilaian Anda' : 'CASP Assessment' }}
+        </h4>
+        <span class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+          {{ existingRating.value }} / 5
         </span>
       </div>
-      <p v-if="existingRating.feedback" class="text-[12px] italic text-[#475569] bg-white p-3 rounded-xl border border-[#E2E8F0]">
-        "{{ existingRating.feedback }}"
+
+      <div class="flex items-center gap-2">
+        <CsatStars :value="existingRating.value" size="18px" />
+        <span class="text-xs font-bold text-[#0F172A]">
+          {{ existingRating.label }}
+        </span>
+      </div>
+
+      <p v-if="isUserReporter && !isAdmin && !isSuperAdmin" class="text-[11.5px] font-medium text-[#64748B]">
+        Terima kasih atas feedback Anda.
       </p>
+
+      <div v-if="existingRating.feedback" class="mt-1 rounded-lg border border-[#E2E8F0] bg-white p-3 text-[11.5px] text-[#334155] italic">
+        "{{ existingRating.feedback }}"
+      </div>
+
+      <div v-if="(isAdmin || isSuperAdmin) && (existingRating.reporterName || existingRating.assigneeName)" class="text-[10.5px] text-[#94A3B8] flex items-center gap-2 mt-0.5">
+        <span v-if="existingRating.reporterName">Pelapor: {{ existingRating.reporterName }}</span>
+        <span v-if="existingRating.assigneeName">· Petugas: {{ existingRating.assigneeName }}</span>
+      </div>
     </div>
 
-    <!-- Form Input Rating (Jika Eligible) -->
+    <!-- Form Input Rating (User & Eligible) -->
     <div v-else-if="isEligible" class="flex flex-col gap-3">
       <div>
-        <div class="flex items-center gap-2 text-[#5D87FF] mb-1">
-          <span class="material-symbols-outlined text-[20px]">rate_review</span>
-          <h4 class="text-[14px] font-extrabold text-[#2A3547]">Penilaian Penyelesaian Kendala (CASP)</h4>
-        </div>
-        <p class="text-[12px] text-[#7C8BAC]">
-          Tiket ini telah diselesaikan. Berikan penilaian bintang 1–5 untuk mengukur kepuasan problem solving.
+        <h4 class="text-xs font-bold text-[#0F172A]">Penilaian Layanan</h4>
+        <p class="text-[11.5px] font-normal text-[#64748B] mt-0.5">
+          Bagaimana pengalaman Anda terhadap penanganan ticket ini?
         </p>
       </div>
 
-      <!-- Bintang Rating -->
-      <div class="flex flex-col gap-1 items-start my-1">
+      <!-- Bintang Rating Selector -->
+      <div class="flex flex-col gap-1 items-start">
         <div class="flex items-center gap-1">
           <button
             v-for="star in 5"
@@ -118,14 +175,14 @@ watch(() => props.ticketId, fetchCasp, { immediate: true })
             class="text-amber-400 focus:outline-none transition-transform hover:scale-110 cursor-pointer"
           >
             <span
-              class="material-symbols-outlined text-[30px] fill-1"
+              class="material-symbols-outlined text-[26px] fill-1"
               :class="(hoverRating || selectedRating) >= star ? 'text-[#FFAE1F]' : 'text-[#CBD5E1]'"
             >
               star
             </span>
           </button>
         </div>
-        <span class="text-[12px] font-bold text-[#FC841B] mt-0.5">
+        <span class="text-xs font-bold text-[#2563EB]">
           {{ ratingLabels[hoverRating || selectedRating] }}
         </span>
       </div>
@@ -135,32 +192,34 @@ watch(() => props.ticketId, fetchCasp, { immediate: true })
         <textarea
           v-model="feedback"
           rows="2"
-          placeholder="Catatan atau masukan singkat terkait penyelesaian tiket (opsional)..."
-          class="w-full rounded-xl border border-[#DFE5EF] bg-white p-3 text-[12px] font-medium text-[#2A3547] focus:border-[#5D87FF] focus:outline-none"
+          placeholder="Tulis feedback atau masukan Anda... (opsional)"
+          class="w-full rounded-xl border border-[#E2E8F0] bg-white p-3 text-xs font-medium text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all placeholder-[#94A3B8]"
         ></textarea>
       </div>
 
-      <div v-if="submitError" class="text-[12px] font-semibold text-[#FA896B]">
+      <div v-if="submitError" class="text-xs font-semibold text-rose-600">
         {{ submitError }}
       </div>
 
-      <div>
+      <div class="flex items-center justify-end">
         <button
           type="button"
           @click="submitCasp"
           :disabled="isSubmitting || !selectedRating"
-          class="flex items-center gap-2 rounded-xl bg-[#5D87FF] px-4 py-2 text-[12px] font-bold text-white shadow-md hover:bg-[#4570EA] transition-all cursor-pointer disabled:opacity-50"
+          class="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-bold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all cursor-pointer disabled:opacity-50"
         >
-          <span v-if="isSubmitting" class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+          <span v-if="isSubmitting" class="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
           <span v-else class="material-symbols-outlined text-[16px]">send</span>
-          {{ isSubmitting ? 'Sending...' : 'Kirim Penilaian CASP' }}
+          <span>{{ isSubmitting ? 'Mengirim...' : 'Kirim Penilaian' }}</span>
         </button>
       </div>
     </div>
 
-    <!-- Belum Eligible -->
-    <div v-else class="text-[12px] font-medium text-[#7C8BAC]">
-      <span class="italic">{{ reason || 'Penilaian CASP tidak tersedia untuk tiket ini.' }}</span>
+    <!-- Belum Eligible / Status Belum Selesai -->
+    <div v-else class="text-xs font-medium text-[#64748B]">
+      <span v-if="!isFinished" class="italic">Penilaian tersedia setelah ticket selesai.</span>
+      <span v-else-if="isAdmin || isSuperAdmin" class="italic">Belum ada penilaian dari user.</span>
+      <span v-else class="italic">{{ reason || 'Penilaian CASP tidak tersedia untuk tiket ini.' }}</span>
     </div>
   </div>
 </template>

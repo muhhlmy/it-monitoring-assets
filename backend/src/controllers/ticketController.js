@@ -428,8 +428,14 @@ async function withTransaction(operation) {
 
 async function addTicketLog(queryable, id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna) {
   await queryable.query(
-    `INSERT INTO log_riwayat_tiket (id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna) VALUES ($1, $2, $3, $4, $5)`,
-    [id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna || 'Sistem'],
+    `INSERT INTO log_riwayat_tiket (id_tiket, action, old_value, new_value, actor_name) VALUES ($1, $2, $3, $4, $5)`,
+    [
+      id_tiket,
+      aksi || 'UPDATE',
+      nomor_tiket ? { nomor_tiket } : null,
+      perubahan ? { text: perubahan } : null,
+      oleh_pengguna || 'Sistem',
+    ],
   )
 }
 
@@ -716,7 +722,16 @@ export async function getTicketHistory(req, res) {
   assertTicketRead(identity, ticket)
 
   const result = await pool.query(
-    'SELECT * FROM log_riwayat_tiket WHERE id_tiket = $1 ORDER BY id DESC',
+    `SELECT
+       id,
+       id_tiket,
+       action AS aksi,
+       COALESCE(new_value->>'text', action) AS perubahan,
+       actor_name AS oleh_pengguna,
+       created_at AS dibuat_pada
+     FROM log_riwayat_tiket
+     WHERE id_tiket = $1
+     ORDER BY id DESC`,
     [id],
   )
   res.json(result.rows)
@@ -731,16 +746,17 @@ export async function getTicketComments(req, res) {
 
   const result = await pool.query(
     `SELECT
-       id,
-       id_tiket,
-       nama_pengguna,
-       role_pengguna,
-       pesan,
-       dibuat_pada,
-       (attachment IS NOT NULL) AS has_attachment
-     FROM komentar_tiket
-     WHERE id_tiket = $1
-     ORDER BY id ASC`,
+       k.id,
+       k.id_tiket,
+       u.nama AS nama_pengguna,
+       u.role AS role_pengguna,
+       k.pesan,
+       k.created_at AS dibuat_pada,
+       (k.attachment_data IS NOT NULL AND k.attachment_data != '') AS has_attachment
+     FROM komentar_tiket k
+     JOIN users u ON u.id = k.user_id
+     WHERE k.id_tiket = $1
+     ORDER BY k.id ASC`,
     [id],
   )
   res.json(result.rows)
@@ -753,7 +769,16 @@ export async function getTicketAttachment(req, res) {
   const ticket = await loadTicketAccessContext(pool, identity, id)
   assertTicketRead(identity, ticket)
 
-  const result = await pool.query('SELECT attachment FROM tickets WHERE id = $1', [id])
+  const result = await pool.query(
+    `SELECT attachment_data AS attachment
+     FROM komentar_tiket
+     WHERE id_tiket = $1
+       AND attachment_data IS NOT NULL
+       AND attachment_data != ''
+     ORDER BY id ASC
+     LIMIT 1`,
+    [id],
+  )
   const attachment = result.rows[0]?.attachment
   if (typeof attachment !== 'string' || !attachment.trim()) {
     throw createHttpError(404, 'Lampiran tiket tidak ditemukan.')
@@ -771,7 +796,7 @@ export async function getTicketCommentAttachment(req, res) {
   assertTicketRead(identity, ticket)
 
   const result = await pool.query(
-    `SELECT attachment
+    `SELECT attachment_data AS attachment
      FROM komentar_tiket
      WHERE id_tiket = $1
        AND id = $2`,
@@ -826,19 +851,26 @@ export async function createTicketComment(req, res) {
 
     const actorRole = identity.role === TICKET_ROLES.REPORTER ? 'user' : identity.role
     const result = await client.query(
-      `INSERT INTO komentar_tiket (id_tiket, nama_pengguna, role_pengguna, pesan, attachment)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [id, identity.name, actorRole, normalizedMessage, normalizedAttachment],
+      `INSERT INTO komentar_tiket (id_tiket, user_id, pesan, attachment_data)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, id_tiket, pesan, created_at AS dibuat_pada`,
+      [id, identity.id, normalizedMessage, normalizedAttachment],
     )
-    newComment = result.rows[0]
+    newComment = {
+      ...result.rows[0],
+      nama_pengguna: identity.name,
+      role_pengguna: actorRole,
+      has_attachment: Boolean(normalizedAttachment),
+    }
 
-    await client.query(
-      `INSERT INTO log_riwayat_tiket
-         (id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [id, ticket.nomor_tiket, 'KOMENTAR', 'Komentar ditambahkan.', identity.name],
-    )
+    if (normalizedAttachment) {
+      await client.query(
+        `UPDATE tickets SET attachment_count = COALESCE(attachment_count, 0) + 1 WHERE id = $1`,
+        [id],
+      )
+    }
+
+    await addTicketLog(client, id, ticket.nomor_tiket, 'KOMENTAR', 'Komentar ditambahkan.', identity.name)
     await client.query('COMMIT')
   } catch (error) {
     await client.query('ROLLBACK')
@@ -901,13 +933,13 @@ export async function createTicket(req, res) {
     }
     const queue = queueCheck.rows[0]
 
-    const temporaryTicketNumber = `PENDING-${randomUUID()}`
+    const temporaryTicketNumber = `TMP-${randomUUID().replace(/-/g, '').slice(0, 16)}`
 
     const result = await client.query(
       `INSERT INTO tickets
          (nomor_tiket, judul, deskripsi, kategori, prioritas, status_tiket,
-          assigned_to, pelapor, attachment, queue_id, pelapor_user_id, assigned_to_user_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+          queue_id, pelapor_user_id, assigned_to_user_id, attachment_count)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
         temporaryTicketNumber,
@@ -916,16 +948,22 @@ export async function createTicket(req, res) {
         kategori || queue.kode,
         prioritas,
         'Open',
-        null,
-        pelaporNama,
-        attachment,
         queue.id,
         pelaporId,
         null,
+        attachment ? 1 : 0,
       ],
     )
 
     const insertedTicket = result.rows[0]
+    if (attachment) {
+      await client.query(
+        `INSERT INTO komentar_tiket (id_tiket, user_id, pesan, attachment_data)
+         VALUES ($1, $2, $3, $4)`,
+        [insertedTicket.id, pelaporId, 'Lampiran Kendala', attachment],
+      )
+    }
+
     const nomor_tiket = `TKT-${new Date().getFullYear()}-${String(insertedTicket.id).padStart(6, '0')}`
     const numberResult = await client.query(
       `UPDATE tickets
@@ -989,7 +1027,7 @@ export async function updateTicket(req, res) {
        kategori,
        prioritas,
        status_tiket,
-       attachment,
+       attachment_count,
        queue_id
      FROM tickets
      WHERE id = $1
@@ -1050,7 +1088,18 @@ export async function updateTicket(req, res) {
       }
     }
 
-    const newAttachment = attachment !== undefined ? attachment : oldTicket.attachment
+    if (attachment) {
+      await client.query(
+        `INSERT INTO komentar_tiket (id_tiket, user_id, pesan, attachment_data)
+         VALUES ($1, $2, $3, $4)`,
+        [id, identity.id, 'Lampiran Kendala (Perubahan)', attachment],
+      )
+      await client.query(
+        `UPDATE tickets SET attachment_count = COALESCE(attachment_count, 0) + 1 WHERE id = $1`,
+        [id],
+      )
+    }
+
     const wasResolved = isTicketResolutionStatus(oldTicket.status_tiket)
     const willBeResolved =
       status_tiket === undefined ? wasResolved : isTicketResolutionStatus(status_tiket)
@@ -1060,7 +1109,7 @@ export async function updateTicket(req, res) {
 
     if (isReopening) {
       const ratingResult = await client.query(
-        'SELECT 1 FROM ticket_casp_ratings WHERE ticket_id = $1 LIMIT 1',
+        'SELECT 1 FROM ticket_casp_ratings WHERE id_tiket = $1 LIMIT 1',
         [id],
       )
       if (ratingResult.rowCount > 0) {
@@ -1075,45 +1124,43 @@ export async function updateTicket(req, res) {
       `UPDATE tickets t
         SET judul       = COALESCE($1, judul),
             deskripsi   = COALESCE($2, deskripsi),
-            kategori    = CASE WHEN $11 = TRUE THEN $3 ELSE kategori END,
+            kategori    = CASE WHEN $10 = TRUE THEN $3 ELSE kategori END,
             prioritas   = COALESCE($4, prioritas),
             status_tiket = COALESCE($5, status_tiket),
-            attachment  = CASE WHEN $12 = TRUE THEN $6 ELSE attachment END,
-            queue_id    = CASE WHEN $11 = TRUE THEN $7 ELSE queue_id END,
+            queue_id    = CASE WHEN $10 = TRUE THEN $6 ELSE queue_id END,
             resolved_at = CASE
-              WHEN $13 = TRUE THEN CURRENT_TIMESTAMP
-              WHEN $14 = TRUE THEN NULL
+              WHEN $11 = TRUE THEN CURRENT_TIMESTAMP
+              WHEN $12 = TRUE THEN NULL
               ELSE resolved_at
             END,
             resolved_by_user_id = CASE
-              WHEN $13 = TRUE THEN $10
-              WHEN $14 = TRUE THEN NULL
+              WHEN $11 = TRUE THEN $9
+              WHEN $12 = TRUE THEN NULL
               ELSE resolved_by_user_id
             END,
-            assigned_to = CASE WHEN $15 = TRUE THEN NULL ELSE assigned_to END,
-            assigned_to_user_id = CASE WHEN $15 = TRUE THEN NULL ELSE assigned_to_user_id END,
-            diperbarui_pada = CURRENT_TIMESTAMP
-      WHERE t.id = $8
+            assigned_to_user_id = CASE WHEN $13 = TRUE THEN NULL ELSE assigned_to_user_id END,
+            updated_at  = CURRENT_TIMESTAMP
+      WHERE t.id = $7
         AND t.deleted_at IS NULL
         AND (
-          $9 = TRUE
-          OR t.assigned_to_user_id = $10
+          $8 = TRUE
+          OR t.assigned_to_user_id = $9
           OR EXISTS (
             SELECT 1
             FROM user_ticket_queues current_scope
-            WHERE current_scope.user_id = $10
+            WHERE current_scope.user_id = $9
               AND current_scope.queue_id = t.queue_id
           )
         )
         AND (
-          $9 = TRUE
-          OR $11 = FALSE
-          OR $7 = t.queue_id
+          $8 = TRUE
+          OR $10 = FALSE
+          OR $6 = t.queue_id
           OR EXISTS (
             SELECT 1
             FROM user_ticket_queues target_scope
-            WHERE target_scope.user_id = $10
-              AND target_scope.queue_id = $7
+            WHERE target_scope.user_id = $9
+              AND target_scope.queue_id = $6
           )
         )
       RETURNING t.*`,
@@ -1123,13 +1170,11 @@ export async function updateTicket(req, res) {
         queueKode,
         prioritas,
         status_tiket,
-        newAttachment,
         newQueueId,
         id,
         identity.role === TICKET_ROLES.SUPERADMIN,
         identity.id,
         queue_id !== undefined,
-        attachment !== undefined,
         isResolving,
         isReopening,
         queueChanged,
@@ -1147,7 +1192,7 @@ export async function updateTicket(req, res) {
     if (prioritas && prioritas !== oldTicket.prioritas)
       changes.push(`Prioritas: '${oldTicket.prioritas}' → '${prioritas}'`)
     if (queueChanged) changes.push('Unit tujuan diubah dan assignment lama dikosongkan')
-    if (newAttachment !== oldTicket.attachment) changes.push('Lampiran diperbarui')
+    if (attachment) changes.push('Lampiran diperbarui')
 
     const aksi =
       status_tiket && status_tiket !== oldTicket.status_tiket
@@ -1194,15 +1239,14 @@ export async function claimTicket(req, res) {
     const result = await client.query(
       `UPDATE tickets t
         SET assigned_to_user_id = $1,
-            assigned_to = $2,
             status_tiket = 'In Progress',
-            diperbarui_pada = CURRENT_TIMESTAMP
-      WHERE t.id = $3
+            updated_at = CURRENT_TIMESTAMP
+      WHERE t.id = $2
         AND t.deleted_at IS NULL
         AND t.assigned_to_user_id IS NULL
         AND t.status_tiket NOT IN ('Closed', 'Resolved', 'Cancelled')
         AND (
-          $4 = TRUE
+          $3 = TRUE
           OR EXISTS (
             SELECT 1
             FROM user_ticket_queues utq
@@ -1211,7 +1255,7 @@ export async function claimTicket(req, res) {
           )
         )
       RETURNING *`,
-      [identity.id, identity.name, id, identity.role === TICKET_ROLES.SUPERADMIN],
+      [identity.id, id, identity.role === TICKET_ROLES.SUPERADMIN],
     )
 
     if (result.rowCount === 0) {
@@ -1298,12 +1342,11 @@ export async function reassignTicket(req, res) {
     const result = await client.query(
       `UPDATE tickets AS t
         SET assigned_to_user_id = $1,
-            assigned_to = $2,
-            diperbarui_pada = CURRENT_TIMESTAMP
-      WHERE t.id = $3
+            updated_at = CURRENT_TIMESTAMP
+      WHERE t.id = $2
         AND t.deleted_at IS NULL
-        AND t.assigned_to_user_id IS NOT DISTINCT FROM $4
-        AND t.queue_id IS NOT DISTINCT FROM $5
+        AND t.assigned_to_user_id IS NOT DISTINCT FROM $3
+        AND t.queue_id IS NOT DISTINCT FROM $4
         AND LOWER(TRIM(t.status_tiket)) NOT IN ('closed', 'resolved', 'cancelled')
         AND EXISTS (
           SELECT 1
@@ -1312,7 +1355,7 @@ export async function reassignTicket(req, res) {
             AND target_user.is_active = true
             AND (
               (
-                $6 = TRUE
+                $5 = TRUE
                 AND LOWER(TRIM(target_user.role)) IN ('superadmin', 'super admin')
               )
               OR (
@@ -1333,7 +1376,6 @@ export async function reassignTicket(req, res) {
       RETURNING t.*`,
       [
         targetUserId,
-        target.nama,
         id,
         ticket.assigned_to_user_id,
         ticket.queue_id,
@@ -1382,7 +1424,7 @@ export async function deleteTicket(req, res) {
           SET deleted_at = CURRENT_TIMESTAMP,
               deleted_by_user_id = $2,
               deletion_reason = $3,
-              diperbarui_pada = CURRENT_TIMESTAMP
+              updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
           AND deleted_at IS NULL
       RETURNING *`,

@@ -209,7 +209,7 @@ export function canReadTicketCasp(userOrIdentity, ticket) {
   const identity = asTicketIdentity(userOrIdentity)
   if (!hasTicketReadPermission(identity) || !ticket) return false
   if (identity.role === TICKET_ROLES.SUPERADMIN) return true
-  if (identity.role === TICKET_ROLES.REPORTER) return isTicketReporter(identity, ticket)
+  if (isTicketReporter(identity, ticket)) return true
   return identity.role === TICKET_ROLES.ADMIN && hasQueueMembership(ticket)
 }
 
@@ -233,9 +233,6 @@ export function canDeleteTicket(userOrIdentity, ticket = {}) {
 export function canRateTicket(userOrIdentity, ticket) {
   const identity = asTicketIdentity(userOrIdentity)
   if (!canReadTicketCasp(identity, ticket)) return false
-  if (identity.role !== TICKET_ROLES.REPORTER && identity.role !== TICKET_ROLES.SUPERADMIN) {
-    return false
-  }
   return isTicketReporter(identity, ticket) && !isTicketAssignee(identity, ticket)
 }
 
@@ -380,8 +377,8 @@ export async function loadTicketAccessContext(
        t.queue_id,
        t.pelapor_user_id,
        t.assigned_to_user_id,
-       t.pelapor,
-       t.assigned_to,
+       t.pelapor_user_id AS pelapor,
+       t.assigned_to_user_id AS assigned_to,
        EXISTS (
          SELECT 1
          FROM user_ticket_queues utq

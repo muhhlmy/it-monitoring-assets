@@ -88,8 +88,11 @@ const flyoutPos = ref({ top: 0, left: 0 })
 const hoveredTooltipLabel = ref('')
 const tooltipPos = ref({ top: 0, left: 0 })
 
+const profilePopoverRef = ref(null)
+const profileBtnRef = ref(null)
 const showProfilePopover = ref(false)
 const profilePopoverPos = ref({ top: 0, left: 0 })
+const popoverPlacement = ref('up')
 
 let closeFlyoutTimer = null
 
@@ -152,15 +155,63 @@ function handleDirectMouseLeave() {
 function toggleProfilePopover(event) {
   if (showProfilePopover.value) {
     showProfilePopover.value = false
+    return
+  }
+  const btn = event?.currentTarget || profileBtnRef.value
+  if (!btn) return
+  profileBtnRef.value = btn
+
+  // Calculate position synchronously first frame
+  calcPopoverPosition(btn)
+  showProfilePopover.value = true
+
+  // Refine using exact DOM measurements
+  nextTick(() => {
+    calcPopoverPosition(btn)
+  })
+}
+
+function calcPopoverPosition(btn) {
+  if (!btn) return
+  const rect = btn.getBoundingClientRect()
+  const viewportHeight = window.innerHeight
+  const viewportWidth = window.innerWidth
+  const gap = 8
+
+  const popoverEl = profilePopoverRef.value
+  const popoverHeight = popoverEl ? popoverEl.offsetHeight : 138
+  const popoverWidth = popoverEl ? popoverEl.offsetWidth : 208
+
+  let left = props.isCollapsed ? rect.right + gap : rect.left
+
+  if (left + popoverWidth > viewportWidth - 12) {
+    left = viewportWidth - popoverWidth - 12
+  }
+  if (left < 12) left = 12
+
+  const spaceBelow = viewportHeight - rect.bottom
+  let top
+  let placement = 'down'
+
+  if (spaceBelow < popoverHeight + gap && rect.top > popoverHeight + gap) {
+    placement = 'up'
+    top = rect.top - popoverHeight - gap
   } else {
-    const btn = event.currentTarget
-    if (!btn) return
-    const rect = btn.getBoundingClientRect()
-    profilePopoverPos.value = {
-      top: Math.max(10, rect.top - 80),
-      left: rect.right + 8,
-    }
-    showProfilePopover.value = true
+    placement = 'down'
+    top = rect.bottom + gap
+  }
+
+  if (top + popoverHeight > viewportHeight - 12) {
+    top = viewportHeight - popoverHeight - 12
+  }
+  if (top < 12) {
+    top = 12
+  }
+
+  popoverPlacement.value = placement
+  profilePopoverPos.value = {
+    top: Math.round(top),
+    left: Math.round(left),
   }
 }
 
@@ -368,8 +419,37 @@ function handleKeydown(event) {
   }
 }
 
-onMounted(() => document.addEventListener('keydown', handleKeydown))
-onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
+function handleClickOutside(event) {
+  if (!showProfilePopover.value) return
+  const popoverEl = profilePopoverRef.value
+  const btnEl = profileBtnRef.value
+  if (
+    popoverEl &&
+    !popoverEl.contains(event.target) &&
+    btnEl &&
+    !btnEl.contains(event.target)
+  ) {
+    showProfilePopover.value = false
+  }
+}
+
+function handleWindowResize() {
+  if (showProfilePopover.value && profileBtnRef.value) {
+    calcPopoverPosition(profileBtnRef.value)
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown)
+  document.addEventListener('click', handleClickOutside, true)
+  window.addEventListener('resize', handleWindowResize)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('click', handleClickOutside, true)
+  window.removeEventListener('resize', handleWindowResize)
+})
 </script>
 
 <template>
@@ -637,6 +717,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
       <!-- Expanded Mode User Profile Compact Control -->
       <div v-if="!isCollapsed">
         <button
+          ref="profileBtnRef"
           type="button"
           @click="toggleProfilePopover($event)"
           class="flex w-full items-center justify-between gap-2 rounded-xl p-2 text-left hover:bg-[#F8FAFC] transition-colors cursor-pointer select-none group"
@@ -657,6 +738,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
       <!-- Collapsed Mode Navigation Rail User Avatar Button -->
       <div v-else class="relative flex flex-col items-center">
         <button
+          ref="profileBtnRef"
           type="button"
           @click="toggleProfilePopover($event)"
           title="Profil & Pengaturan"
@@ -712,35 +794,38 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
     </div>
 
     <!-- User Profile Popover -->
-    <div
-      v-if="showProfilePopover"
-      class="fixed z-[9999] w-52 rounded-2xl border border-[#E2E8F0] bg-white p-1.5 shadow-xl transition-all select-none outline-none"
-      :style="{ top: `${profilePopoverPos.top}px`, left: `${profilePopoverPos.left}px` }"
-    >
-      <div class="px-3 py-2 border-b border-[#F1F5F9] mb-1">
-        <p class="truncate text-xs font-bold text-[#0F172A]">{{ user?.nama || 'Pengguna' }}</p>
-        <p class="truncate text-[11px] text-[#64748B] capitalize mt-0.5">{{ user?.role || 'Guest' }} {{ user?.nik ? '· ' + user.nik : '' }}</p>
+    <Transition :name="popoverPlacement === 'up' ? 'popover-up' : 'popover-down'">
+      <div
+        v-if="showProfilePopover"
+        ref="profilePopoverRef"
+        class="fixed z-[9999] w-52 rounded-2xl border border-[#E2E8F0] bg-white p-1.5 shadow-xl select-none outline-none"
+        :style="{ top: `${profilePopoverPos.top}px`, left: `${profilePopoverPos.left}px` }"
+      >
+        <div class="px-3 py-2 border-b border-[#F1F5F9] mb-1">
+          <p class="truncate text-xs font-bold text-[#0F172A]">{{ user?.nama || 'Pengguna' }}</p>
+          <p class="truncate text-[11px] text-[#64748B] capitalize mt-0.5">{{ user?.role || 'Guest' }} {{ user?.nik ? '· ' + user.nik : '' }}</p>
+        </div>
+        <div class="space-y-0.5">
+          <button
+            type="button"
+            @click="showProfilePopover = false; openChangePassword()"
+            class="w-full flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-[#334155] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+          >
+            <span class="material-symbols-outlined text-[16px] text-[#64748B]">key</span>
+            <span>Ganti Password</span>
+          </button>
+          <div class="my-1 border-t border-[#F1F5F9]"></div>
+          <button
+            type="button"
+            @click="showProfilePopover = false; logout()"
+            class="w-full flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+          >
+            <span class="material-symbols-outlined text-[16px]">logout</span>
+            <span>Keluar</span>
+          </button>
+        </div>
       </div>
-      <div class="space-y-0.5">
-        <button
-          type="button"
-          @click="showProfilePopover = false; openChangePassword()"
-          class="w-full flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-[#334155] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
-        >
-          <span class="material-symbols-outlined text-[16px] text-[#64748B]">key</span>
-          <span>Ganti Password</span>
-        </button>
-        <div class="my-1 border-t border-[#F1F5F9]"></div>
-        <button
-          type="button"
-          @click="showProfilePopover = false; logout()"
-          class="w-full flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-        >
-          <span class="material-symbols-outlined text-[16px]">logout</span>
-          <span>Keluar</span>
-        </button>
-      </div>
-    </div>
+    </Transition>
   </Teleport>
 
   <!-- Modal Ganti Password Akun -->
@@ -821,5 +906,28 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 .sidebar-backdrop-enter-from,
 .sidebar-backdrop-leave-to {
   opacity: 0;
+}
+
+/* User Profile Popover Directional Animations */
+.popover-up-enter-active,
+.popover-up-leave-active {
+  transition: opacity 150ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: bottom left;
+}
+.popover-up-enter-from,
+.popover-up-leave-to {
+  opacity: 0;
+  transform: translateY(4px) scale(0.96);
+}
+
+.popover-down-enter-active,
+.popover-down-leave-active {
+  transition: opacity 150ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: top left;
+}
+.popover-down-enter-from,
+.popover-down-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.96);
 }
 </style>
