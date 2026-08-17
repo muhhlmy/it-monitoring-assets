@@ -967,17 +967,19 @@ function toast(message, type = 'success') {
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">Tiket Kendala IT</h2>
-          <p class="text-xs text-[#64748B] mt-0.5 leading-normal">Routing tiket pengajuan &amp; bantuan IT berdasarkan unit — IT · HR · GA · OPS</p>
+          <p class="text-xs text-[#64748B] mt-0.5 leading-normal">
+            {{ (isAdmin || isSuperAdmin) ? 'Kelola dan tangani tiket IT' : 'Ajukan permintaan bantuan IT' }}
+          </p>
         </div>
 
         <button
           type="button"
           @click="openAdd"
           class="h-9 shrink-0 whitespace-nowrap rounded-lg bg-[#2563EB] px-3.5 text-xs font-semibold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-          title="Buat tiket baru"
+          :title="(isAdmin || isSuperAdmin) ? 'Buat tiket baru' : 'Request ticket baru'"
         >
           <span class="material-symbols-outlined text-[16px]">add</span>
-          <span>Buat Tiket Baru</span>
+          <span>{{ (isAdmin || isSuperAdmin) ? 'Buat Tiket' : 'Request Ticket' }}</span>
         </button>
       </div>
     </div>
@@ -1288,8 +1290,8 @@ function toast(message, type = 'success') {
     <!-- ── Create / Edit Ticket Modal ─────────────────────── -->
     <AppModal
       :is-open="showFormModal"
-      :title="modalMode === 'add' ? 'Buat Tiket Baru' : 'Edit Tiket Kendala'"
-      :subtitle="modalMode === 'add' ? 'Laporkan kendala dan bantu tim menangani masalah Anda' : 'Perbarui rincian kendala atau status tiket'"
+      :title="modalMode === 'add' ? ((isAdmin || isSuperAdmin) ? 'Buat Tiket Baru' : 'Request Ticket Baru') : 'Edit Tiket Kendala'"
+      :subtitle="modalMode === 'add' ? ((isAdmin || isSuperAdmin) ? 'Buat dan kelola tiket penanganan masalah IT' : 'Ajukan permintaan bantuan IT kepada tim support') : 'Perbarui rincian kendala atau status tiket'"
       icon="confirmation_number"
       size="lg"
       @close="closeModal"
@@ -1469,7 +1471,7 @@ function toast(message, type = 'success') {
             class="h-10 rounded-xl bg-[#2563EB] px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#1D4ED8] transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
           >
             <span v-if="isSubmitting" class="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
-            <span>{{ isSubmitting ? (modalMode === 'add' ? 'Membuat tiket...' : 'Menyimpan...') : (modalMode === 'add' ? 'Buat Tiket' : 'Simpan Tiket') }}</span>
+            <span>{{ isSubmitting ? 'Menyimpan...' : (modalMode === 'add' ? ((isAdmin || isSuperAdmin) ? 'Buat Tiket' : 'Submit Request') : 'Simpan Perubahan') }}</span>
           </button>
         </div>
       </form>

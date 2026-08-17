@@ -40,7 +40,6 @@ const notification = ref(null)
 const searchQuery = ref('')
 const filterStatus = ref('')
 const filterTipe = ref('')
-const viewMode = ref('rows') // 'rows' | 'table'
 const showFormModal = ref(false)
 const showDeleteModal = ref(false)
 const showDetailsModal = ref(false)
@@ -674,7 +673,7 @@ onMounted(async () => {
         </button>
       </div>
 
-      <!-- Row 2: Search, Filters, Secondary Actions & View Switcher -->
+      <!-- Row 2: Search, Filters & Actions -->
       <div class="flex flex-wrap items-center gap-2 w-full min-w-0 pt-2 border-t border-[#F1F5F9]">
         <!-- Search Input -->
         <div class="relative flex-1 min-w-[200px]">
@@ -720,35 +719,13 @@ onMounted(async () => {
         <button
           v-if="canWriteAssets"
           type="button"
-          @click="openImport"
+          @click="showImportModal = true"
           class="h-9 shrink-0 whitespace-nowrap rounded-lg border border-[#E2E8F0] bg-white px-3 text-xs font-medium text-[#475569] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
           title="Impor data dari file Excel"
         >
           <span class="material-symbols-outlined text-[16px] text-[#64748B]">file_upload</span>
           <span>Impor</span>
         </button>
-
-        <!-- Subtle View Mode Switcher -->
-        <div class="flex items-center rounded-lg border border-[#E2E8F0]/80 bg-[#F8FAFC] p-0.5">
-          <button
-            type="button"
-            @click="viewMode = 'rows'"
-            class="flex h-7.5 w-7.5 items-center justify-center rounded-md transition-all cursor-pointer"
-            :class="viewMode === 'rows' ? 'bg-white text-[#2563EB] shadow-2xs font-bold' : 'text-[#94A3B8] hover:text-[#0F172A]'"
-            title="Tampilan SaaS Row Cards"
-          >
-            <span class="material-symbols-outlined text-[17px]">view_stream</span>
-          </button>
-          <button
-            type="button"
-            @click="viewMode = 'table'"
-            class="flex h-7.5 w-7.5 items-center justify-center rounded-md transition-all cursor-pointer"
-            :class="viewMode === 'table' ? 'bg-white text-[#2563EB] shadow-2xs font-bold' : 'text-[#94A3B8] hover:text-[#0F172A]'"
-            title="Tampilan Tabel Minimalis"
-          >
-            <span class="material-symbols-outlined text-[17px]">table_rows</span>
-          </button>
-        </div>
       </div>
     </div>
 
@@ -792,8 +769,8 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- PRIMARY VIEW MODE A: SaaS Row Cards (Linear/Vercel Concept) -->
-      <div v-else-if="viewMode === 'rows'" class="space-y-2.5">
+      <!-- PRIMARY VIEW: SaaS Row Cards -->
+      <div v-else class="space-y-2.5">
         <div
           v-for="asset in paginatedAssets"
           :key="asset.id_aset"
@@ -865,89 +842,6 @@ onMounted(async () => {
               <AppRowActions :actions="getAssetActions(asset)" />
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- ALTERNATIVE VIEW MODE B: Spacious Table View -->
-      <div v-else class="overflow-hidden rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs">
-        <div class="overflow-x-auto" tabindex="0" aria-label="Tabel daftar aset TI">
-          <table class="w-full text-left border-collapse">
-            <caption class="sr-only">Daftar Master Aset IT</caption>
-            <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
-              <tr>
-                <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aset</th>
-                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Penanggung Jawab</th>
-                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Lokasi</th>
-                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Perangkat</th>
-                <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Status & Kondisi</th>
-                <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-[#F1F5F9]">
-              <tr
-                v-for="asset in paginatedAssets"
-                :key="asset.id_aset"
-                @click="openDetails(asset)"
-                class="group hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none"
-              >
-                <td class="py-4 pl-5 pr-4 min-w-[170px]">
-                  <div class="flex flex-col">
-                    <span class="text-[13.5px] font-semibold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate">
-                      {{ asset.hostname || asset.label_aset || '—' }}
-                    </span>
-                    <span class="font-mono text-[11px] font-normal text-[#64748B] mt-0.5 tracking-tight truncate">
-                      {{ asset.serial_number || asset.nomor_seri || '—' }}
-                    </span>
-                  </div>
-                </td>
-
-                <td class="py-4 px-4 min-w-[170px]">
-                  <div class="flex flex-col">
-                    <span class="text-[12.5px] leading-snug truncate" :class="asset.nama_karyawan ? 'font-medium text-[#1E293B]' : 'text-[#94A3B8] italic font-normal'">
-                      {{ asset.nama_karyawan || 'Belum ditetapkan' }}
-                    </span>
-                    <span v-if="asset.nama_karyawan && asset.nik" class="font-mono text-[11px] text-[#64748B] mt-0.5 tracking-tight truncate">
-                      NIK: {{ asset.nik }}
-                    </span>
-                  </div>
-                </td>
-
-                <td class="py-4 px-4 min-w-[140px]">
-                  <span class="text-[12.5px] font-normal text-[#1E293B] truncate block">
-                    {{ asset.lokasi_kerja || asset.lokasi_aset || '—' }}
-                  </span>
-                </td>
-
-                <td class="py-4 px-4 min-w-[160px]">
-                  <div class="flex flex-col">
-                    <span class="text-[12.5px] font-semibold text-[#1E293B] leading-snug truncate">
-                      {{ asset.tipe_perangkat || '—' }}
-                    </span>
-                    <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate">
-                      {{ [asset.merek || asset.brand_merek, asset.model].filter(Boolean).join(' ') || '—' }}
-                    </span>
-                  </div>
-                </td>
-
-                <td class="py-4 px-4 min-w-[150px]">
-                  <div class="flex flex-col items-start select-none">
-                    <div class="flex items-center gap-1.5 text-[12.5px] font-semibold" :class="formatStatusPill(asset.status_aset).text">
-                      <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="formatStatusPill(asset.status_aset).dot"></span>
-                      <span>{{ formatStatusPill(asset.status_aset).label }}</span>
-                    </div>
-                    <div class="flex items-center gap-1 text-[11px] mt-0.5" :class="formatKondisiStyle(asset.kondisi_aset)">
-                      <span class="h-1 w-1 rounded-full shrink-0 opacity-60" :class="formatKondisiDot(asset.kondisi_aset)"></span>
-                      <span>{{ formatKondisiText(asset.kondisi_aset) }}</span>
-                    </div>
-                  </div>
-                </td>
-
-                <td class="py-4 pr-5 pl-4 text-right" @click.stop>
-                  <AppRowActions :actions="getAssetActions(asset)" />
-                </td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </div>
 

@@ -21,7 +21,7 @@ onMounted(() => {
   const finishMounting = () => {
     setTimeout(() => {
       isMounting.value = false
-    }, 200)
+    }, 150)
   }
   img.onload = finishMounting
   img.onerror = finishMounting
@@ -59,107 +59,114 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <!-- ── Skeleton Loading State (Before Mount) ── -->
-  <div v-if="isMounting" class="relative min-h-screen w-full bg-gradient-to-br from-[#9ACDFB] via-[#FFE3D4] to-[#FAD496] overflow-hidden flex font-sans">
-    <div class="absolute -top-[10%] -left-[5%] w-[60%] h-[70%] rounded-full bg-[#0892F5] opacity-80 blur-[100px] pointer-events-none z-0"></div>
-    <div class="absolute top-[30%] left-[30%] w-[50%] h-[50%] rounded-full bg-[#FAA425] opacity-80 blur-[120px] pointer-events-none z-0"></div>
-    <div class="absolute -bottom-[10%] -right-[5%] w-[70%] h-[70%] rounded-full bg-[#0A51B0] opacity-80 blur-[120px] pointer-events-none z-0"></div>
-
-    <div class="relative z-10 mx-auto flex w-full max-w-[1280px] flex-col md:flex-row items-center justify-center gap-12 lg:gap-24 min-h-screen px-6 sm:px-12 lg:px-16">
+  <!-- Outer Container - Fits exactly 100dvh without vertical scrollbar -->
+  <div class="h-screen h-dvh w-full overflow-hidden bg-[#F8FAFC] font-sans antialiased text-slate-900 flex flex-col md:flex-row">
+    
+    <!-- ── Skeleton Loading State ── -->
+    <template v-if="isMounting">
       <!-- Left Branding Skeleton -->
-      <div class="flex w-full md:w-[55%] flex-col justify-center relative py-12">
-        <div class="relative z-10 w-full animate-pulse">
-          <div class="mb-8 flex w-40 h-40 md:w-56 md:h-56 lg:w-64 lg:h-64 items-center justify-center rounded-full bg-white/60 shadow-lg">
-            <div class="w-28 h-28 md:w-40 md:h-40 rounded-full bg-slate-200/70"></div>
-          </div>
-          <div class="h-10 md:h-12 w-3/4 rounded-2xl bg-white/60 mb-4"></div>
-          <div class="h-4 w-1/2 rounded-lg bg-white/50"></div>
+      <div class="hidden md:flex md:w-5/12 lg:w-1/2 bg-[#F1F5F9] border-r border-slate-200/80 p-8 lg:p-14 flex-col justify-between animate-pulse">
+        <div class="h-9 w-32 bg-slate-200 rounded-lg"></div>
+        <div class="space-y-4 max-w-md">
+          <div class="h-10 w-3/4 bg-slate-200 rounded-xl"></div>
+          <div class="h-5 w-full bg-slate-200/70 rounded-lg"></div>
+          <div class="h-5 w-2/3 bg-slate-200/70 rounded-lg"></div>
         </div>
+        <div class="h-4 w-40 bg-slate-200/60 rounded"></div>
       </div>
 
       <!-- Right Form Skeleton -->
-      <div class="flex w-full md:w-[45%] items-center justify-center py-12">
-        <div class="w-full max-w-[440px] rounded-[32px] bg-white/85 p-8 sm:p-10 lg:p-12 shadow-2xl backdrop-blur-2xl border border-white/80 animate-pulse space-y-6">
-          <div>
-            <div class="h-8 w-2/3 rounded-xl bg-slate-200/80 mb-3"></div>
-            <div class="h-4 w-5/6 rounded-lg bg-slate-100"></div>
-          </div>
+      <div class="flex-1 flex items-center justify-center p-6 sm:p-8 bg-white">
+        <div class="w-full max-w-[400px] space-y-6 animate-pulse">
           <div class="space-y-2">
-            <div class="h-3 w-1/3 rounded bg-slate-200/60"></div>
-            <div class="h-14 w-full rounded-2xl bg-slate-100"></div>
+            <div class="h-8 w-2/3 bg-slate-200 rounded-lg"></div>
+            <div class="h-4 w-5/6 bg-slate-100 rounded"></div>
           </div>
-          <div class="space-y-2">
-            <div class="h-3 w-1/4 rounded bg-slate-200/60"></div>
-            <div class="h-14 w-full rounded-2xl bg-slate-100"></div>
+          <div class="space-y-4 pt-2">
+            <div class="h-11 w-full bg-slate-100 rounded-xl"></div>
+            <div class="h-11 w-full bg-slate-100 rounded-xl"></div>
+            <div class="h-4 w-1/3 bg-slate-100 rounded"></div>
+            <div class="h-11 w-full bg-slate-200 rounded-xl"></div>
           </div>
-          <div class="h-5 w-1/3 rounded bg-slate-100"></div>
-          <div class="h-14 w-full rounded-2xl bg-slate-200/90"></div>
         </div>
       </div>
-    </div>
-  </div>
+    </template>
 
-  <!-- Background with ESB Logo Gradients -->
-  <div v-else class="relative min-h-screen w-full bg-gradient-to-br from-[#9ACDFB] via-[#FFE3D4] to-[#FAD496] overflow-hidden flex font-sans">
-    
-    <!-- Background Mesh Gradients / Blobs -->
-    <div class="absolute -top-[10%] -left-[5%] w-[60%] h-[70%] rounded-full bg-[#0892F5] opacity-100 blur-[100px] pointer-events-none z-0"></div>
-    <div class="absolute top-[30%] left-[30%] w-[50%] h-[50%] rounded-full bg-[#FAA425] opacity-90 blur-[120px] pointer-events-none z-0"></div>
-    <div class="absolute -bottom-[10%] -right-[5%] w-[70%] h-[70%] rounded-full bg-[#0A51B0] opacity-90 blur-[120px] pointer-events-none z-0"></div>
-
-    <!-- Main Container -->
-    <div class="relative z-10 mx-auto flex w-full max-w-[1280px] flex-col md:flex-row items-center justify-center gap-12 lg:gap-24 min-h-screen px-6 sm:px-12 lg:px-16">
-      
-      <!-- ── Left Column: Branding & Info ── -->
-      <div class="flex w-full md:w-[55%] flex-col justify-center relative py-12">
+    <!-- ── Actual Content ── -->
+    <template v-else>
+      <!-- ── Left Column: Branding (Desktop) ── -->
+      <div class="hidden md:flex md:w-5/12 lg:w-1/2 bg-gradient-to-b from-[#F8FAFC] via-[#F1F5F9] to-[#E2E8F0]/50 border-r border-slate-200/70 p-8 lg:p-14 flex-col justify-between relative overflow-hidden">
         
-        <div class="relative z-10 w-full">
-          <!-- Logo inside a proportionally sized White Circle -->
-          <div class="mb-8 flex w-40 h-40 md:w-56 md:h-56 lg:w-64 lg:h-64 items-center justify-center rounded-full bg-white shadow-[0_12px_32px_rgba(0,0,0,0.06)]">
-            <img src="/ESB Logo.svg" alt="ESB Logo" class="w-28 md:w-40 lg:w-48 object-contain drop-shadow-md" />
-          </div>
+        <!-- Ambient Subtle Background Glow -->
+        <div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[#0892F5]/5 blur-3xl pointer-events-none"></div>
+        <div class="absolute bottom-10 right-0 w-80 h-80 rounded-full bg-[#0A51B0]/5 blur-3xl pointer-events-none"></div>
 
-          <!-- Main Text -->
-          <h1 class="text-[28px] md:text-[36px] lg:text-[42px] font-black leading-[1.2] tracking-tight bg-gradient-to-r from-[#0892F5] to-[#FF4F1B] bg-clip-text text-transparent">
-            #AhlinyaBisnisKuliner
+        <!-- Top: ESB Logo -->
+        <div class="relative z-10">
+          <img src="/ESB Logo.svg" alt="ESB Logo" class="h-8 lg:h-9 w-auto object-contain" />
+        </div>
+
+        <!-- Middle: Brand Title & Description -->
+        <div class="relative z-10 max-w-md space-y-3.5 my-auto py-6">
+          <h1 class="text-3xl lg:text-6xl font-bold tracking-tight text-slate-900 leading-[1.15]">
+            TrackIT
           </h1>
-
-          <!-- Description -->
-          <p class="mt-4 text-[13px] md:text-[14px] font-medium leading-relaxed text-[#475569] max-w-sm">
-            Sistem Operasional Bisnis Kuliner No.1
+          <p class="text-sm lg:text-base text-slate-600 font-normal leading-relaxed">
+            Kelola aset IT, monitoring perangkat, dan layanan support dalam satu platform.
           </p>
+
+          <div class="pt-4 flex items-center gap-3 text-xs text-slate-400 font-medium">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-200/60 text-slate-600 font-medium">
+              #AhlinyaBisnisKuliner
+            </span>
+          </div>
+        </div>
+
+        <!-- Bottom: Copyright / Subtitle -->
+        <div class="relative z-10 text-xs text-slate-400 font-medium">
+          &copy; 2026 ESB People Technology
         </div>
       </div>
 
       <!-- ── Right Column: Login Form ── -->
-      <div class="flex w-full md:w-[45%] items-center justify-center py-12">
-        <div class="w-full max-w-[440px] rounded-[32px] bg-white/90 p-8 sm:p-10 lg:p-12 shadow-[0_24px_60px_-15px_rgba(10,81,176,0.12)] backdrop-blur-2xl border border-white/80 relative z-10">
+      <div class="flex-1 flex flex-col justify-between p-6 sm:p-8 lg:p-12 bg-white relative z-10 overflow-hidden h-full">
+        
+        <!-- Mobile Header (Logo & Small Title on small viewports) -->
+        <div class="flex md:hidden items-center justify-between pb-3 border-b border-slate-100 mb-2 shrink-0">
+          <img src="/ESB Logo.svg" alt="ESB Logo" class="h-7 w-auto object-contain" />
+          <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Aset IT</span>
+        </div>
+
+        <!-- Centered Form Container -->
+        <div class="w-full max-w-[380px] sm:max-w-[420px] mx-auto my-auto py-2 sm:py-4 flex flex-col justify-center">
           
-          <div class="mb-10">
-            <h2 class="text-[28px] sm:text-[32px] font-extrabold tracking-tight text-[#111827]">
-              Selamat Datang Kembali
+          <!-- Header -->
+          <div class="mb-5 sm:mb-7">
+            <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+              Selamat datang kembali
             </h2>
-            <p class="mt-2 text-[14px] font-medium text-[#64748B]">
-              Silakan masuk ke akun Anda untuk mengelola aset IT.
+            <p class="mt-1.5 text-xs sm:text-sm text-slate-500 font-normal">
+              Masuk untuk melanjutkan.
             </p>
           </div>
 
-          <!-- Pesan Error -->
-          <div v-if="errorMessage" class="mb-6 rounded-xl bg-red-50 p-4 border border-red-100 flex items-start gap-3">
-            <span class="material-symbols-outlined text-red-500 text-[20px] mt-0.5">error</span>
-            <p class="text-[13px] font-semibold text-red-700 leading-relaxed">{{ errorMessage }}</p>
+          <!-- Error Alert -->
+          <div v-if="errorMessage" class="mb-4 rounded-xl bg-red-50 p-3 border border-red-100 flex items-start gap-2.5">
+            <span class="material-symbols-outlined text-red-500 text-[18px] mt-0.5 shrink-0">error</span>
+            <p class="text-xs font-medium text-red-700 leading-relaxed">{{ errorMessage }}</p>
           </div>
 
-          <form @submit.prevent="handleLogin" class="space-y-6">
+          <!-- Form Fields -->
+          <form @submit.prevent="handleLogin" class="space-y-4 sm:space-y-4">
             
-            <!-- Email Input -->
-            <div class="space-y-2">
-              <label for="email" class="block text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
-                Email atau Nama Pengguna
+            <!-- Email / Username -->
+            <div class="space-y-1.5">
+              <label for="email" class="block text-xs font-semibold text-slate-700">
+                Email atau nama pengguna
               </label>
               <div class="relative">
-                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[#0A51B0] pointer-events-none">
-                  <span class="material-symbols-outlined text-[20px]">person</span>
+                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center">
+                  <span class="material-symbols-outlined text-[18px]">mail</span>
                 </span>
                 <input
                   id="email"
@@ -167,19 +174,19 @@ const handleLogin = async () => {
                   type="text"
                   required
                   placeholder="admin@esb.co.id"
-                  class="h-14 w-full rounded-2xl border-2 border-[#E8EDF3] bg-[#F8FAFC] pl-12 pr-4 text-[14px] font-semibold text-[#111827] transition-all placeholder:text-[#94A3B8] focus:border-[#0A51B0] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#0A51B0]/10"
+                  class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:border-[#0892F5] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#0892F5]/10"
                 />
               </div>
             </div>
 
-            <!-- Password Input -->
-            <div class="space-y-2">
-              <label for="password" class="block text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
-                Kata Sandi
+            <!-- Password -->
+            <div class="space-y-1.5">
+              <label for="password" class="block text-xs font-semibold text-slate-700">
+                Kata sandi
               </label>
               <div class="relative">
-                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8] pointer-events-none">
-                  <span class="material-symbols-outlined text-[20px]">lock</span>
+                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center">
+                  <span class="material-symbols-outlined text-[18px]">lock</span>
                 </span>
                 <input
                   id="password"
@@ -187,51 +194,62 @@ const handleLogin = async () => {
                   :type="showPassword ? 'text' : 'password'"
                   required
                   placeholder="••••••••"
-                  class="h-14 w-full rounded-2xl border-2 border-[#E8EDF3] bg-[#F8FAFC] pl-12 pr-12 text-[14px] font-semibold text-[#111827] transition-all placeholder:text-[#94A3B8] focus:border-[#0A51B0] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#0A51B0]/10"
+                  class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-10 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:border-[#0892F5] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#0892F5]/10"
                 />
                 <button
                   type="button"
                   @click="showPassword = !showPassword"
-                  class="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] transition-colors hover:text-[#475569]"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+                  tabindex="-1"
                 >
-                  <span class="material-symbols-outlined text-[20px]">
+                  <span class="material-symbols-outlined text-[18px] block">
                     {{ showPassword ? 'visibility_off' : 'visibility' }}
                   </span>
                 </button>
               </div>
             </div>
 
-            <!-- Options -->
-            <div class="flex items-center justify-between mt-6">
-              <label class="flex items-center gap-3 cursor-pointer group">
-                <div class="relative flex h-5 w-5 items-center justify-center rounded-md border-2 border-[#CBD5E1] bg-white transition-colors group-hover:border-[#0A51B0] has-[:checked]:border-[#0A51B0] has-[:checked]:bg-[#0A51B0]">
-                  <input v-model="rememberMe" type="checkbox" class="peer sr-only" />
-                  <span class="material-symbols-outlined text-[14px] text-white opacity-0 transition-opacity peer-checked:opacity-100">check</span>
-                </div>
-                <span class="text-[13px] font-semibold text-[#64748B] group-hover:text-[#111827]">Ingat Saya</span>
+            <!-- Remember Me -->
+            <div class="flex items-center justify-between pt-0.5">
+              <label class="flex items-center gap-2.5 cursor-pointer select-none group">
+                <input
+                  v-model="rememberMe"
+                  type="checkbox"
+                  class="w-4 h-4 rounded border-slate-300 text-[#0892F5] focus:ring-[#0892F5]/20 accent-[#0892F5] cursor-pointer"
+                />
+                <span class="text-xs sm:text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors">
+                  Ingat saya
+                </span>
               </label>
             </div>
 
-            <!-- Submit Button -->
+            <!-- Primary Submit Button -->
             <button
               type="submit"
               :disabled="isLoading"
-              class="relative mt-8 flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-[#0A51B0] to-[#0892F5] px-8 text-[14px] font-black tracking-wide text-white shadow-[0_8px_20px_-6px_rgba(8,146,245,0.4)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-6px_rgba(8,146,245,0.5)] active:translate-y-0 disabled:pointer-events-none disabled:opacity-70"
+              class="w-full h-11 mt-1 rounded-xl bg-[#0892F5] hover:bg-[#0780D8] text-white font-semibold text-sm transition-all duration-150 shadow-sm active:scale-[0.99] disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center gap-2 group"
             >
-              <span v-if="isLoading" class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+              <span v-if="isLoading" class="flex items-center gap-2">
+                <span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                <span>Masuk...</span>
+              </span>
               <template v-else>
-                MASUK
-                <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+                <span>Masuk</span>
+                <span class="material-symbols-outlined text-[18px] transition-transform group-hover:translate-x-0.5">arrow_forward</span>
               </template>
             </button>
           </form>
 
-          <div class="mt-12 text-center text-[11px] font-semibold text-[#94A3B8]">
-            &copy; 2026 ESB IT Management. Hak cipta dilindungi.
+          <!-- Form Bottom Footer (Subtle) -->
+          <div class="mt-6 sm:mt-8 text-center text-xs text-slate-400 font-normal">
+            &copy; 2026 ESB People Technology
           </div>
         </div>
+
+        <!-- Bottom whitespace balancer -->
+        <div class="hidden sm:block shrink-0 h-2"></div>
       </div>
 
-    </div>
+    </template>
   </div>
 </template>
