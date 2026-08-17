@@ -80,7 +80,7 @@ export async function importExcelData(req, res) {
               `SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))`,
               [email]
             );
-            
+            if (existingUserRes.rows.length === 0) {
               const randomTempPassword = crypto.randomBytes(16).toString('hex');
               const defaultPasswordHash = await hashPassword(randomTempPassword);
               await client.query(
