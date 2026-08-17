@@ -13,18 +13,18 @@ const { get } = useApi()
 const { isSuperAdmin } = useAuth()
 
 // ── State Utama ──────────────────────────────────────────────
-const assetLogs    = ref([])
-const auditLogs    = ref([])
-const isLoading    = ref(true)
-const pageError    = ref('')
-const activeTab    = ref('assets') // 'assets' | 'audit'
+const assetLogs = ref([])
+const auditLogs = ref([])
+const isLoading = ref(true)
+const pageError = ref('')
+const activeTab = ref('assets') // 'assets' | 'audit'
 
 const currentPageAssets = ref(1)
-const currentPageAudit  = ref(1)
-const itemsPerPage      = ref(10)
+const currentPageAudit = ref(1)
+const itemsPerPage = ref(10)
 
 // ── Filter State ─────────────────────────────────────────────
-const searchQuery  = ref('')
+const searchQuery = ref('')
 const filterAction = ref('') // Untuk log aset ('TAMBAH' | 'UBAH' | 'HAPUS')
 const filterActivity = ref('') // Untuk log audit ('LOGIN' | 'LOGOUT' | 'GAGAL_LOGIN')
 
@@ -59,9 +59,15 @@ const filteredAssetLogs = computed(() => {
     const query = searchQuery.value.trim().toLowerCase()
     const matchSearch =
       !query ||
-      String(log.label_aset || '').toLowerCase().includes(query) ||
-      String(log.perubahan || '').toLowerCase().includes(query) ||
-      String(log.oleh_pengguna || '').toLowerCase().includes(query)
+      String(log.label_aset || '')
+        .toLowerCase()
+        .includes(query) ||
+      String(log.perubahan || '')
+        .toLowerCase()
+        .includes(query) ||
+      String(log.oleh_pengguna || '')
+        .toLowerCase()
+        .includes(query)
 
     const matchAction = !filterAction.value || log.aksi === filterAction.value
     return matchSearch && matchAction
@@ -74,10 +80,18 @@ const filteredAuditLogs = computed(() => {
     const query = searchQuery.value.trim().toLowerCase()
     const matchSearch =
       !query ||
-      String(log.nama_pengguna || '').toLowerCase().includes(query) ||
-      String(log.email || '').toLowerCase().includes(query) ||
-      String(log.ip_address || '').toLowerCase().includes(query) ||
-      String(log.browser || '').toLowerCase().includes(query)
+      String(log.nama_pengguna || '')
+        .toLowerCase()
+        .includes(query) ||
+      String(log.email || '')
+        .toLowerCase()
+        .includes(query) ||
+      String(log.ip_address || '')
+        .toLowerCase()
+        .includes(query) ||
+      String(log.browser || '')
+        .toLowerCase()
+        .includes(query)
 
     const matchActivity = !filterActivity.value || log.aktifitas === filterActivity.value
     return matchSearch && matchActivity
@@ -134,11 +148,9 @@ function formatDateTime(dateStr) {
   const date = new Date(dateStr)
   return date.toLocaleString('id-ID', {
     dateStyle: 'medium',
-    timeStyle: 'short'
+    timeStyle: 'short',
   })
 }
-
-
 
 function displayValue(val) {
   if (!val || val === '(kosong)') return '—'
@@ -151,16 +163,18 @@ function parsePerubahan(perubahan, aksi) {
   if (aksi === 'UBAH' && perubahan.startsWith('Perubahan data: ')) {
     const body = perubahan.replace('Perubahan data: ', '')
     const parts = body.split(/,\s*(?=[A-Z])/)
-    return parts.map((part) => {
-      const arrowIdx = part.indexOf(' -> ')
-      if (arrowIdx === -1) return { field: part, old: '', new: '' }
-      const colonIdx = part.indexOf(': ')
-      if (colonIdx === -1) return { field: part, old: '', new: '' }
-      const field = part.substring(0, colonIdx).trim()
-      const oldVal = part.substring(colonIdx + 2, arrowIdx).trim()
-      const newVal = part.substring(arrowIdx + 4).trim()
-      return { field, old: oldVal, new: newVal }
-    }).filter((r) => r.field)
+    return parts
+      .map((part) => {
+        const arrowIdx = part.indexOf(' -> ')
+        if (arrowIdx === -1) return { field: part, old: '', new: '' }
+        const colonIdx = part.indexOf(': ')
+        if (colonIdx === -1) return { field: part, old: '', new: '' }
+        const field = part.substring(0, colonIdx).trim()
+        const oldVal = part.substring(colonIdx + 2, arrowIdx).trim()
+        const newVal = part.substring(arrowIdx + 4).trim()
+        return { field, old: oldVal, new: newVal }
+      })
+      .filter((r) => r.field)
   }
 
   if (aksi === 'TAMBAH' && perubahan.startsWith('Aset baru didaftarkan')) {
@@ -182,11 +196,19 @@ function parsePerubahan(perubahan, aksi) {
 <template>
   <div class="flex min-w-0 flex-col gap-4">
     <!-- Simplified SaaS Header Container -->
-    <div class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
+    <div
+      class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs"
+    >
       <div>
-        <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">Audit Log &amp; Riwayat Aktivitas</h2>
+        <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">
+          Audit Log &amp; Riwayat Aktivitas
+        </h2>
         <p class="text-xs text-[#64748B] mt-0.5 leading-normal">
-          {{ isSuperAdmin ? 'Melihat rekam jejak perubahan sistem & audit login pengguna' : 'Melihat rekam jejak perubahan aset' }}
+          {{
+            isSuperAdmin
+              ? 'Melihat rekam jejak perubahan sistem & audit login pengguna'
+              : 'Melihat rekam jejak perubahan aset'
+          }}
         </p>
       </div>
     </div>
@@ -199,7 +221,10 @@ function parsePerubahan(perubahan, aksi) {
     >
       <span class="material-symbols-outlined text-[18px]" aria-hidden="true">error</span>
       <span>{{ pageError }}</span>
-      <button @click="fetchLogs" class="ml-auto text-[11px] font-extrabold uppercase tracking-wider text-red-800 hover:underline">
+      <button
+        @click="fetchLogs"
+        class="ml-auto text-[11px] font-extrabold uppercase tracking-wider text-red-800 hover:underline"
+      >
         Coba Lagi
       </button>
     </div>
@@ -210,9 +235,11 @@ function parsePerubahan(perubahan, aksi) {
         type="button"
         @click="activeTab = 'assets'"
         class="flex items-center gap-2 px-5 py-3.5 text-[12px] font-bold transition-all duration-150 border-b-2 -mb-[2px]"
-        :class="activeTab === 'assets'
-          ? 'border-brand text-brand font-black'
-          : 'border-transparent text-[#64748B] hover:text-[#172033]'"
+        :class="
+          activeTab === 'assets'
+            ? 'border-brand text-brand font-black'
+            : 'border-transparent text-[#64748B] hover:text-[#172033]'
+        "
       >
         <span class="material-symbols-outlined text-[18px]">history</span>
         Riwayat Perubahan Aset
@@ -222,9 +249,11 @@ function parsePerubahan(perubahan, aksi) {
         type="button"
         @click="activeTab = 'audit'"
         class="flex items-center gap-2 px-5 py-3.5 text-[12px] font-bold transition-all duration-150 border-b-2 -mb-[2px]"
-        :class="activeTab === 'audit'
-          ? 'border-brand text-brand font-black'
-          : 'border-transparent text-[#64748B] hover:text-[#172033]'"
+        :class="
+          activeTab === 'audit'
+            ? 'border-brand text-brand font-black'
+            : 'border-transparent text-[#64748B] hover:text-[#172033]'
+        "
       >
         <span class="material-symbols-outlined text-[18px]">security</span>
         Audit Aktivitas Login
@@ -232,10 +261,15 @@ function parsePerubahan(perubahan, aksi) {
     </div>
 
     <!-- Filters Bar Card -->
-    <div class="shadow-card grid min-w-0 grid-cols-1 items-center gap-3 rounded-2xl border border-[#E8EDF3] bg-white p-3 sm:flex sm:flex-wrap">
+    <div
+      class="shadow-card grid min-w-0 grid-cols-1 items-center gap-3 rounded-2xl border border-[#E8EDF3] bg-white p-3 sm:flex sm:flex-wrap"
+    >
       <!-- Search -->
       <div class="relative flex-1 min-w-[200px]">
-        <span aria-hidden="true" class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-[#94A3B8] pointer-events-none">
+        <span
+          aria-hidden="true"
+          class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-[#94A3B8] pointer-events-none"
+        >
           search
         </span>
         <input
@@ -272,7 +306,9 @@ function parsePerubahan(perubahan, aksi) {
         :disabled="isLoading"
         class="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#DCE3EC] bg-white/50 px-4 text-[12px] font-bold text-[#334155] shadow-sm hover:bg-[#F8FAFC] disabled:opacity-50 sm:w-auto"
       >
-        <span class="material-symbols-outlined text-[18px]" :class="{ 'animate-spin': isLoading }">refresh</span>
+        <span class="material-symbols-outlined text-[18px]" :class="{ 'animate-spin': isLoading }"
+          >refresh</span
+        >
         Segarkan
       </button>
     </div>
@@ -281,16 +317,25 @@ function parsePerubahan(perubahan, aksi) {
     <div class="shadow-card overflow-hidden rounded-[20px] border border-[#E8EDF3] bg-white">
       <!-- Loading State -->
       <div v-if="isLoading" class="flex flex-col items-center justify-center py-24 gap-3">
-        <span class="material-symbols-outlined text-[36px] text-brand animate-spin">progress_activity</span>
+        <span class="material-symbols-outlined text-[36px] text-brand animate-spin"
+          >progress_activity</span
+        >
         <p class="text-[12px] font-semibold text-[#6B7280]">Memuat data log aktivitas...</p>
       </div>
 
       <!-- ── TAB 1: Asset History Log ──────────────────────────── -->
       <div v-else-if="activeTab === 'assets'">
         <!-- Empty State -->
-        <div v-if="filteredAssetLogs.length === 0" class="flex flex-col items-center justify-center py-20 gap-3">
-          <span class="material-symbols-outlined text-[40px] text-[#D1D5DB]">history_toggle_off</span>
-          <p class="text-[13px] font-semibold text-[#9CA3AF]">Tidak ada riwayat perubahan aset ditemukan.</p>
+        <div
+          v-if="filteredAssetLogs.length === 0"
+          class="flex flex-col items-center justify-center py-20 gap-3"
+        >
+          <span class="material-symbols-outlined text-[40px] text-[#D1D5DB]"
+            >history_toggle_off</span
+          >
+          <p class="text-[13px] font-semibold text-[#9CA3AF]">
+            Tidak ada riwayat perubahan aset ditemukan.
+          </p>
         </div>
 
         <!-- Timeline Log Cards -->
@@ -306,7 +351,9 @@ function parsePerubahan(perubahan, aksi) {
                 class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
                 :class="getActionColor(log.aksi)"
               >
-                <span class="material-symbols-outlined text-[18px]">{{ getActionIcon(log.aksi) }}</span>
+                <span class="material-symbols-outlined text-[18px]">{{
+                  getActionIcon(log.aksi)
+                }}</span>
               </div>
             </div>
 
@@ -315,43 +362,76 @@ function parsePerubahan(perubahan, aksi) {
               <!-- Top row: Badge + Label + Time -->
               <div class="flex flex-wrap items-center gap-2 mb-2">
                 <AppBadge :type="getActionBadgeType(log.aksi)" :text="log.aksi" />
-                <span class="text-[13px] font-extrabold text-[#111827] font-mono tracking-tight">{{ log.label_aset }}</span>
-                <span class="text-[10px] text-[#94A3B8] font-medium ml-auto shrink-0 hidden sm:inline">
-                  <span class="material-symbols-outlined text-[12px] align-text-bottom mr-0.5">schedule</span>
+                <span class="text-[13px] font-extrabold text-[#111827] font-mono tracking-tight">{{
+                  log.label_aset
+                }}</span>
+                <span
+                  class="text-[10px] text-[#94A3B8] font-medium ml-auto shrink-0 hidden sm:inline"
+                >
+                  <span class="material-symbols-outlined text-[12px] align-text-bottom mr-0.5"
+                    >schedule</span
+                  >
                   {{ formatDateTime(log.dibuat_pada) }}
                 </span>
               </div>
 
               <!-- UBAH: Changes detail with clean diff style -->
-              <div v-if="log.aksi === 'UBAH' && parsePerubahan(log.perubahan, log.aksi).length && parsePerubahan(log.perubahan, log.aksi)[0].old !== undefined" class="space-y-1.5">
+              <div
+                v-if="
+                  log.aksi === 'UBAH' &&
+                  parsePerubahan(log.perubahan, log.aksi).length &&
+                  parsePerubahan(log.perubahan, log.aksi)[0].old !== undefined
+                "
+                class="space-y-1.5"
+              >
                 <div
                   v-for="(row, idx) in parsePerubahan(log.perubahan, log.aksi)"
                   :key="idx"
                   class="flex items-baseline gap-2 text-[11px]"
                 >
-                  <span class="w-28 shrink-0 text-[10px] font-bold text-[#6B7280] uppercase tracking-wide">{{ row.field }}</span>
+                  <span
+                    class="w-28 shrink-0 text-[10px] font-bold text-[#6B7280] uppercase tracking-wide"
+                    >{{ row.field }}</span
+                  >
                   <span class="flex items-center gap-1.5 min-w-0 flex-wrap">
-                    <span class="inline-flex items-center gap-1 rounded-md bg-[#FEF2F2] px-2 py-0.5 text-[10px] font-semibold text-[#991B1B] line-through decoration-[#FECACA]">{{ displayValue(row.old) }}</span>
-                    <span class="material-symbols-outlined text-[12px] text-[#CBD5E1] shrink-0">arrow_forward</span>
-                    <span class="inline-flex items-center gap-1 rounded-md bg-[#F0FDF4] px-2 py-0.5 text-[10px] font-bold text-[#166534]">{{ displayValue(row.new) }}</span>
+                    <span
+                      class="inline-flex items-center gap-1 rounded-md bg-[#FEF2F2] px-2 py-0.5 text-[10px] font-semibold text-[#991B1B] line-through decoration-[#FECACA]"
+                      >{{ displayValue(row.old) }}</span
+                    >
+                    <span class="material-symbols-outlined text-[12px] text-[#CBD5E1] shrink-0"
+                      >arrow_forward</span
+                    >
+                    <span
+                      class="inline-flex items-center gap-1 rounded-md bg-[#F0FDF4] px-2 py-0.5 text-[10px] font-bold text-[#166534]"
+                      >{{ displayValue(row.new) }}</span
+                    >
                   </span>
                 </div>
               </div>
 
               <!-- TAMBAH: Key-value pairs -->
-              <div v-else-if="log.aksi === 'TAMBAH' && parsePerubahan(log.perubahan, log.aksi).length > 1" class="flex flex-wrap gap-x-4 gap-y-1">
+              <div
+                v-else-if="
+                  log.aksi === 'TAMBAH' && parsePerubahan(log.perubahan, log.aksi).length > 1
+                "
+                class="flex flex-wrap gap-x-4 gap-y-1"
+              >
                 <span
                   v-for="(row, idx) in parsePerubahan(log.perubahan, log.aksi)"
                   :key="idx"
                   class="text-[10px] text-[#6B7280]"
                 >
                   <span class="font-bold uppercase tracking-wide">{{ row.field }}:</span>
-                  <span class="ml-1 font-semibold text-[#374151]">{{ displayValue(row.value) }}</span>
+                  <span class="ml-1 font-semibold text-[#374151]">{{
+                    displayValue(row.value)
+                  }}</span>
                 </span>
               </div>
 
               <!-- Fallback text -->
-              <p v-else class="text-[11px] font-medium text-[#64748B] leading-relaxed">{{ log.perubahan }}</p>
+              <p v-else class="text-[11px] font-medium text-[#64748B] leading-relaxed">
+                {{ log.perubahan }}
+              </p>
 
               <!-- Mobile timestamp + Author -->
               <div class="flex items-center gap-3 mt-2">
@@ -359,7 +439,9 @@ function parsePerubahan(perubahan, aksi) {
                   {{ formatDateTime(log.dibuat_pada) }}
                 </span>
                 <span class="text-[10px] font-bold text-[#94A3B8]">
-                  <span class="material-symbols-outlined text-[11px] align-text-bottom mr-0.5">person</span>
+                  <span class="material-symbols-outlined text-[11px] align-text-bottom mr-0.5"
+                    >person</span
+                  >
                   {{ log.oleh_pengguna }}
                 </span>
               </div>
@@ -380,13 +462,27 @@ function parsePerubahan(perubahan, aksi) {
       <div v-else-if="activeTab === 'audit'">
         <div class="overflow-x-auto" tabindex="0" aria-label="Tabel log audit login">
           <table class="w-full min-w-[700px]">
-            <caption class="sr-only">Tabel log audit login aktivitas pengguna</caption>
+            <caption class="sr-only">
+              Tabel log audit login aktivitas pengguna
+            </caption>
             <thead>
               <tr class="text-left border-b border-[#F3F4F6]">
-                <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider w-48">Waktu Login</th>
-                <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Nama Pengguna</th>
-                <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Email</th>
-                <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider w-36">Status</th>
+                <th
+                  class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider w-48"
+                >
+                  Waktu Login
+                </th>
+                <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">
+                  Nama Pengguna
+                </th>
+                <th class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">
+                  Email
+                </th>
+                <th
+                  class="px-5 py-3 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider w-36"
+                >
+                  Status
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[#F9FAFB]">
@@ -411,8 +507,12 @@ function parsePerubahan(perubahan, aksi) {
               <tr v-if="filteredAuditLogs.length === 0">
                 <td colspan="4" class="px-5 py-12 text-center">
                   <div class="flex flex-col items-center gap-3">
-                    <span class="material-symbols-outlined text-[40px] text-[#D1D5DB]">shield_person</span>
-                    <p class="text-[13px] font-semibold text-[#9CA3AF]">Tidak ada audit aktivitas login ditemukan.</p>
+                    <span class="material-symbols-outlined text-[40px] text-[#D1D5DB]"
+                      >shield_person</span
+                    >
+                    <p class="text-[13px] font-semibold text-[#9CA3AF]">
+                      Tidak ada audit aktivitas login ditemukan.
+                    </p>
                   </div>
                 </td>
               </tr>
@@ -443,7 +543,9 @@ function parsePerubahan(perubahan, aksi) {
   font-weight: 600;
   color: #334155;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 .form-control:focus {
   border-color: var(--color-brand);

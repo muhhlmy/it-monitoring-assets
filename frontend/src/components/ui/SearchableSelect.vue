@@ -55,8 +55,9 @@ const filteredOptions = computed(() => {
   if (props.allowCustom && searchQuery.value.trim()) {
     const rawQuery = searchQuery.value.trim()
     const exactMatch = list.some(
-      (opt) => String(opt[props.labelKey] || '').toLowerCase() === rawQuery.toLowerCase() ||
-               String(opt[props.valueKey] || '').toLowerCase() === rawQuery.toLowerCase()
+      (opt) =>
+        String(opt[props.labelKey] || '').toLowerCase() === rawQuery.toLowerCase() ||
+        String(opt[props.valueKey] || '').toLowerCase() === rawQuery.toLowerCase(),
     )
     if (!exactMatch) {
       const customOpt = {
@@ -91,11 +92,8 @@ function setInitialActiveIndex(direction = 1) {
   const selectedIndex = filteredOptions.value.findIndex(
     (option) => option[props.valueKey] === props.modelValue,
   )
-  activeIndex.value = selectedIndex >= 0
-    ? selectedIndex
-    : direction < 0
-      ? filteredOptions.value.length - 1
-      : 0
+  activeIndex.value =
+    selectedIndex >= 0 ? selectedIndex : direction < 0 ? filteredOptions.value.length - 1 : 0
 }
 
 function openDropdown(direction = 1) {
@@ -152,9 +150,8 @@ function moveActiveIndex(step) {
     return
   }
 
-  activeIndex.value = activeIndex.value < 0
-    ? step < 0 ? count - 1 : 0
-    : (activeIndex.value + step + count) % count
+  activeIndex.value =
+    activeIndex.value < 0 ? (step < 0 ? count - 1 : 0) : (activeIndex.value + step + count) % count
   scrollActiveOptionIntoView()
 }
 
@@ -241,7 +238,8 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
         aria-hidden="true"
         class="material-symbols-outlined shrink-0 text-[16px] text-[#94A3B8] transition-transform duration-200"
         :class="{ 'rotate-180': isOpen }"
-      >keyboard_arrow_down</span>
+        >keyboard_arrow_down</span
+      >
     </button>
 
     <button
@@ -259,7 +257,11 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
       class="absolute left-0 right-0 z-50 mt-1 flex flex-col rounded-lg border border-[#E8EDF3] bg-white shadow-xl animate-fade-in"
     >
       <div class="relative border-b border-[#F1F5F9] p-1.5">
-        <span aria-hidden="true" class="material-symbols-outlined pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] text-[#94A3B8]">search</span>
+        <span
+          aria-hidden="true"
+          class="material-symbols-outlined pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] text-[#94A3B8]"
+          >search</span
+        >
         <input
           ref="searchInputRef"
           v-model="searchQuery"
@@ -297,14 +299,21 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
           @mousedown.prevent
           @click.stop.prevent="selectOption(option)"
         >
-          <span class="text-[11px] text-[#172033]" :class="{ 'font-bold text-brand': option[valueKey] === modelValue }">
+          <span
+            class="text-[11px] text-[#172033]"
+            :class="{ 'font-bold text-brand': option[valueKey] === modelValue }"
+          >
             {{ option[labelKey] }}
           </span>
           <span v-if="secondaryLabelKey" class="mt-0.5 font-mono text-[9px] text-[#94A3B8]">
             {{ option[secondaryLabelKey] }}
           </span>
         </li>
-        <li v-if="filteredOptions.length === 0" role="status" class="px-3 py-4 text-center text-[11px] text-[#9CA3AF]">
+        <li
+          v-if="filteredOptions.length === 0"
+          role="status"
+          class="px-3 py-4 text-center text-[11px] text-[#9CA3AF]"
+        >
           Tidak ada hasil ditemukan.
         </li>
       </ul>
@@ -314,8 +323,14 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
 
 <style scoped>
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .animate-fade-in {
   animation: fadeIn 0.12s ease-out forwards;

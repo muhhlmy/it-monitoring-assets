@@ -27,22 +27,15 @@ const form = ref({
 })
 
 // Dynamic list of assets (Up to 3 by default, matching template)
-const asetBaruList = ref([
-  { id_aset: '', tipe: '', qty: 1, spesifikasi: '' }
-])
-const asetLamaList = ref([
-  { id_aset: '', tipe: '', qty: 1, spesifikasi: '' }
-])
+const asetBaruList = ref([{ id_aset: '', tipe: '', qty: 1, spesifikasi: '' }])
+const asetLamaList = ref([{ id_aset: '', tipe: '', qty: 1, spesifikasi: '' }])
 
 // ── Fetch Data ───────────────────────────────────────────────
 async function fetchData() {
   isLoading.value = true
   pageError.value = ''
   try {
-    const [employeeData, assetData] = await Promise.all([
-      get('/api/karyawan'),
-      get('/api/assets')
-    ])
+    const [employeeData, assetData] = await Promise.all([get('/api/karyawan'), get('/api/assets')])
     employees.value = employeeData
     assets.value = assetData
   } catch (error) {
@@ -54,45 +47,53 @@ async function fetchData() {
 
 // ── Watchers for Autofill ────────────────────────────────────
 // Autofill Pihak Pemberi when selected
-watch(() => form.value.pemberiNik, (nik) => {
-  const emp = employees.value.find(e => e.nik === nik)
-  if (emp) {
-    form.value.pemberiNama = emp.nama_karyawan || ''
-    form.value.pemberiDirektorat = emp.departemen || ''
-  } else {
-    form.value.pemberiNama = ''
-    form.value.pemberiDirektorat = ''
-  }
-})
+watch(
+  () => form.value.pemberiNik,
+  (nik) => {
+    const emp = employees.value.find((e) => e.nik === nik)
+    if (emp) {
+      form.value.pemberiNama = emp.nama_karyawan || ''
+      form.value.pemberiDirektorat = emp.departemen || ''
+    } else {
+      form.value.pemberiNama = ''
+      form.value.pemberiDirektorat = ''
+    }
+  },
+)
 
 // Autofill Pihak Penerima when selected
-watch(() => form.value.penerimaNik, (nik) => {
-  const emp = employees.value.find(e => e.nik === nik)
-  if (emp) {
-    form.value.penerimaNama = emp.nama_karyawan || ''
-    form.value.penerimaDirektorat = emp.departemen || ''
-  } else {
-    form.value.penerimaNama = ''
-    form.value.penerimaDirektorat = ''
-  }
-})
+watch(
+  () => form.value.penerimaNik,
+  (nik) => {
+    const emp = employees.value.find((e) => e.nik === nik)
+    if (emp) {
+      form.value.penerimaNama = emp.nama_karyawan || ''
+      form.value.penerimaDirektorat = emp.departemen || ''
+    } else {
+      form.value.penerimaNama = ''
+      form.value.penerimaDirektorat = ''
+    }
+  },
+)
 
 // Watch isPenerimaLainnya to reset fields
-watch(() => form.value.isPenerimaLainnya, () => {
-  form.value.penerimaNik = ''
-  form.value.penerimaNama = ''
-  form.value.penerimaDirektorat = ''
-})
+watch(
+  () => form.value.isPenerimaLainnya,
+  () => {
+    form.value.penerimaNik = ''
+    form.value.penerimaNama = ''
+    form.value.penerimaDirektorat = ''
+  },
+)
 
 // Autofill Asset Baru row details when selected
 function onAssetBaruSelect(index, id_aset) {
-  const asset = assets.value.find(a => a.id_aset === id_aset)
+  const asset = assets.value.find((a) => a.id_aset === id_aset)
   if (asset) {
     asetBaruList.value[index].tipe = asset.tipe_perangkat || ''
-    asetBaruList.value[index].spesifikasi = [
-      asset.merek,
-      asset.model
-    ].filter(Boolean).join(' ') + (asset.nomor_seri ? ` (S/N: ${asset.nomor_seri})` : '')
+    asetBaruList.value[index].spesifikasi =
+      [asset.merek, asset.model].filter(Boolean).join(' ') +
+      (asset.nomor_seri ? ` (S/N: ${asset.nomor_seri})` : '')
   } else {
     asetBaruList.value[index].tipe = ''
     asetBaruList.value[index].spesifikasi = ''
@@ -101,13 +102,12 @@ function onAssetBaruSelect(index, id_aset) {
 
 // Autofill Asset Lama row details when selected
 function onAssetLamaSelect(index, id_aset) {
-  const asset = assets.value.find(a => a.id_aset === id_aset)
+  const asset = assets.value.find((a) => a.id_aset === id_aset)
   if (asset) {
     asetLamaList.value[index].tipe = asset.tipe_perangkat || ''
-    asetLamaList.value[index].spesifikasi = [
-      asset.merek,
-      asset.model
-    ].filter(Boolean).join(' ') + (asset.nomor_seri ? ` (S/N: ${asset.nomor_seri})` : '')
+    asetLamaList.value[index].spesifikasi =
+      [asset.merek, asset.model].filter(Boolean).join(' ') +
+      (asset.nomor_seri ? ` (S/N: ${asset.nomor_seri})` : '')
   } else {
     asetLamaList.value[index].tipe = ''
     asetLamaList.value[index].spesifikasi = ''
@@ -141,21 +141,32 @@ function removeAssetLamaRow(index) {
 function generatePdf() {
   // Format Date to Indonsian Date (e.g. 21 Juli 2026)
   const months = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
   ]
   const d = new Date(form.value.tanggal)
   const formattedDate = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
 
   // Check Tujuan marks
   const isTujuanBaru = form.value.tujuan === 'baru' ? '✓' : ''
-  const isTujuanPeminjaman = (form.value.tujuan === 'peminjaman' || form.value.tujuan === 'pengembalian') ? '✓' : ''
-  const isTujuanPerbaikan = (form.value.tujuan === 'perbaikan' || form.value.tujuan === 'penggantian') ? '✓' : ''
+  const isTujuanPeminjaman =
+    form.value.tujuan === 'peminjaman' || form.value.tujuan === 'pengembalian' ? '✓' : ''
+  const isTujuanPerbaikan =
+    form.value.tujuan === 'perbaikan' || form.value.tujuan === 'penggantian' ? '✓' : ''
   const isTujuanDisposal = form.value.tujuan === 'disposal' ? '✓' : ''
   const isTujuanLainnya = form.value.tujuan === 'lainnya' ? '✓' : ''
-  const tujuanLainnyaText = form.value.tujuan === 'lainnya'
-    ? escapeHtml(form.value.tujuanLainnya)
-    : ''
+  const tujuanLainnyaText =
+    form.value.tujuan === 'lainnya' ? escapeHtml(form.value.tujuanLainnya) : ''
 
   // Strikethrough logic for Peminjaman/Pengembalian
   let labelPeminjamanHtml = 'Peminjaman/Pengembalian'
@@ -174,8 +185,8 @@ function generatePdf() {
   }
 
   // Check if Aset Baru or Aset Lama lists have valid selections
-  const hasAsetBaru = asetBaruList.value.some(a => a.id_aset)
-  const hasAsetLama = asetLamaList.value.some(a => a.id_aset)
+  const hasAsetBaru = asetBaruList.value.some((a) => a.id_aset)
+  const hasAsetLama = asetLamaList.value.some((a) => a.id_aset)
 
   let section3Html = ''
   if (hasAsetBaru || hasAsetLama) {
@@ -184,7 +195,7 @@ function generatePdf() {
     if (hasAsetBaru) {
       const maxRows = 3
       let rowsBaruHtml = ''
-      const validAssetsBaru = asetBaruList.value.filter(a => a.id_aset)
+      const validAssetsBaru = asetBaruList.value.filter((a) => a.id_aset)
       for (let i = 0; i < maxRows; i++) {
         const asset = validAssetsBaru[i] || {}
         rowsBaruHtml += `
@@ -220,7 +231,7 @@ function generatePdf() {
     if (hasAsetLama) {
       const maxRows = 3
       let rowsLamaHtml = ''
-      const validAssetsLama = asetLamaList.value.filter(a => a.id_aset)
+      const validAssetsLama = asetLamaList.value.filter((a) => a.id_aset)
       for (let i = 0; i < maxRows; i++) {
         const asset = validAssetsLama[i] || {}
         rowsLamaHtml += `
@@ -519,10 +530,7 @@ function generatePdf() {
     </html>
   `)({ value: safeForm })
 
-  return printHtmlDocument(
-    html,
-    'Pop-up terblokir. Harap izinkan pop-up untuk mencetak PDF.',
-  )
+  return printHtmlDocument(html, 'Pop-up terblokir. Harap izinkan pop-up untuk mencetak PDF.')
 }
 
 onMounted(fetchData)
@@ -530,14 +538,27 @@ onMounted(fetchData)
 
 <template>
   <div class="flex min-w-0 flex-col gap-5">
-    <div v-if="isLoading" role="status" class="shadow-card flex items-center justify-center rounded-[20px] border border-[#E8EDF3] bg-white py-20 text-[13px] text-[#6B7280]">
-      <span class="h-8 w-8 animate-spin rounded-full border-4 border-[#E5E7EB] border-t-brand"></span> Memuat data referensi...
+    <div
+      v-if="isLoading"
+      role="status"
+      class="shadow-card flex items-center justify-center rounded-[20px] border border-[#E8EDF3] bg-white py-20 text-[13px] text-[#6B7280]"
+    >
+      <span
+        class="h-8 w-8 animate-spin rounded-full border-4 border-[#E5E7EB] border-t-brand"
+      ></span>
+      Memuat data referensi...
     </div>
-    
-    <div v-else-if="pageError" role="alert" class="shadow-card flex items-center gap-2 rounded-[20px] border border-red-200 bg-red-50 px-5 py-4 text-[13px] text-red-700">
+
+    <div
+      v-else-if="pageError"
+      role="alert"
+      class="shadow-card flex items-center gap-2 rounded-[20px] border border-red-200 bg-red-50 px-5 py-4 text-[13px] text-red-700"
+    >
       <span class="material-symbols-outlined text-[18px]">error</span>
       <span class="flex-1">{{ pageError }}</span>
-      <button type="button" class="font-bold underline hover:text-red-900" @click="fetchData">Coba lagi</button>
+      <button type="button" class="font-bold underline hover:text-red-900" @click="fetchData">
+        Coba lagi
+      </button>
     </div>
 
     <form v-else class="flex flex-col gap-6" @submit.prevent="generatePdf">
@@ -547,11 +568,13 @@ onMounted(fetchData)
           <span class="material-symbols-outlined text-brand">assignment_ind</span>
           I. Profil Pihak Terkait
         </h3>
-        
+
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
           <!-- Pihak Pemberi -->
           <div class="flex flex-col gap-4 rounded-2xl border border-[#F1F5F9] bg-[#FAFCFF] p-4">
-            <h4 class="text-[11px] font-bold uppercase tracking-wider text-brand">Pihak Pemberi (Karyawan)</h4>
+            <h4 class="text-[11px] font-bold uppercase tracking-wider text-brand">
+              Pihak Pemberi (Karyawan)
+            </h4>
             <label class="flex flex-col gap-1.5">
               <span class="text-[10px] font-bold uppercase text-[#475569]">Pilih Karyawan *</span>
               <SearchableSelect
@@ -566,12 +589,28 @@ onMounted(fetchData)
             </label>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label class="flex flex-col gap-1.5">
-                <span class="text-[10px] font-bold uppercase text-[#475569]">Nama Lengkap (Auto)</span>
-                <input v-model="form.pemberiNama" required type="text" class="form-control bg-slate-50 text-[#64748B]" readonly />
+                <span class="text-[10px] font-bold uppercase text-[#475569]"
+                  >Nama Lengkap (Auto)</span
+                >
+                <input
+                  v-model="form.pemberiNama"
+                  required
+                  type="text"
+                  class="form-control bg-slate-50 text-[#64748B]"
+                  readonly
+                />
               </label>
               <label class="flex flex-col gap-1.5">
-                <span class="text-[10px] font-bold uppercase text-[#475569]">Direktorat (Auto)</span>
-                <input v-model="form.pemberiDirektorat" required type="text" class="form-control bg-slate-50 text-[#64748B]" readonly />
+                <span class="text-[10px] font-bold uppercase text-[#475569]"
+                  >Direktorat (Auto)</span
+                >
+                <input
+                  v-model="form.pemberiDirektorat"
+                  required
+                  type="text"
+                  class="form-control bg-slate-50 text-[#64748B]"
+                  readonly
+                />
               </label>
             </div>
           </div>
@@ -579,10 +618,18 @@ onMounted(fetchData)
           <!-- Pihak Penerima -->
           <div class="flex flex-col gap-4 rounded-2xl border border-[#F1F5F9] bg-[#FAFCFF] p-4">
             <div class="flex items-center justify-between">
-              <h4 class="text-[11px] font-bold uppercase tracking-wider text-brand-orange">Pihak Penerima</h4>
+              <h4 class="text-[11px] font-bold uppercase tracking-wider text-brand-orange">
+                Pihak Penerima
+              </h4>
               <label class="flex items-center gap-1.5 cursor-pointer">
-                <input v-model="form.isPenerimaLainnya" type="checkbox" class="rounded border-[#DCE3EC] accent-brand-orange h-3.5 w-3.5" />
-                <span class="text-[10px] font-bold text-[#475569]">Non-Karyawan (Vendor/Lainnya)</span>
+                <input
+                  v-model="form.isPenerimaLainnya"
+                  type="checkbox"
+                  class="rounded border-[#DCE3EC] accent-brand-orange h-3.5 w-3.5"
+                />
+                <span class="text-[10px] font-bold text-[#475569]"
+                  >Non-Karyawan (Vendor/Lainnya)</span
+                >
               </label>
             </div>
 
@@ -599,18 +646,47 @@ onMounted(fetchData)
               />
             </label>
             <div v-else class="flex flex-col gap-1.5">
-              <span class="text-[10px] font-bold uppercase text-[#475569]">Nama Lengkap / Vendor *</span>
-              <input v-model="form.penerimaNama" required type="text" class="form-control" placeholder="Tulis nama lengkap penerima/vendor" />
+              <span class="text-[10px] font-bold uppercase text-[#475569]"
+                >Nama Lengkap / Vendor *</span
+              >
+              <input
+                v-model="form.penerimaNama"
+                required
+                type="text"
+                class="form-control"
+                placeholder="Tulis nama lengkap penerima/vendor"
+              />
             </div>
 
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label v-if="!form.isPenerimaLainnya" class="flex flex-col gap-1.5">
-                <span class="text-[10px] font-bold uppercase text-[#475569]">Nama Lengkap (Auto)</span>
-                <input v-model="form.penerimaNama" required type="text" class="form-control bg-slate-50 text-[#64748B]" readonly />
+                <span class="text-[10px] font-bold uppercase text-[#475569]"
+                  >Nama Lengkap (Auto)</span
+                >
+                <input
+                  v-model="form.penerimaNama"
+                  required
+                  type="text"
+                  class="form-control bg-slate-50 text-[#64748B]"
+                  readonly
+                />
               </label>
-              <label class="flex flex-col gap-1.5" :class="form.isPenerimaLainnya ? 'col-span-2' : ''">
-                <span class="text-[10px] font-bold uppercase text-[#475569]">{{ form.isPenerimaLainnya ? 'Direktorat / Perusahaan *' : 'Direktorat (Auto)' }}</span>
-                <input v-model="form.penerimaDirektorat" required type="text" class="form-control" :class="!form.isPenerimaLainnya ? 'bg-slate-50 text-[#64748B]' : ''" :readonly="!form.isPenerimaLainnya" placeholder="Tulis direktorat/departemen/perusahaan" />
+              <label
+                class="flex flex-col gap-1.5"
+                :class="form.isPenerimaLainnya ? 'col-span-2' : ''"
+              >
+                <span class="text-[10px] font-bold uppercase text-[#475569]">{{
+                  form.isPenerimaLainnya ? 'Direktorat / Perusahaan *' : 'Direktorat (Auto)'
+                }}</span>
+                <input
+                  v-model="form.penerimaDirektorat"
+                  required
+                  type="text"
+                  class="form-control"
+                  :class="!form.isPenerimaLainnya ? 'bg-slate-50 text-[#64748B]' : ''"
+                  :readonly="!form.isPenerimaLainnya"
+                  placeholder="Tulis direktorat/departemen/perusahaan"
+                />
               </label>
             </div>
           </div>
@@ -623,27 +699,47 @@ onMounted(fetchData)
           <span class="material-symbols-outlined text-brand">checklist</span>
           II. Tujuan Serah Terima Aset
         </h3>
-        
+
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label v-for="t in [
-            { key: 'baru', label: 'Serah Terima Baru' },
-            { key: 'peminjaman', label: 'Peminjaman' },
-            { key: 'pengembalian', label: 'Pengembalian' },
-            { key: 'perbaikan', label: 'Perbaikan' },
-            { key: 'penggantian', label: 'Penggantian' },
-            { key: 'disposal', label: 'Disposal Aset' },
-            { key: 'lainnya', label: 'Lainnya' }
-          ]" :key="t.key" class="flex cursor-pointer items-center justify-between rounded-xl border p-3 transition-colors"
-            :class="form.tujuan === t.key ? 'border-brand bg-brand-light' : 'border-[#DCE3EC] bg-white hover:bg-[#F8FAFC]'">
+          <label
+            v-for="t in [
+              { key: 'baru', label: 'Serah Terima Baru' },
+              { key: 'peminjaman', label: 'Peminjaman' },
+              { key: 'pengembalian', label: 'Pengembalian' },
+              { key: 'perbaikan', label: 'Perbaikan' },
+              { key: 'penggantian', label: 'Penggantian' },
+              { key: 'disposal', label: 'Disposal Aset' },
+              { key: 'lainnya', label: 'Lainnya' },
+            ]"
+            :key="t.key"
+            class="flex cursor-pointer items-center justify-between rounded-xl border p-3 transition-colors"
+            :class="
+              form.tujuan === t.key
+                ? 'border-brand bg-brand-light'
+                : 'border-[#DCE3EC] bg-white hover:bg-[#F8FAFC]'
+            "
+          >
             <span class="text-[11px] font-bold text-[#334155]">{{ t.label }}</span>
-            <input v-model="form.tujuan" type="radio" name="tujuan" :value="t.key" class="accent-brand" />
+            <input
+              v-model="form.tujuan"
+              type="radio"
+              name="tujuan"
+              :value="t.key"
+              class="accent-brand"
+            />
           </label>
         </div>
 
         <div v-if="form.tujuan === 'lainnya'" class="mt-4 flex flex-col gap-1.5">
           <label class="flex flex-col gap-1.5">
             <span class="text-[10px] font-bold uppercase text-[#475569]">Keterangan Lainnya *</span>
-            <input v-model="form.tujuanLainnya" required type="text" class="form-control" placeholder="Tuliskan tujuan serah terima aset lainnya" />
+            <input
+              v-model="form.tujuanLainnya"
+              required
+              type="text"
+              class="form-control"
+              placeholder="Tuliskan tujuan serah terima aset lainnya"
+            />
           </label>
         </div>
       </div>
@@ -657,14 +753,28 @@ onMounted(fetchData)
               <span class="material-symbols-outlined text-brand">add_box</span>
               III. Aset Baru (Diserahkan)
             </h3>
-            <button type="button" @click="addAssetBaruRow" class="flex h-7 items-center justify-center gap-1 rounded-lg bg-brand px-3 text-[10px] font-bold text-white hover:bg-brand-dark">
+            <button
+              type="button"
+              @click="addAssetBaruRow"
+              class="flex h-7 items-center justify-center gap-1 rounded-lg bg-brand px-3 text-[10px] font-bold text-white hover:bg-brand-dark"
+            >
               + Tambah
             </button>
           </div>
 
           <div class="flex flex-col gap-4">
-            <div v-for="(row, index) in asetBaruList" :key="index" class="flex flex-col gap-3 rounded-2xl border border-[#F1F5F9] bg-[#FAFCFF] p-4 relative">
-              <button v-if="asetBaruList.length > 1" type="button" @click="removeAssetBaruRow(index)" class="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100" title="Hapus baris">
+            <div
+              v-for="(row, index) in asetBaruList"
+              :key="index"
+              class="flex flex-col gap-3 rounded-2xl border border-[#F1F5F9] bg-[#FAFCFF] p-4 relative"
+            >
+              <button
+                v-if="asetBaruList.length > 1"
+                type="button"
+                @click="removeAssetBaruRow(index)"
+                class="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                title="Hapus baris"
+              >
                 <span class="material-symbols-outlined text-[16px]">close</span>
               </button>
 
@@ -684,18 +794,38 @@ onMounted(fetchData)
 
               <div class="grid grid-cols-3 gap-2">
                 <label class="flex flex-col gap-1.5 col-span-2">
-                  <span class="text-[9px] font-bold uppercase text-[#64748B]">Deskripsi (Auto)</span>
-                  <input v-model="row.tipe" type="text" class="form-control h-8 bg-slate-50 text-[#64748B] text-[11px]" readonly />
+                  <span class="text-[9px] font-bold uppercase text-[#64748B]"
+                    >Deskripsi (Auto)</span
+                  >
+                  <input
+                    v-model="row.tipe"
+                    type="text"
+                    class="form-control h-8 bg-slate-50 text-[#64748B] text-[11px]"
+                    readonly
+                  />
                 </label>
                 <label class="flex flex-col gap-1.5">
                   <span class="text-[9px] font-bold uppercase text-[#64748B]">Qty</span>
-                  <input v-model="row.qty" required type="number" min="1" class="form-control h-8 text-[11px]" />
+                  <input
+                    v-model="row.qty"
+                    required
+                    type="number"
+                    min="1"
+                    class="form-control h-8 text-[11px]"
+                  />
                 </label>
               </div>
 
               <label class="flex flex-col gap-1.5">
-                <span class="text-[9px] font-bold uppercase text-[#64748B]">Spesifikasi (Auto)</span>
-                <input v-model="row.spesifikasi" type="text" class="form-control h-8 bg-slate-50 text-[#64748B] text-[11px]" readonly />
+                <span class="text-[9px] font-bold uppercase text-[#64748B]"
+                  >Spesifikasi (Auto)</span
+                >
+                <input
+                  v-model="row.spesifikasi"
+                  type="text"
+                  class="form-control h-8 bg-slate-50 text-[#64748B] text-[11px]"
+                  readonly
+                />
               </label>
             </div>
           </div>
@@ -708,19 +838,35 @@ onMounted(fetchData)
               <span class="material-symbols-outlined text-brand">history</span>
               IV. Aset Lama (Dikembalikan)
             </h3>
-            <button type="button" @click="addAssetLamaRow" class="flex h-7 items-center justify-center gap-1 rounded-lg bg-brand-dark px-3 text-[10px] font-bold text-white hover:bg-black">
+            <button
+              type="button"
+              @click="addAssetLamaRow"
+              class="flex h-7 items-center justify-center gap-1 rounded-lg bg-brand-dark px-3 text-[10px] font-bold text-white hover:bg-black"
+            >
               + Tambah
             </button>
           </div>
 
           <div class="flex flex-col gap-4">
-            <div v-for="(row, index) in asetLamaList" :key="index" class="flex flex-col gap-3 rounded-2xl border border-[#F1F5F9] bg-[#FAFCFF] p-4 relative">
-              <button v-if="asetLamaList.length > 1" type="button" @click="removeAssetLamaRow(index)" class="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100" title="Hapus baris">
+            <div
+              v-for="(row, index) in asetLamaList"
+              :key="index"
+              class="flex flex-col gap-3 rounded-2xl border border-[#F1F5F9] bg-[#FAFCFF] p-4 relative"
+            >
+              <button
+                v-if="asetLamaList.length > 1"
+                type="button"
+                @click="removeAssetLamaRow(index)"
+                class="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                title="Hapus baris"
+              >
                 <span class="material-symbols-outlined text-[16px]">close</span>
               </button>
 
               <label class="flex flex-col gap-1.5 pr-8">
-                <span class="text-[10px] font-bold uppercase text-[#475569]">Aset Lama (Opsional)</span>
+                <span class="text-[10px] font-bold uppercase text-[#475569]"
+                  >Aset Lama (Opsional)</span
+                >
                 <SearchableSelect
                   v-model="row.id_aset"
                   :options="assets"
@@ -735,18 +881,38 @@ onMounted(fetchData)
 
               <div class="grid grid-cols-3 gap-2">
                 <label class="flex flex-col gap-1.5 col-span-2">
-                  <span class="text-[9px] font-bold uppercase text-[#64748B]">Deskripsi (Auto)</span>
-                  <input v-model="row.tipe" type="text" class="form-control h-8 bg-slate-50 text-[#64748B] text-[11px]" readonly />
+                  <span class="text-[9px] font-bold uppercase text-[#64748B]"
+                    >Deskripsi (Auto)</span
+                  >
+                  <input
+                    v-model="row.tipe"
+                    type="text"
+                    class="form-control h-8 bg-slate-50 text-[#64748B] text-[11px]"
+                    readonly
+                  />
                 </label>
                 <label class="flex flex-col gap-1.5">
                   <span class="text-[9px] font-bold uppercase text-[#64748B]">Qty</span>
-                  <input v-model="row.qty" required type="number" min="1" class="form-control h-8 text-[11px]" />
+                  <input
+                    v-model="row.qty"
+                    required
+                    type="number"
+                    min="1"
+                    class="form-control h-8 text-[11px]"
+                  />
                 </label>
               </div>
 
               <label class="flex flex-col gap-1.5">
-                <span class="text-[9px] font-bold uppercase text-[#64748B]">Spesifikasi (Auto)</span>
-                <input v-model="row.spesifikasi" type="text" class="form-control h-8 bg-slate-50 text-[#64748B] text-[11px]" readonly />
+                <span class="text-[9px] font-bold uppercase text-[#64748B]"
+                  >Spesifikasi (Auto)</span
+                >
+                <input
+                  v-model="row.spesifikasi"
+                  type="text"
+                  class="form-control h-8 bg-slate-50 text-[#64748B] text-[11px]"
+                  readonly
+                />
               </label>
             </div>
           </div>
@@ -754,12 +920,19 @@ onMounted(fetchData)
       </div>
 
       <!-- Action Footer -->
-      <div class="shadow-card flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-[#E8EDF3] bg-white p-4">
+      <div
+        class="shadow-card flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-[#E8EDF3] bg-white p-4"
+      >
         <label class="flex items-center gap-3">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-[#374151]">Tanggal Formulir:</span>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-[#374151]"
+            >Tanggal Formulir:</span
+          >
           <input v-model="form.tanggal" required type="date" class="form-control w-44" />
         </label>
-        <button type="submit" class="flex h-11 items-center justify-center gap-2 rounded-xl bg-brand px-6 text-[12px] font-bold text-white shadow-md shadow-brand/20 hover:bg-brand-dark">
+        <button
+          type="submit"
+          class="flex h-11 items-center justify-center gap-2 rounded-xl bg-brand px-6 text-[12px] font-bold text-white shadow-md shadow-brand/20 hover:bg-brand-dark"
+        >
           <span class="material-symbols-outlined text-[20px]">picture_as_pdf</span>
           Cetak Formulir Serah Terima (PDF)
         </button>
@@ -780,5 +953,8 @@ onMounted(fetchData)
   color: #334155;
   outline: none;
 }
-.form-control:focus { border-color: var(--color-brand); box-shadow: 0 0 0 3px rgb(9 124 222 / 10%); }
+.form-control:focus {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgb(9 124 222 / 10%);
+}
 </style>

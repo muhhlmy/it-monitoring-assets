@@ -36,9 +36,7 @@ export function downloadAssetsCsv(assets, date = new Date()) {
   if (!Array.isArray(assets) || assets.length === 0) return false
 
   const headerRow = columns.map(([label]) => csvCell(label)).join(',')
-  const dataRows = assets.map((asset) =>
-    columns.map(([, key]) => csvCell(asset?.[key])).join(','),
-  )
+  const dataRows = assets.map((asset) => columns.map(([, key]) => csvCell(asset?.[key])).join(','))
   const csvContent = `\uFEFF${[headerRow, ...dataRows].join('\r\n')}`
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)

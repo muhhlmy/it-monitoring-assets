@@ -3,10 +3,10 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 
 const props = defineProps({
-  isOpen:   { type: Boolean, default: false },
-  title:    { type: String,  default: 'Modal' },
-  subtitle: { type: String,  default: '' },
-  icon:     { type: String,  default: 'confirmation_number' },
+  isOpen: { type: Boolean, default: false },
+  title: { type: String, default: 'Modal' },
+  subtitle: { type: String, default: '' },
+  icon: { type: String, default: 'confirmation_number' },
   // 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
   size: {
     type: String,
@@ -84,7 +84,7 @@ watch(
       return
     }
 
-    document.body.style.overflow = ''
+    document.body.style.overflow = previousBodyOverflow || ''
     previouslyFocusedElement?.focus?.()
     previouslyFocusedElement = null
   },
@@ -115,23 +115,36 @@ onBeforeUnmount(() => {
           tabindex="-1"
           class="modal-panel flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-2xl outline-none"
           :class="{
-            'max-w-sm':   size === 'sm',
-            'max-w-lg':   size === 'md',
-            'max-w-2xl':  size === 'lg',
-            'max-w-4xl':  size === 'xl',
-            'max-w-6xl':  size === '2xl',
+            'max-w-sm': size === 'sm',
+            'max-w-lg': size === 'md',
+            'max-w-2xl': size === 'lg',
+            'max-w-4xl': size === 'xl',
+            'max-w-6xl': size === '2xl',
             'max-w-full': size === 'full',
           }"
         >
           <!-- Header Modal (Fixed Non-Scrollable Header) -->
-          <div class="flex shrink-0 items-center justify-between gap-3 border-b border-[#F1F5F9] bg-white px-5 py-3.5">
+          <div
+            class="flex shrink-0 items-center justify-between gap-3 border-b border-[#F1F5F9] bg-white px-5 py-3.5"
+          >
             <div class="flex items-center gap-2.5 min-w-0">
-              <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EFF6FF] text-[#2563EB]">
-                <span aria-hidden="true" class="material-symbols-outlined text-[17px]">{{ icon || 'confirmation_number' }}</span>
+              <span
+                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EFF6FF] text-[#2563EB]"
+              >
+                <span aria-hidden="true" class="material-symbols-outlined text-[17px]">{{
+                  icon || 'confirmation_number'
+                }}</span>
               </span>
               <div class="min-w-0">
-                <h2 :id="titleId" class="text-sm font-bold text-[#0F172A] leading-tight truncate">{{ title }}</h2>
-                <p v-if="subtitle" class="text-[11px] font-normal text-[#64748B] mt-0.5 leading-none truncate">{{ subtitle }}</p>
+                <h2 :id="titleId" class="text-sm font-bold text-[#0F172A] leading-tight truncate">
+                  {{ title }}
+                </h2>
+                <p
+                  v-if="subtitle"
+                  class="text-[11px] font-normal text-[#64748B] mt-0.5 leading-none truncate"
+                >
+                  {{ subtitle }}
+                </p>
               </div>
             </div>
             <button
@@ -155,10 +168,20 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.modal-enter-active, .modal-leave-active { transition: all 0.22s ease; }
-.modal-enter-from, .modal-leave-to { opacity: 0; }
-.modal-enter-from .modal-panel { transform: translateY(12px) scale(0.98); }
-.modal-leave-to .modal-panel   { transform: translateY(8px) scale(0.98); }
+.modal-enter-active,
+.modal-leave-active {
+  transition: all 0.22s ease;
+}
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+.modal-enter-from .modal-panel {
+  transform: translateY(12px) scale(0.98);
+}
+.modal-leave-to .modal-panel {
+  transform: translateY(8px) scale(0.98);
+}
 
 /* Custom Sleek Scrollbar for Modal Body */
 .modal-body::-webkit-scrollbar {
@@ -168,10 +191,10 @@ onBeforeUnmount(() => {
   background: transparent;
 }
 .modal-body::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 .modal-body::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #94a3b8;
 }
 </style>

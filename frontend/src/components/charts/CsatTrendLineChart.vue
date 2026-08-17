@@ -31,9 +31,9 @@ ChartJS.register(
 )
 
 const props = defineProps({
-  data:    { type: Array, default: () => [] },
+  data: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
-  error:   { type: String, default: '' },
+  error: { type: String, default: '' },
 })
 
 const { chartColors } = useChartTheme()
@@ -83,7 +83,10 @@ const chartOptions = computed(() => ({
   scales: {
     x: {
       grid: { display: false },
-      ticks: { color: chartColors.mutedText, font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 } },
+      ticks: {
+        color: chartColors.mutedText,
+        font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 },
+      },
     },
     y: {
       min: 0,

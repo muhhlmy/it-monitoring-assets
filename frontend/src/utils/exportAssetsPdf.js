@@ -6,15 +6,16 @@ export function downloadAssetsPdf(assets, filters = {}, date = new Date()) {
   const dateString = escapeHtml(
     date.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
   )
-  
-  // Build table rows
-  const rowsHtml = assets.map(rawAsset => {
-    const asset = Object.fromEntries(
-      Object.entries(rawAsset || {}).map(([key, value]) => [key, escapeHtml(value)]),
-    )
-    const statusClass = safeCssToken(rawAsset?.status_aset)
 
-    return `
+  // Build table rows
+  const rowsHtml = assets
+    .map((rawAsset) => {
+      const asset = Object.fromEntries(
+        Object.entries(rawAsset || {}).map(([key, value]) => [key, escapeHtml(value)]),
+      )
+      const statusClass = safeCssToken(rawAsset?.status_aset)
+
+      return `
     <tr>
       <td class="font-mono">${asset.id_aset}</td>
       <td>
@@ -35,7 +36,8 @@ export function downloadAssetsPdf(assets, filters = {}, date = new Date()) {
       <td>${asset.kondisi_aset || '—'}</td>
     </tr>
   `
-  }).join('')
+    })
+    .join('')
 
   const statusFilter = escapeHtml(filters.status || 'Semua Status')
   const tipeFilter = escapeHtml(filters.tipe || 'Semua Tipe')
@@ -233,8 +235,5 @@ export function downloadAssetsPdf(assets, filters = {}, date = new Date()) {
     </body>
     </html>
   `
-  return printHtmlDocument(
-    html,
-    'Pop-up terblokir. Harap izinkan pop-up untuk mencetak PDF.',
-  )
+  return printHtmlDocument(html, 'Pop-up terblokir. Harap izinkan pop-up untuk mencetak PDF.')
 }

@@ -176,13 +176,11 @@ it-monitoring-assets/
 
 ---
 
-## 🔐 Kredensial Default (Seed Data)
+## 🔐 Manajemen Akses & Akun Bootstrap
 
-Setelah melakukan eksekusi `backend/esb_trackit_db.sql`, akun default **Superadmin** siap digunakan:
+Sistem ini tidak menggunakan kredensial bawaan hardcoded pada dokumentasi.
 
-- **Email**: `superadmin@admin.com`
-- **Password**: `admin123`
-- **Role**: `Superadmin` (Akses Penuh Seluruh Modul)
+Akun administrator / Superadmin pertama wajib diprovisi melalui mekanisme admin provisioning atau skrip deployment resmi pada lingkungan yang diotorisasi.
 
 ---
 

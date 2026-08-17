@@ -12,7 +12,6 @@ import AppBadge from '../components/ui/AppBadge.vue'
 import AssetTrendLineChart from '../components/charts/AssetTrendLineChart.vue'
 import AssetTypeBarChart from '../components/charts/AssetTypeBarChart.vue'
 import AssetConditionPieChart from '../components/charts/AssetConditionPieChart.vue'
-import AssetStatusDonutChart from '../components/charts/AssetStatusDonutChart.vue'
 import CsatDashboardSection from '../components/charts/CsatDashboardSection.vue'
 import { getAssetStatusLabel } from '../utils/assetStatus.js'
 
@@ -24,17 +23,21 @@ const canWriteAssets = computed(() => hasWritePermission('assets'))
 const canReadTickets = computed(() => hasPermission('tickets'))
 
 // ── State ────────────────────────────────────────────────────
-const stats     = ref(null)
+const stats = ref(null)
 const recentTickets = ref([])
 const isLoading = ref(true)
-const error     = ref('')
+const error = ref('')
 
 // ── Computed: status breakdown ───────────────────────────────
 const knownStatusKeys = new Set([
-  'digunakan', 'in use',
-  'tersedia', 'stock',
-  'maintenance', 'in service',
-  'rusak', 'damaged',
+  'digunakan',
+  'in use',
+  'tersedia',
+  'stock',
+  'maintenance',
+  'in service',
+  'rusak',
+  'damaged',
   'disposal',
 ])
 
@@ -44,7 +47,9 @@ function toCount(value) {
 }
 
 function normalizeLabel(value) {
-  return String(value ?? '').trim().toLocaleLowerCase('id-ID')
+  return String(value ?? '')
+    .trim()
+    .toLocaleLowerCase('id-ID')
 }
 
 const totalAssets = computed(() => toCount(stats.value?.totalAssets))
@@ -60,17 +65,26 @@ const statusMap = computed(() => {
   return map
 })
 
-const countDipakai = computed(() => (statusMap.value['in use'] || 0) + (statusMap.value['digunakan'] || 0))
-const countTersedia = computed(() => (statusMap.value['stock'] || 0) + (statusMap.value['tersedia'] || 0))
-const countMaintenance = computed(() => (statusMap.value['in service'] || 0) + (statusMap.value['maintenance'] || 0))
-const countRusak = computed(() => (statusMap.value['damaged'] || 0) + (statusMap.value['rusak'] || 0))
+const countDipakai = computed(
+  () => (statusMap.value['in use'] || 0) + (statusMap.value['digunakan'] || 0),
+)
+const countTersedia = computed(
+  () => (statusMap.value['stock'] || 0) + (statusMap.value['tersedia'] || 0),
+)
+const countMaintenance = computed(
+  () => (statusMap.value['in service'] || 0) + (statusMap.value['maintenance'] || 0),
+)
+const countRusak = computed(
+  () => (statusMap.value['damaged'] || 0) + (statusMap.value['rusak'] || 0),
+)
 const countDisposal = computed(() => statusMap.value['disposal'] || 0)
-const countKnownStatuses = computed(() =>
-  countDipakai.value +
-  countTersedia.value +
-  countMaintenance.value +
-  countRusak.value +
-  countDisposal.value,
+const countKnownStatuses = computed(
+  () =>
+    countDipakai.value +
+    countTersedia.value +
+    countMaintenance.value +
+    countRusak.value +
+    countDisposal.value,
 )
 const countReportedStatuses = computed(() =>
   Object.values(statusMap.value).reduce((total, count) => total + count, 0),
@@ -96,7 +110,6 @@ const pctDipakai = computed(() => percentage(countDipakai.value, statusChartTota
 const pctTersedia = computed(() => percentage(countTersedia.value, statusChartTotal.value))
 const pctMaintenance = computed(() => percentage(countMaintenance.value, statusChartTotal.value))
 const pctRusak = computed(() => percentage(countRusak.value, statusChartTotal.value))
-const pctDisposal = computed(() => percentage(countDisposal.value, statusChartTotal.value))
 
 // Kondisi sehat dihitung dari aset berkondisi Baru + Baik, bukan dari status penggunaan.
 // ── Computed: tipe breakdown ─────────────────────────────────
@@ -118,7 +131,7 @@ const recentAssets = computed(() =>
 // ── Fetch data ───────────────────────────────────────────────
 async function fetchStats() {
   isLoading.value = true
-  error.value     = ''
+  error.value = ''
   try {
     const ticketStatsRequest = canReadTickets.value
       ? get('/api/tickets/stats').catch(() => null)
@@ -132,9 +145,8 @@ async function fetchStats() {
       recentTickets.value = ticketStatsRes.recentTickets
     }
   } catch (e) {
-    error.value = e instanceof Error && e.message
-      ? e.message
-      : 'Gagal memuat statistik. Silakan coba lagi.'
+    error.value =
+      e instanceof Error && e.message ? e.message : 'Gagal memuat statistik. Silakan coba lagi.'
     console.error(e)
   } finally {
     isLoading.value = false
@@ -151,21 +163,32 @@ function goToAddAsset() {
 function getStatusBadgeType(status) {
   const s = (status || '').toLowerCase()
   if (s === 'digunakan') return 'success'
-  if (s === 'tersedia')  return 'info'
+  if (s === 'tersedia') return 'info'
   if (s === 'maintenance') return 'warning'
   if (s === 'rusak') return 'danger'
-  if (s === 'disposal')  return 'default'
+  if (s === 'disposal') return 'default'
   return 'default'
 }
 
 // Helper untuk Status Asset card
 function getSortedByStatus() {
   if (!Array.isArray(stats.value?.byStatus)) return []
-  
-  const statusOrder = ['digunakan', 'in use', 'stok', 'stock', 'dalam perawatan', 'maintenance', 'in service', 'rusak', 'damaged', 'disposal']
-  
+
+  const statusOrder = [
+    'digunakan',
+    'in use',
+    'stok',
+    'stock',
+    'dalam perawatan',
+    'maintenance',
+    'in service',
+    'rusak',
+    'damaged',
+    'disposal',
+  ]
+
   const combined = {}
-  stats.value.byStatus.forEach(item => {
+  stats.value.byStatus.forEach((item) => {
     const rawStatus = (item?.status || '').trim()
     const label = getAssetStatusLabel(rawStatus)
     const key = label.toLowerCase()
@@ -174,7 +197,7 @@ function getSortedByStatus() {
     }
     combined[key].count += Number(item?.count || 0)
   })
-  
+
   const sorted = Object.values(combined).sort((a, b) => {
     const aIdx = statusOrder.indexOf(a.rawStatus.toLowerCase())
     const bIdx = statusOrder.indexOf(b.rawStatus.toLowerCase())
@@ -183,7 +206,7 @@ function getSortedByStatus() {
     if (bIdx !== -1) return 1
     return a.status.localeCompare(b.status)
   })
-  
+
   return sorted
 }
 
@@ -200,7 +223,7 @@ function getStatusColorClass(status) {
 
 function getStatusPercentage(status) {
   if (!stats.value?.totalAssets || stats.value.totalAssets === 0) return 0
-  const item = getSortedByStatus().find(i => i.status.toLowerCase() === status.toLowerCase())
+  const item = getSortedByStatus().find((i) => i.status.toLowerCase() === status.toLowerCase())
   if (!item) return 0
   return Math.round((item.count / stats.value.totalAssets) * 100)
 }
@@ -287,7 +310,6 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col gap-6 min-h-[calc(100vh-80px)]">
-
     <!-- ═══════════════════════════════════════════
          LOADING
          ═══════════════════════════════════════════ -->
@@ -329,20 +351,24 @@ onUnmounted(() => {
          DASHBOARD CONTENT
          ═══════════════════════════════════════════ -->
     <template v-else-if="stats">
-
       <!-- ─── ROW 1: Hero Banner + 5 Stat Cards ────────── -->
       <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-
         <!-- 1. Total Asset (ESB Primary Orange Hero Card) -->
-        <div class="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#FC841B] to-[#E26F10] p-3.5 text-white shadow-md shadow-orange-500/10 border border-white/10 flex flex-col justify-between transition-transform hover:scale-[1.01]">
+        <div
+          class="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#FC841B] to-[#E26F10] p-3.5 text-white shadow-md shadow-orange-500/10 border border-white/10 flex flex-col justify-between transition-transform hover:scale-[1.01]"
+        >
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-white/90">Total Aset</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-white/90"
+              >Total Aset</span
+            >
             <span class="flex items-center -mr-1">
               <span class="material-symbols-outlined text-[18px] text-white/90">inventory_2</span>
             </span>
           </div>
           <div class="mt-2.5">
-            <p class="font-num text-[24px] font-black leading-none tracking-tight text-white">{{ totalAssets }}</p>
+            <p class="font-num text-[24px] font-black leading-none tracking-tight text-white">
+              {{ totalAssets }}
+            </p>
             <div class="mt-2.5 flex items-center justify-between gap-1.5 flex-wrap">
               <span class="text-[10px] font-medium text-white/85">Unit Terdaftar</span>
               <button
@@ -358,18 +384,31 @@ onUnmounted(() => {
         </div>
 
         <!-- 2. In Use -->
-        <div class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B7E8DD] bg-gradient-to-br from-[#EDFBF7] to-white p-3.5">
+        <div
+          class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B7E8DD] bg-gradient-to-br from-[#EDFBF7] to-white p-3.5"
+        >
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold uppercase tracking-wide text-[#13DEB9]">Digunakan</span>
+            <span class="text-[10px] font-bold uppercase tracking-wide text-[#13DEB9]"
+              >Digunakan</span
+            >
             <span class="flex items-center -mr-1">
-              <span class="material-symbols-outlined text-[18px] text-[#13DEB9]/70" style="opacity: 0.7;">check_circle</span>
+              <span
+                class="material-symbols-outlined text-[18px] text-[#13DEB9]/70"
+                style="opacity: 0.7"
+                >check_circle</span
+              >
             </span>
           </div>
           <div class="mt-2.5">
-            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">{{ countDipakai }}</p>
+            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">
+              {{ countDipakai }}
+            </p>
             <div class="flex items-center gap-1.5 mt-2">
               <div class="flex-1 h-1.5 bg-[#E6F4F1] rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-[#13DEB9] to-[#1ECAB5] rounded-full transition-all duration-500" :style="{ width: pctDipakai + '%' }"></div>
+                <div
+                  class="h-full bg-gradient-to-r from-[#13DEB9] to-[#1ECAB5] rounded-full transition-all duration-500"
+                  :style="{ width: pctDipakai + '%' }"
+                ></div>
               </div>
               <span class="text-[10px] font-bold text-[#13DEB9]">{{ pctDipakai }}%</span>
             </div>
@@ -377,18 +416,29 @@ onUnmounted(() => {
         </div>
 
         <!-- 3. Stock -->
-        <div class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B2E2FF] bg-gradient-to-br from-[#E8F7FF] to-white p-3.5">
+        <div
+          class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B2E2FF] bg-gradient-to-br from-[#E8F7FF] to-white p-3.5"
+        >
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-wide text-[#49BEFF]">Stok</span>
             <span class="flex items-center -mr-1">
-              <span class="material-symbols-outlined text-[18px] text-[#49BEFF]/70" style="opacity: 0.7;">inventory</span>
+              <span
+                class="material-symbols-outlined text-[18px] text-[#49BEFF]/70"
+                style="opacity: 0.7"
+                >inventory</span
+              >
             </span>
           </div>
           <div class="mt-2.5">
-            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">{{ countTersedia }}</p>
+            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">
+              {{ countTersedia }}
+            </p>
             <div class="flex items-center gap-1.5 mt-2">
               <div class="flex-1 h-1.5 bg-[#E6F6FA] rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-[#49BEFF] to-[#3DA8E5] rounded-full transition-all duration-500" :style="{ width: pctTersedia + '%' }"></div>
+                <div
+                  class="h-full bg-gradient-to-r from-[#49BEFF] to-[#3DA8E5] rounded-full transition-all duration-500"
+                  :style="{ width: pctTersedia + '%' }"
+                ></div>
               </div>
               <span class="text-[10px] font-bold text-[#49BEFF]">{{ pctTersedia }}%</span>
             </div>
@@ -396,18 +446,29 @@ onUnmounted(() => {
         </div>
 
         <!-- 4. Damaged -->
-        <div class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FCD5CE] bg-gradient-to-br from-[#FDEDE8] to-white p-3.5">
+        <div
+          class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FCD5CE] bg-gradient-to-br from-[#FDEDE8] to-white p-3.5"
+        >
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-wide text-[#FA896B]">Rusak</span>
             <span class="flex items-center -mr-1">
-              <span class="material-symbols-outlined text-[18px] text-[#FA896B]/70" style="opacity: 0.7;">report_problem</span>
+              <span
+                class="material-symbols-outlined text-[18px] text-[#FA896B]/70"
+                style="opacity: 0.7"
+                >report_problem</span
+              >
             </span>
           </div>
           <div class="mt-2.5">
-            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">{{ countRusak }}</p>
+            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">
+              {{ countRusak }}
+            </p>
             <div class="flex items-center gap-1.5 mt-2">
               <div class="flex-1 h-1.5 bg-[#FDF2EF] rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-[#FA896B] to-[#E87558] rounded-full transition-all duration-500" :style="{ width: pctRusak + '%' }"></div>
+                <div
+                  class="h-full bg-gradient-to-r from-[#FA896B] to-[#E87558] rounded-full transition-all duration-500"
+                  :style="{ width: pctRusak + '%' }"
+                ></div>
               </div>
               <span class="text-[10px] font-bold text-[#FA896B]">{{ pctRusak }}%</span>
             </div>
@@ -415,32 +476,48 @@ onUnmounted(() => {
         </div>
 
         <!-- 5. In Service -->
-        <div class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FAD0AB] bg-gradient-to-br from-[#FEF5E5] to-white p-3.5">
+        <div
+          class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FAD0AB] bg-gradient-to-br from-[#FEF5E5] to-white p-3.5"
+        >
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold uppercase tracking-wide text-[#FFAE1F]">Dalam Perawatan</span>
+            <span class="text-[10px] font-bold uppercase tracking-wide text-[#FFAE1F]"
+              >Dalam Perawatan</span
+            >
             <span class="flex items-center -mr-1">
-              <span class="material-symbols-outlined text-[18px] text-[#FFAE1F]/70" style="opacity: 0.7;">build</span>
+              <span
+                class="material-symbols-outlined text-[18px] text-[#FFAE1F]/70"
+                style="opacity: 0.7"
+                >build</span
+              >
             </span>
           </div>
           <div class="mt-2.5">
-            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">{{ countMaintenance }}</p>
+            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">
+              {{ countMaintenance }}
+            </p>
             <div class="flex items-center gap-1.5 mt-2">
               <div class="flex-1 h-1.5 bg-[#FEF8F1] rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-[#FFAE1F] to-[#E69A1A] rounded-full transition-all duration-500" :style="{ width: pctMaintenance + '%' }"></div>
+                <div
+                  class="h-full bg-gradient-to-r from-[#FFAE1F] to-[#E69A1A] rounded-full transition-all duration-500"
+                  :style="{ width: pctMaintenance + '%' }"
+                ></div>
               </div>
               <span class="text-[10px] font-bold text-[#FFAE1F]">{{ pctMaintenance }}%</span>
             </div>
           </div>
         </div>
-
       </div>
 
       <!-- ─── ROW 2: Line Chart (8 col) + Donut Chart (4 col) ── -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 mt-3.5">
-        <div class="lg:col-span-8 shadow-xs rounded-xl border border-[#E2E8F0] bg-white p-3.5 hover:shadow-xs transition-shadow duration-300">
+        <div
+          class="lg:col-span-8 shadow-xs rounded-xl border border-[#E2E8F0] bg-white p-3.5 hover:shadow-xs transition-shadow duration-300"
+        >
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-bold text-[#1E293B]">Tren Aset Bulanan</h3>
-            <span class="text-[10px] font-medium text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-md">Per Bulan</span>
+            <span class="text-[10px] font-medium text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-md"
+              >Per Bulan</span
+            >
           </div>
           <AssetTrendLineChart
             class="w-full"
@@ -449,10 +526,14 @@ onUnmounted(() => {
             :error="error"
           />
         </div>
-        <div class="lg:col-span-4 shadow-xs rounded-xl border border-[#E2E8F0] bg-white p-3.5 hover:shadow-xs transition-shadow duration-300">
+        <div
+          class="lg:col-span-4 shadow-xs rounded-xl border border-[#E2E8F0] bg-white p-3.5 hover:shadow-xs transition-shadow duration-300"
+        >
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-bold text-[#1E293B]">Status Aset</h3>
-            <span class="text-[10px] font-medium text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-md">Distribusi</span>
+            <span class="text-[10px] font-medium text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-md"
+              >Distribusi</span
+            >
           </div>
 
           <!-- Empty State -->
@@ -467,8 +548,8 @@ onUnmounted(() => {
             <!-- Horizontal Stacked Progress Bar -->
             <div class="mb-4">
               <div class="h-2 flex rounded-lg overflow-hidden bg-[#F1F5F9]">
-                <div 
-                  v-for="(item, idx) in getSortedByStatus()" 
+                <div
+                  v-for="item in getSortedByStatus()"
                   :key="item.status"
                   class="h-full transition-all duration-300"
                   :class="getStatusColorClass(item.status)"
@@ -480,25 +561,29 @@ onUnmounted(() => {
 
             <!-- Status Rows -->
             <div class="space-y-2.5">
-              <div 
-                v-for="item in getSortedByStatus()" 
+              <div
+                v-for="item in getSortedByStatus()"
                 :key="item.status"
                 class="flex items-center gap-2.5"
               >
                 <!-- Status Indicator -->
-                <div 
+                <div
                   class="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   :class="getStatusColorClass(item.status)"
                 ></div>
-                
+
                 <!-- Label & Count -->
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center justify-between gap-2">
-                    <span class="text-xs font-semibold text-[#475569] truncate">{{ item.status }}</span>
+                    <span class="text-xs font-semibold text-[#475569] truncate">{{
+                      item.status
+                    }}</span>
                     <span class="text-xs font-bold text-[#1E293B] font-num">{{ item.count }}</span>
                   </div>
                   <div class="flex items-center justify-between gap-2 mt-1">
-                    <span class="text-[10px] text-[#94A3B8]">{{ getStatusPercentage(item.status) }}%</span>
+                    <span class="text-[10px] text-[#94A3B8]"
+                      >{{ getStatusPercentage(item.status) }}%</span
+                    >
                   </div>
                 </div>
               </div>
@@ -509,10 +594,14 @@ onUnmounted(() => {
 
       <!-- ─── ROW 3: Bar Chart (7 col) + Pie Chart (5 col) ── -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div class="lg:col-span-7 shadow-sm rounded-xl border border-[#E2E8F0] bg-white p-5 hover:shadow-md transition-shadow duration-300">
+        <div
+          class="lg:col-span-7 shadow-sm rounded-xl border border-[#E2E8F0] bg-white p-5 hover:shadow-md transition-shadow duration-300"
+        >
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-base font-bold text-[#1E293B]">Aset Per Tipe</h3>
-            <span class="text-xs font-medium text-[#64748B] bg-[#F1F5F9] px-2.5 py-1 rounded-lg">Kategori</span>
+            <span class="text-xs font-medium text-[#64748B] bg-[#F1F5F9] px-2.5 py-1 rounded-lg"
+              >Kategori</span
+            >
           </div>
           <AssetTypeBarChart
             class="w-full"
@@ -521,10 +610,14 @@ onUnmounted(() => {
             :error="error"
           />
         </div>
-        <div class="lg:col-span-5 shadow-sm rounded-xl border border-[#E2E8F0] bg-white p-5 hover:shadow-md transition-shadow duration-300">
+        <div
+          class="lg:col-span-5 shadow-sm rounded-xl border border-[#E2E8F0] bg-white p-5 hover:shadow-md transition-shadow duration-300"
+        >
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-base font-bold text-[#1E293B]">Kondisi Aset</h3>
-            <span class="text-xs font-medium text-[#64748B] bg-[#F1F5F9] px-2.5 py-1 rounded-lg">Persentase</span>
+            <span class="text-xs font-medium text-[#64748B] bg-[#F1F5F9] px-2.5 py-1 rounded-lg"
+              >Persentase</span
+            >
           </div>
           <AssetConditionPieChart
             class="w-full"
@@ -539,19 +632,28 @@ onUnmounted(() => {
       <CsatDashboardSection v-if="canReadTickets" />
 
       <!-- ─── ROW 5: Lokasi Aset ─────────────────────────────── -->
-      <div class="shadow-sm rounded-xl border border-[#E2E8F0] bg-white p-6 hover:shadow-md transition-shadow duration-300">
+      <div
+        class="shadow-sm rounded-xl border border-[#E2E8F0] bg-white p-6 hover:shadow-md transition-shadow duration-300"
+      >
         <div class="flex items-center justify-between mb-5 pb-4 border-b border-[#F1F5F9]">
           <div>
             <h3 class="text-lg font-bold text-[#1E293B]">Sebaran Lokasi Aset</h3>
             <p class="text-xs text-[#64748B] mt-1">Lokasi penempatan perangkat saat ini</p>
           </div>
-          <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#3B82F6] bg-[#EFF6FF] px-3 py-1.5 rounded-full">
-            <span class="material-symbols-outlined text-[16px]" style="opacity: 0.7;">location_on</span>
+          <span
+            class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#3B82F6] bg-[#EFF6FF] px-3 py-1.5 rounded-full"
+          >
+            <span class="material-symbols-outlined text-[16px]" style="opacity: 0.7"
+              >location_on</span
+            >
             {{ locationBreakdown.length }} Lokasi
           </span>
         </div>
 
-        <div v-if="locationBreakdown.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div
+          v-if="locationBreakdown.length"
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+        >
           <div
             v-for="location in locationBreakdown"
             :key="location.label"
@@ -561,10 +663,15 @@ onUnmounted(() => {
               <span class="truncate text-sm font-semibold text-[#1E293B]" :title="location.label">
                 {{ location.label }}
               </span>
-              <span class="shrink-0 text-sm font-bold text-[#3B82F6] font-num">{{ location.count }}</span>
+              <span class="shrink-0 text-sm font-bold text-[#3B82F6] font-num">{{
+                location.count
+              }}</span>
             </div>
             <div class="h-1.5 overflow-hidden rounded-full bg-[#E2E8F0] mb-2">
-              <div class="h-full rounded-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]" :style="{ width: `${location.pct}%` }"></div>
+              <div
+                class="h-full rounded-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]"
+                :style="{ width: `${location.pct}%` }"
+              ></div>
             </div>
             <p class="text-right text-xs font-medium text-[#64748B]">{{ location.pct }}%</p>
           </div>
@@ -575,13 +682,19 @@ onUnmounted(() => {
       </div>
 
       <!-- ─── ROW 6: Tabel 5 Aset Terbaru ────────────────────── -->
-      <div v-if="canReadAssets" class="shadow-sm rounded-xl border border-[#E2E8F0] bg-white overflow-hidden hover:shadow-md transition-shadow duration-300">
+      <div
+        v-if="canReadAssets"
+        class="shadow-sm rounded-xl border border-[#E2E8F0] bg-white overflow-hidden hover:shadow-md transition-shadow duration-300"
+      >
         <div class="flex items-center justify-between px-6 py-5 border-b border-[#F1F5F9]">
           <div>
             <h3 class="text-lg font-bold text-[#1E293B]">Aset Terbaru</h3>
             <p class="text-xs text-[#64748B] mt-1">5 Perangkat IT paling baru dalam sistem</p>
           </div>
-          <RouterLink to="/assets" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#3B82F6] bg-[#EFF6FF] px-3.5 py-1.5 rounded-full hover:bg-[#DBEAFE] hover:text-[#2563EB] transition-colors duration-200">
+          <RouterLink
+            to="/assets"
+            class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#3B82F6] bg-[#EFF6FF] px-3.5 py-1.5 rounded-full hover:bg-[#DBEAFE] hover:text-[#2563EB] transition-colors duration-200"
+          >
             Lihat Semua
             <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
           </RouterLink>
@@ -591,26 +704,64 @@ onUnmounted(() => {
           <table class="w-full">
             <thead>
               <tr class="border-b border-[#F1F5F9]">
-                <th class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4">Perangkat</th>
-                <th class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4">Merek & Tipe</th>
-                <th class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4">Serial</th>
-                <th class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4">Kondisi</th>
-                <th class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4">Status</th>
-                <th class="text-right text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4">Ditambahkan</th>
+                <th
+                  class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4"
+                >
+                  Perangkat
+                </th>
+                <th
+                  class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4"
+                >
+                  Merek & Tipe
+                </th>
+                <th
+                  class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4"
+                >
+                  Serial
+                </th>
+                <th
+                  class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4"
+                >
+                  Kondisi
+                </th>
+                <th
+                  class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4"
+                >
+                  Status
+                </th>
+                <th
+                  class="text-right text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4"
+                >
+                  Ditambahkan
+                </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="asset in recentAssets" :key="asset.id_aset" class="border-b border-[#F8FAFC] hover:bg-[#F8FAFC] transition-colors duration-150">
+              <tr
+                v-for="asset in recentAssets"
+                :key="asset.id_aset"
+                class="border-b border-[#F8FAFC] hover:bg-[#F8FAFC] transition-colors duration-150"
+              >
                 <td class="py-4 px-4">
                   <div class="flex items-center gap-3">
-                    <span class="material-symbols-outlined text-[19px] text-[#3B82F6]/70 flex-shrink-0" style="opacity: 0.7;">
-                      {{ asset.tipe_perangkat?.toLowerCase().includes('laptop') ? 'laptop' :
-                         asset.tipe_perangkat?.toLowerCase().includes('server') ? 'dns' :
-                         asset.tipe_perangkat?.toLowerCase().includes('printer') ? 'print' :
-                         'computer' }}
+                    <span
+                      class="material-symbols-outlined text-[19px] text-[#3B82F6]/70 flex-shrink-0"
+                      style="opacity: 0.7"
+                    >
+                      {{
+                        asset.tipe_perangkat?.toLowerCase().includes('laptop')
+                          ? 'laptop'
+                          : asset.tipe_perangkat?.toLowerCase().includes('server')
+                            ? 'dns'
+                            : asset.tipe_perangkat?.toLowerCase().includes('printer')
+                              ? 'print'
+                              : 'computer'
+                      }}
                     </span>
                     <div>
-                      <p class="text-sm font-semibold text-[#1E293B] leading-tight">{{ asset.label_aset }}</p>
+                      <p class="text-sm font-semibold text-[#1E293B] leading-tight">
+                        {{ asset.label_aset }}
+                      </p>
                       <p class="text-xs text-[#64748B]">ID #{{ asset.id_aset }}</p>
                     </div>
                   </div>
@@ -619,12 +770,21 @@ onUnmounted(() => {
                   <p class="text-sm font-medium text-[#1E293B]">{{ asset.merek }}</p>
                   <p class="text-xs text-[#64748B]">{{ asset.tipe_perangkat }}</p>
                 </td>
-                <td class="py-4 px-4 font-mono text-xs text-[#64748B] font-medium">{{ asset.nomor_seri }}</td>
-                <td class="py-4 px-4 text-sm font-medium text-[#1E293B]">{{ asset.kondisi_aset }}</td>
-                <td class="py-4 px-4">
-                  <AppBadge :type="getStatusBadgeType(asset.status_aset)" :text="asset.status_aset" />
+                <td class="py-4 px-4 font-mono text-xs text-[#64748B] font-medium">
+                  {{ asset.nomor_seri }}
                 </td>
-                <td class="py-4 px-4 text-right text-xs font-medium text-[#64748B]">{{ formatDate(asset.dibuat_pada) }}</td>
+                <td class="py-4 px-4 text-sm font-medium text-[#1E293B]">
+                  {{ asset.kondisi_aset }}
+                </td>
+                <td class="py-4 px-4">
+                  <AppBadge
+                    :type="getStatusBadgeType(asset.status_aset)"
+                    :text="asset.status_aset"
+                  />
+                </td>
+                <td class="py-4 px-4 text-right text-xs font-medium text-[#64748B]">
+                  {{ formatDate(asset.dibuat_pada) }}
+                </td>
               </tr>
               <tr v-if="recentAssets.length === 0">
                 <td colspan="6" class="py-8 text-center">
@@ -637,13 +797,19 @@ onUnmounted(() => {
       </div>
 
       <!-- ─── ROW 7: Tabel Tiket Permintaan Terbaru ──────────────── -->
-      <div v-if="canReadTickets" class="shadow-sm rounded-xl border border-[#E2E8F0] bg-white overflow-hidden hover:shadow-md transition-shadow duration-300">
+      <div
+        v-if="canReadTickets"
+        class="shadow-sm rounded-xl border border-[#E2E8F0] bg-white overflow-hidden hover:shadow-md transition-shadow duration-300"
+      >
         <div class="flex items-center justify-between px-6 py-5 border-b border-[#F1F5F9]">
           <div>
             <h3 class="text-lg font-bold text-[#1E293B]">Tiket Terbaru</h3>
             <p class="text-xs text-[#64748B] mt-1">5 Laporan kendala & permintaan IT terbaru</p>
           </div>
-          <RouterLink to="/tickets" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#3B82F6] bg-[#EFF6FF] px-3.5 py-1.5 rounded-full hover:bg-[#DBEAFE] hover:text-[#2563EB] transition-colors duration-200">
+          <RouterLink
+            to="/tickets"
+            class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#3B82F6] bg-[#EFF6FF] px-3.5 py-1.5 rounded-full hover:bg-[#DBEAFE] hover:text-[#2563EB] transition-colors duration-200"
+          >
             Lihat Semua
             <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
           </RouterLink>
@@ -653,36 +819,82 @@ onUnmounted(() => {
           <table class="w-full">
             <thead>
               <tr class="border-b border-[#F1F5F9]">
-                <th class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4">No. Tiket</th>
-                <th class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4">Judul</th>
-                <th class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4">Assigned To</th>
-                <th class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4">Prioritas</th>
-                <th class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4">Status</th>
-                <th class="text-right text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4">Tanggal</th>
+                <th
+                  class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4"
+                >
+                  No. Tiket
+                </th>
+                <th
+                  class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4"
+                >
+                  Judul
+                </th>
+                <th
+                  class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4"
+                >
+                  Assigned To
+                </th>
+                <th
+                  class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4"
+                >
+                  Prioritas
+                </th>
+                <th
+                  class="text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4"
+                >
+                  Status
+                </th>
+                <th
+                  class="text-right text-xs font-semibold text-[#64748B] uppercase tracking-wide py-3 px-4"
+                >
+                  Tanggal
+                </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="ticket in recentTickets" :key="ticket.id" class="border-b border-[#F8FAFC] hover:bg-[#F8FAFC] transition-colors duration-150">
+              <tr
+                v-for="ticket in recentTickets"
+                :key="ticket.id"
+                class="border-b border-[#F8FAFC] hover:bg-[#F8FAFC] transition-colors duration-150"
+              >
                 <td class="py-4 px-4">
-                  <span class="font-mono text-xs font-bold text-[#3B82F6]">{{ ticket.nomor_tiket || `TCK-#${ticket.id}` }}</span>
+                  <span class="font-mono text-xs font-bold text-[#3B82F6]">{{
+                    ticket.nomor_tiket || `TCK-#${ticket.id}`
+                  }}</span>
                 </td>
                 <td class="py-4 px-4">
-                  <p class="text-sm font-semibold text-[#1E293B] leading-tight">{{ ticket.judul }}</p>
+                  <p class="text-sm font-semibold text-[#1E293B] leading-tight">
+                    {{ ticket.judul }}
+                  </p>
                   <p class="text-xs text-[#64748B]">Pelapor: {{ ticket.pelapor || 'User' }}</p>
                 </td>
                 <td class="py-4 px-4">
                   <div class="flex items-center gap-2.5">
-                    <span class="material-symbols-outlined text-[18px] text-[#3B82F6]/70 flex-shrink-0" style="opacity: 0.7;">person</span>
-                    <span class="text-sm font-medium text-[#1E293B]">{{ ticket.assigned_to || 'Belum ditugaskan' }}</span>
+                    <span
+                      class="material-symbols-outlined text-[18px] text-[#3B82F6]/70 flex-shrink-0"
+                      style="opacity: 0.7"
+                      >person</span
+                    >
+                    <span class="text-sm font-medium text-[#1E293B]">{{
+                      ticket.assigned_to || 'Belum ditugaskan'
+                    }}</span>
                   </div>
                 </td>
                 <td class="py-4 px-4">
-                  <AppBadge :type="getPriorityBadgeType(ticket.prioritas)" :text="ticket.prioritas" />
+                  <AppBadge
+                    :type="getPriorityBadgeType(ticket.prioritas)"
+                    :text="ticket.prioritas"
+                  />
                 </td>
                 <td class="py-4 px-4">
-                  <AppBadge :type="getTicketStatusBadgeType(ticket.status_tiket)" :text="ticket.status_tiket" />
+                  <AppBadge
+                    :type="getTicketStatusBadgeType(ticket.status_tiket)"
+                    :text="ticket.status_tiket"
+                  />
                 </td>
-                <td class="py-4 px-4 text-right text-xs font-medium text-[#64748B]">{{ formatDate(ticket.dibuat_pada) }}</td>
+                <td class="py-4 px-4 text-right text-xs font-medium text-[#64748B]">
+                  {{ formatDate(ticket.dibuat_pada) }}
+                </td>
               </tr>
               <tr v-if="recentTickets.length === 0">
                 <td colspan="6" class="py-8 text-center">
@@ -693,8 +905,6 @@ onUnmounted(() => {
           </table>
         </div>
       </div>
-
     </template>
-
   </div>
 </template>

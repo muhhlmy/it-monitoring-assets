@@ -49,7 +49,9 @@ function goToPage(page) {
 </script>
 
 <template>
-  <div class="flex flex-col sm:flex-row items-center justify-between gap-2.5 border-t border-[#E5EAEF] bg-[#F8FAFC] px-3.5 py-2 text-[11px] text-[#7C8BAC]">
+  <div
+    class="flex flex-col sm:flex-row items-center justify-between gap-2.5 border-t border-[#E5EAEF] bg-[#F8FAFC] px-3.5 py-2 text-[11px] text-[#7C8BAC]"
+  >
     <div class="flex items-center gap-1 font-medium">
       <span>Menampilkan</span>
       <span class="font-bold text-[#2A3547]">{{ startIndex }}</span>
@@ -76,7 +78,11 @@ function goToPage(page) {
           type="button"
           @click="goToPage(page)"
           class="flex h-7 min-w-[28px] px-1.5 items-center justify-center rounded-lg text-[11px] font-bold transition-all cursor-pointer"
-          :class="page === currentPage ? 'bg-[#5D87FF] text-white shadow-sm' : 'border border-[#DFE5EF] bg-white text-[#2A3547] hover:bg-[#F1F5F9]'"
+          :class="
+            page === currentPage
+              ? 'bg-[#5D87FF] text-white shadow-sm'
+              : 'border border-[#DFE5EF] bg-white text-[#2A3547] hover:bg-[#F1F5F9]'
+          "
         >
           {{ page }}
         </button>

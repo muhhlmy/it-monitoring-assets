@@ -54,8 +54,8 @@ const isUserReporter = computed(() => {
   const currentUserId = Number(user.value.id)
   const pelaporId = Number(
     props.ticket?.pelapor_user_id ||
-    props.ticket?.pelapor_id ||
-    (typeof props.ticket?.pelapor === 'number' ? props.ticket.pelapor : null)
+      props.ticket?.pelapor_id ||
+      (typeof props.ticket?.pelapor === 'number' ? props.ticket.pelapor : null),
   )
   if (currentUserId && pelaporId && currentUserId === pelaporId) return true
   // Fallback: If role is USER / REPORTER
@@ -116,7 +116,9 @@ watch(
   <div class="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 text-xs transition-all">
     <!-- Loading State -->
     <div v-if="isLoading" class="flex items-center gap-2 py-2 text-[#64748B]">
-      <span class="material-symbols-outlined text-[16px] animate-spin text-[#2563EB]">progress_activity</span>
+      <span class="material-symbols-outlined text-[16px] animate-spin text-[#2563EB]"
+        >progress_activity</span
+      >
       <span>Memeriksa status penilaian CASP...</span>
     </div>
 
@@ -126,7 +128,9 @@ watch(
         <h4 class="text-xs font-bold text-[#0F172A]">
           {{ isUserReporter && !isAdmin && !isSuperAdmin ? 'Penilaian Anda' : 'CASP Assessment' }}
         </h4>
-        <span class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+        <span
+          class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md"
+        >
           {{ existingRating.value }} / 5
         </span>
       </div>
@@ -138,15 +142,26 @@ watch(
         </span>
       </div>
 
-      <p v-if="isUserReporter && !isAdmin && !isSuperAdmin" class="text-[11.5px] font-medium text-[#64748B]">
+      <p
+        v-if="isUserReporter && !isAdmin && !isSuperAdmin"
+        class="text-[11.5px] font-medium text-[#64748B]"
+      >
         Terima kasih atas feedback Anda.
       </p>
 
-      <div v-if="existingRating.feedback" class="mt-1 rounded-lg border border-[#E2E8F0] bg-white p-3 text-[11.5px] text-[#334155] italic">
+      <div
+        v-if="existingRating.feedback"
+        class="mt-1 rounded-lg border border-[#E2E8F0] bg-white p-3 text-[11.5px] text-[#334155] italic"
+      >
         "{{ existingRating.feedback }}"
       </div>
 
-      <div v-if="(isAdmin || isSuperAdmin) && (existingRating.reporterName || existingRating.assigneeName)" class="text-[10.5px] text-[#94A3B8] flex items-center gap-2 mt-0.5">
+      <div
+        v-if="
+          (isAdmin || isSuperAdmin) && (existingRating.reporterName || existingRating.assigneeName)
+        "
+        class="text-[10.5px] text-[#94A3B8] flex items-center gap-2 mt-0.5"
+      >
         <span v-if="existingRating.reporterName">Pelapor: {{ existingRating.reporterName }}</span>
         <span v-if="existingRating.assigneeName">· Petugas: {{ existingRating.assigneeName }}</span>
       </div>
@@ -208,7 +223,9 @@ watch(
           :disabled="isSubmitting || !selectedRating"
           class="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-bold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all cursor-pointer disabled:opacity-50"
         >
-          <span v-if="isSubmitting" class="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+          <span v-if="isSubmitting" class="material-symbols-outlined text-[16px] animate-spin"
+            >progress_activity</span
+          >
           <span v-else class="material-symbols-outlined text-[16px]">send</span>
           <span>{{ isSubmitting ? 'Mengirim...' : 'Kirim Penilaian' }}</span>
         </button>
@@ -219,7 +236,9 @@ watch(
     <div v-else class="text-xs font-medium text-[#64748B]">
       <span v-if="!isFinished" class="italic">Penilaian tersedia setelah ticket selesai.</span>
       <span v-else-if="isAdmin || isSuperAdmin" class="italic">Belum ada penilaian dari user.</span>
-      <span v-else class="italic">{{ reason || 'Penilaian CASP tidak tersedia untuk tiket ini.' }}</span>
+      <span v-else class="italic">{{
+        reason || 'Penilaian CASP tidak tersedia untuk tiket ini.'
+      }}</span>
     </div>
   </div>
 </template>

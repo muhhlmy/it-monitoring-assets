@@ -26,17 +26,25 @@ const moduleIcon = computed(() => {
 
 <template>
   <div class="flex flex-col items-center justify-center min-h-[calc(100vh-140px)] py-12 px-4">
-    <div class="w-full max-w-lg rounded-2xl border border-[#E2E8F0] bg-white p-8 shadow-sm text-center relative overflow-hidden">
+    <div
+      class="w-full max-w-lg rounded-2xl border border-[#E2E8F0] bg-white p-8 shadow-sm text-center relative overflow-hidden"
+    >
       <!-- Top Decorative Accent -->
-      <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#2563EB] via-[#6366F1] to-[#3B82F6]"></div>
+      <div
+        class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#2563EB] via-[#6366F1] to-[#3B82F6]"
+      ></div>
 
       <!-- Icon Badge -->
-      <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB] shadow-2xs">
+      <div
+        class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB] shadow-2xs"
+      >
         <span class="material-symbols-outlined text-[32px]">{{ moduleIcon }}</span>
       </div>
 
       <!-- Status Pill -->
-      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE] mb-3">
+      <span
+        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE] mb-3"
+      >
         <span class="h-1.5 w-1.5 rounded-full bg-[#4F46E5] animate-ping"></span>
         <span>Dalam Pengembangan (Coming Soon)</span>
       </span>
@@ -46,7 +54,9 @@ const moduleIcon = computed(() => {
       <p class="text-xs font-medium text-[#64748B] mt-1">{{ moduleCategory }}</p>
 
       <p class="text-xs text-[#475569] leading-relaxed mt-4 max-w-md mx-auto">
-        Modul pencatatan dan tata kelola <strong>{{ moduleTitle }}</strong> sedang disiapkan. Fitur lacak siklus, alokasi inventaris, dan audit laporan akan segera tersedia pada versi mendatang.
+        Modul pencatatan dan tata kelola <strong>{{ moduleTitle }}</strong> sedang disiapkan. Fitur
+        lacak siklus, alokasi inventaris, dan audit laporan akan segera tersedia pada versi
+        mendatang.
       </p>
 
       <!-- Action Buttons -->

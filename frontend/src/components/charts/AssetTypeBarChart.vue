@@ -16,9 +16,9 @@ import BaseChartCard from './BaseChartCard.vue'
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
 const props = defineProps({
-  data:    { type: Array, default: () => [] },
+  data: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
-  error:   { type: String, default: '' },
+  error: { type: String, default: '' },
 })
 
 const { chartColors, palette } = useChartTheme()
@@ -55,7 +55,10 @@ const chartOptions = computed(() => ({
   scales: {
     x: {
       grid: { display: false },
-      ticks: { color: chartColors.mutedText, font: { family: "'Plus Jakarta Sans', sans-serif", size: 11, weight: '600' } },
+      ticks: {
+        color: chartColors.mutedText,
+        font: { family: "'Plus Jakarta Sans', sans-serif", size: 11, weight: '600' },
+      },
     },
     y: {
       beginAtZero: true,

@@ -6,14 +6,15 @@ defineProps({
   color: {
     type: String,
     default: 'primary',
-    validator: (value) => ['primary', 'success', 'warning', 'danger', 'cyan', 'purple'].includes(value),
+    validator: (value) =>
+      ['primary', 'success', 'warning', 'danger', 'cyan', 'purple'].includes(value),
   },
   subtitle: { type: String, default: '' },
 })
 </script>
 
 <template>
-  <div 
+  <div
     class="shadow-card shadow-card-hover group relative flex min-h-[76px] items-center gap-3 overflow-hidden rounded-xl border p-3.5 transition-all duration-200"
     :class="{
       'bg-[#ECF2FF] border-[#D2E3FF] text-[#5D87FF]': color === 'primary' || color === 'purple',
@@ -29,10 +30,16 @@ defineProps({
       <span aria-hidden="true" class="material-symbols-outlined text-[18px]">{{ icon }}</span>
     </div>
     <div class="min-w-0 flex-1">
-      <span class="font-num block text-[20px] font-extrabold leading-none tracking-tight text-[#2A3547]">{{ value }}</span>
-      <span class="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">{{ title }}</span>
-      <span v-if="subtitle" class="mt-0.5 block truncate text-[9px] font-medium text-[#7C8BAC]">{{ subtitle }}</span>
+      <span
+        class="font-num block text-[20px] font-extrabold leading-none tracking-tight text-[#2A3547]"
+        >{{ value }}</span
+      >
+      <span class="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-[#7C8BAC]">{{
+        title
+      }}</span>
+      <span v-if="subtitle" class="mt-0.5 block truncate text-[9px] font-medium text-[#7C8BAC]">{{
+        subtitle
+      }}</span>
     </div>
   </div>
 </template>
-

@@ -44,8 +44,8 @@ function neutralizeSpreadsheetFormula(value) {
 export function exportToCsv(data, columns = [], filenamePrefix = 'Export_Data') {
   if (!Array.isArray(data) || data.length === 0) return false
 
-  const colKeys = columns.length > 0 ? columns.map(c => c.name) : Object.keys(data[0])
-  const colLabels = columns.length > 0 ? columns.map(c => c.label) : colKeys
+  const colKeys = columns.length > 0 ? columns.map((c) => c.name) : Object.keys(data[0])
+  const colLabels = columns.length > 0 ? columns.map((c) => c.label) : colKeys
 
   const escapeCsv = (val) => {
     let str = neutralizeSpreadsheetFormula(val)
@@ -54,12 +54,12 @@ export function exportToCsv(data, columns = [], filenamePrefix = 'Export_Data') 
   }
 
   const headerRow = colLabels.map(escapeCsv).join(',')
-  const dataRows = data.map(row => colKeys.map(key => escapeCsv(row[key])).join(','))
+  const dataRows = data.map((row) => colKeys.map((key) => escapeCsv(row[key])).join(','))
 
   const csvContent = '\uFEFF' + [headerRow, ...dataRows].join('\r\n')
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
   const filename = `${filenamePrefix}_${formatDateStamp()}.csv`
-  
+
   triggerDownload(blob, filename)
   return true
 }
@@ -73,7 +73,7 @@ export function exportToJson(data, filenamePrefix = 'Export_Data') {
   const jsonString = JSON.stringify(data, null, 2)
   const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' })
   const filename = `${filenamePrefix}_${formatDateStamp()}.json`
-  
+
   triggerDownload(blob, filename)
   return true
 }
@@ -81,21 +81,35 @@ export function exportToJson(data, filenamePrefix = 'Export_Data') {
 /**
  * Ekspor Data ke Excel Spreadsheet (.xls - HTML XML Table)
  */
-export function exportToExcel(data, columns = [], tableName = 'Data', filenamePrefix = 'Export_Data') {
+export function exportToExcel(
+  data,
+  columns = [],
+  tableName = 'Data',
+  filenamePrefix = 'Export_Data',
+) {
   if (!Array.isArray(data) || data.length === 0) return false
 
-  const colKeys = columns.length > 0 ? columns.map(c => c.name) : Object.keys(data[0])
-  const colLabels = columns.length > 0 ? columns.map(c => c.label) : colKeys
+  const colKeys = columns.length > 0 ? columns.map((c) => c.name) : Object.keys(data[0])
+  const colLabels = columns.length > 0 ? columns.map((c) => c.label) : colKeys
 
-  const headerHtml = colLabels.map(l => `<th style="background-color: #0252B3; color: #ffffff; font-weight: bold; padding: 10px; border: 1px solid #dcdcdc;">${escapeHtml(neutralizeSpreadsheetFormula(l))}</th>`).join('')
-  
-  const rowsHtml = data.map(row => {
-    const cells = colKeys.map(key => {
-      const value = neutralizeSpreadsheetFormula(row[key])
-      return `<td style="padding: 8px; border: 1px solid #e2e8f0; vertical-align: top;">${escapeHtml(value)}</td>`
-    }).join('')
-    return `<tr>${cells}</tr>`
-  }).join('')
+  const headerHtml = colLabels
+    .map(
+      (l) =>
+        `<th style="background-color: #0252B3; color: #ffffff; font-weight: bold; padding: 10px; border: 1px solid #dcdcdc;">${escapeHtml(neutralizeSpreadsheetFormula(l))}</th>`,
+    )
+    .join('')
+
+  const rowsHtml = data
+    .map((row) => {
+      const cells = colKeys
+        .map((key) => {
+          const value = neutralizeSpreadsheetFormula(row[key])
+          return `<td style="padding: 8px; border: 1px solid #e2e8f0; vertical-align: top;">${escapeHtml(value)}</td>`
+        })
+        .join('')
+      return `<tr>${cells}</tr>`
+    })
+    .join('')
 
   const safeTableName = escapeHtml(tableName)
   const excelHtml = `
@@ -134,7 +148,7 @@ export function exportToExcel(data, columns = [], tableName = 'Data', filenamePr
 
   const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' })
   const filename = `${filenamePrefix}_${formatDateStamp()}.xls`
-  
+
   triggerDownload(blob, filename)
   return true
 }
@@ -142,31 +156,46 @@ export function exportToExcel(data, columns = [], tableName = 'Data', filenamePr
 /**
  * Ekspor Data ke PDF Laporan Berformat Profesional
  */
-export function exportToPdf(data, columns = [], tableName = 'Data', title = 'Laporan Ekspor Data', filters = {}) {
+export function exportToPdf(
+  data,
+  columns = [],
+  tableName = 'Data',
+  title = 'Laporan Ekspor Data',
+  filters = {},
+) {
   if (!Array.isArray(data) || data.length === 0) return false
 
-  const colKeys = columns.length > 0 ? columns.map(c => c.name) : Object.keys(data[0])
-  const colLabels = columns.length > 0 ? columns.map(c => c.label) : colKeys
+  const colKeys = columns.length > 0 ? columns.map((c) => c.name) : Object.keys(data[0])
+  const colLabels = columns.length > 0 ? columns.map((c) => c.label) : colKeys
 
-  const headerTh = colLabels.map(l => `<th>${escapeHtml(l)}</th>`).join('')
-  
-  const bodyTrs = data.map((row, idx) => {
-    const cells = colKeys.map(key => {
-      let val = row[key]
-      if (val === null || val === undefined) val = '—'
-      if (typeof val === 'boolean') val = val ? 'Aktif' : 'Non-Aktif'
-      return `<td>${escapeHtml(val)}</td>`
-    }).join('')
-    return `<tr class="${idx % 2 === 0 ? 'even' : 'odd'}">${cells}</tr>`
-  }).join('')
+  const headerTh = colLabels.map((l) => `<th>${escapeHtml(l)}</th>`).join('')
 
-  const filterSummary = Object.entries(filters)
-    .filter(([_, v]) => v && v !== 'all' && v !== 'semua')
-    .map(([k, v]) => `<span><strong>${escapeHtml(k)}:</strong> ${escapeHtml(v)}</span>`)
-    .join(' | ') || 'Semua Data'
+  const bodyTrs = data
+    .map((row, idx) => {
+      const cells = colKeys
+        .map((key) => {
+          let val = row[key]
+          if (val === null || val === undefined) val = '—'
+          if (typeof val === 'boolean') val = val ? 'Aktif' : 'Non-Aktif'
+          return `<td>${escapeHtml(val)}</td>`
+        })
+        .join('')
+      return `<tr class="${idx % 2 === 0 ? 'even' : 'odd'}">${cells}</tr>`
+    })
+    .join('')
+
+  const filterSummary =
+    Object.entries(filters)
+      .filter(([_, v]) => v && v !== 'all' && v !== 'semua')
+      .map(([k, v]) => `<span><strong>${escapeHtml(k)}:</strong> ${escapeHtml(v)}</span>`)
+      .join(' | ') || 'Semua Data'
 
   const dateStr = new Date().toLocaleDateString('id-ID', {
-    day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   })
   const safeTitle = escapeHtml(title)
   const safeTableName = escapeHtml(tableName)

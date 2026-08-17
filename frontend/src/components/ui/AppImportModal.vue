@@ -60,7 +60,7 @@ watch(
     if (!val) {
       resetModalState()
     }
-  }
+  },
 )
 
 function handleClose() {
@@ -72,25 +72,25 @@ function handleClose() {
 function downloadTemplate() {
   const sampleKaryawan = [
     {
-      'NIK': '2026001',
+      NIK: '2026001',
       'Nama Karyawan': 'Budi Santoso',
-      'Status': 'Active',
-      'Title': 'Software Engineer',
+      Status: 'Active',
+      Title: 'Software Engineer',
       'Job Level': 'L3',
-      'Departemen': 'Technology',
-      'Directorate': 'Technology',
+      Departemen: 'Technology',
+      Directorate: 'Technology',
       'Employeement Status': 'Permanent',
       'Email Kantor': 'budi.santoso@esb.co.id',
       'Lokasi Kerja': 'JKT',
     },
     {
-      'NIK': '2026002',
+      NIK: '2026002',
       'Nama Karyawan': 'Siti Rahma',
-      'Status': 'Active',
-      'Title': 'Account Management Analyst',
+      Status: 'Active',
+      Title: 'Account Management Analyst',
       'Job Level': 'L2',
-      'Departemen': 'Account Management',
-      'Directorate': 'Operations',
+      Departemen: 'Account Management',
+      Directorate: 'Operations',
       'Employeement Status': 'Permanent',
       'Email Kantor': 'siti.rahma@esb.co.id',
       'Lokasi Kerja': 'BDG',
@@ -99,33 +99,33 @@ function downloadTemplate() {
 
   const sampleAssets = [
     {
-      'Hostname': 'ESB-LAP-001',
+      Hostname: 'ESB-LAP-001',
       'Serial Number': 'PF3X90B',
-      'Spesifikasi': 'Intel Core i7 16GB RAM 512GB SSD',
+      Spesifikasi: 'Intel Core i7 16GB RAM 512GB SSD',
       'NIK Pemegang': '2026001',
       'Nama Karyawan Pemegang': 'Budi Santoso',
       'Departemen Pemegang': 'Technology',
       'Lokasi Aset': 'JKT',
       'Tipe Perangkat': 'Laptop',
       'Brand/Merek': 'Lenovo',
-      'Model': 'ThinkPad T14',
-      'Status': 'In Use',
-      'Kondisi': 'Normal',
+      Model: 'ThinkPad T14',
+      Status: 'In Use',
+      Kondisi: 'Normal',
       'Note Asset': 'Laptop utama pengembang',
     },
     {
-      'Hostname': 'ESB-MON-002',
+      Hostname: 'ESB-MON-002',
       'Serial Number': 'MON-88491',
-      'Spesifikasi': '27 inch 4K Display',
+      Spesifikasi: '27 inch 4K Display',
       'NIK Pemegang': '2026002',
       'Nama Karyawan Pemegang': 'Siti Rahma',
       'Departemen Pemegang': 'Account Management',
       'Lokasi Aset': 'BDG',
       'Tipe Perangkat': 'Monitor',
       'Brand/Merek': 'Dell',
-      'Model': 'UltraSharp U2720Q',
-      'Status': 'In Use',
-      'Kondisi': 'Normal',
+      Model: 'UltraSharp U2720Q',
+      Status: 'In Use',
+      Kondisi: 'Normal',
       'Note Asset': 'Monitor kerja tambahan',
     },
   ]
@@ -180,18 +180,35 @@ function processFile(file) {
       // Check sheet names & header keys
       const sheetNames = workbook.SheetNames
 
-      sheetNames.forEach(sheetName => {
+      sheetNames.forEach((sheetName) => {
         const lowerName = sheetName.toLowerCase()
         const sheetJson = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName])
         if (!Array.isArray(sheetJson) || sheetJson.length === 0) return
 
-        const sampleKeys = Object.keys(sheetJson[0] || {}).map(k => String(k).toLowerCase())
+        const sampleKeys = Object.keys(sheetJson[0] || {}).map((k) => String(k).toLowerCase())
 
         const isEmpSheet = lowerName.includes('karyawan') || lowerName.includes('employee')
         const isAssetSheet = lowerName.includes('asset') || lowerName.includes('aset')
 
-        const hasEmpKeys = sampleKeys.some(k => k.includes('nik') || k.includes('karyawan') || k.includes('email') || k.includes('jabatan') || k.includes('title') || k.includes('direktorat'))
-        const hasAssetKeys = sampleKeys.some(k => k.includes('label') || k.includes('serial') || k.includes('perangkat') || k.includes('merek') || k.includes('brand') || k.includes('model') || k.includes('sn'))
+        const hasEmpKeys = sampleKeys.some(
+          (k) =>
+            k.includes('nik') ||
+            k.includes('karyawan') ||
+            k.includes('email') ||
+            k.includes('jabatan') ||
+            k.includes('title') ||
+            k.includes('direktorat'),
+        )
+        const hasAssetKeys = sampleKeys.some(
+          (k) =>
+            k.includes('label') ||
+            k.includes('serial') ||
+            k.includes('perangkat') ||
+            k.includes('merek') ||
+            k.includes('brand') ||
+            k.includes('model') ||
+            k.includes('sn'),
+        )
 
         if (isEmpSheet) {
           karyawanData = karyawanData.concat(sheetJson)
@@ -273,28 +290,37 @@ async function submitImport() {
     @close="handleClose"
   >
     <div class="space-y-4">
-
       <!-- Alert Notifikasi -->
-      <div v-if="modalError" class="rounded-xl bg-rose-50 p-3 text-[12px] font-bold text-rose-600 border border-rose-200">
+      <div
+        v-if="modalError"
+        class="rounded-xl bg-rose-50 p-3 text-[12px] font-bold text-rose-600 border border-rose-200"
+      >
         {{ modalError }}
       </div>
 
-      <div v-if="successResult" class="rounded-xl bg-emerald-50 p-4 text-[12px] font-bold text-emerald-700 border border-emerald-200 flex flex-col gap-2">
+      <div
+        v-if="successResult"
+        class="rounded-xl bg-emerald-50 p-4 text-[12px] font-bold text-emerald-700 border border-emerald-200 flex flex-col gap-2"
+      >
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-[20px]">check_circle</span>
           <span>{{ successResult }}</span>
         </div>
         <p class="text-[11px] font-normal text-emerald-800">
-          Setiap karyawan baru otomatis dibuatkan akun pengguna default (role: User, password: <code>Password123!</code>).
+          Setiap karyawan baru otomatis dibuatkan akun pengguna default (role: User, password:
+          <code>Password123!</code>).
         </p>
       </div>
 
       <!-- Action Banner: Download Template -->
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl bg-[#ECF2FF] border border-[#D2E3FF] p-4">
+      <div
+        class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl bg-[#ECF2FF] border border-[#D2E3FF] p-4"
+      >
         <div>
           <h4 class="text-[13px] font-bold text-[#2A3547]">Format / Template Import Excel</h4>
           <p class="text-[11px] text-[#7C8BAC] mt-0.5">
-            Gunakan template Excel resmi yang berisi Sheet <code>Table Karyawan</code> &amp; <code>Table Asset</code>.
+            Gunakan template Excel resmi yang berisi Sheet <code>Table Karyawan</code> &amp;
+            <code>Table Asset</code>.
           </p>
         </div>
         <button
@@ -322,35 +348,51 @@ async function submitImport() {
           @change="onFileSelected"
         />
 
-        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#5D87FF] shadow-sm mb-2">
+        <div
+          class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#5D87FF] shadow-sm mb-2"
+        >
           <span class="material-symbols-outlined text-[28px]">upload_file</span>
         </div>
 
         <p v-if="!selectedFile" class="text-[13px] font-bold text-[#2A3547]">
-          Tarik &amp; lepas file Excel di sini, atau <span class="text-[#5D87FF] underline">pilih file</span>
+          Tarik &amp; lepas file Excel di sini, atau
+          <span class="text-[#5D87FF] underline">pilih file</span>
         </p>
         <p v-else class="text-[13px] font-bold text-[#5D87FF] truncate max-w-md">
           📄 {{ selectedFile.name }} ({{ (selectedFile.size / 1024).toFixed(1) }} KB)
         </p>
 
-        <p class="text-[11px] text-[#7C8BAC] mt-1">Mendukung file berformat .xlsx, .xls, atau .csv</p>
+        <p class="text-[11px] text-[#7C8BAC] mt-1">
+          Mendukung file berformat .xlsx, .xls, atau .csv
+        </p>
       </div>
 
       <!-- Parsed Data Preview -->
-      <div v-if="isParsing" class="flex items-center justify-center gap-2 py-8 text-[12px] text-[#7C8BAC]">
-        <div class="h-5 w-5 animate-spin rounded-full border-2 border-[#E5EAEF] border-t-[#5D87FF]"></div>
+      <div
+        v-if="isParsing"
+        class="flex items-center justify-center gap-2 py-8 text-[12px] text-[#7C8BAC]"
+      >
+        <div
+          class="h-5 w-5 animate-spin rounded-full border-2 border-[#E5EAEF] border-t-[#5D87FF]"
+        ></div>
         <span>Membaca dan memproses isi file Excel...</span>
       </div>
 
-      <div v-else-if="parsedKaryawanRows.length > 0 || parsedAssetRows.length > 0" class="space-y-3 pt-2">
-        
+      <div
+        v-else-if="parsedKaryawanRows.length > 0 || parsedAssetRows.length > 0"
+        class="space-y-3 pt-2"
+      >
         <!-- Tab Switcher -->
         <div class="flex items-center gap-2 border-b border-[#E5EAEF] pb-2">
           <button
             type="button"
             @click="activeTab = 'karyawan'"
             class="flex items-center gap-2 rounded-xl px-4 py-2 text-[12px] font-bold transition-all cursor-pointer"
-            :class="activeTab === 'karyawan' ? 'bg-[#5D87FF] text-white shadow-sm' : 'text-[#7C8BAC] hover:bg-[#F8FAFC]'"
+            :class="
+              activeTab === 'karyawan'
+                ? 'bg-[#5D87FF] text-white shadow-sm'
+                : 'text-[#7C8BAC] hover:bg-[#F8FAFC]'
+            "
           >
             <span class="material-symbols-outlined text-[16px]">badge</span>
             <span>Table Karyawan ({{ parsedKaryawanRows.length }})</span>
@@ -360,7 +402,11 @@ async function submitImport() {
             type="button"
             @click="activeTab = 'assets'"
             class="flex items-center gap-2 rounded-xl px-4 py-2 text-[12px] font-bold transition-all cursor-pointer"
-            :class="activeTab === 'assets' ? 'bg-[#5D87FF] text-white shadow-sm' : 'text-[#7C8BAC] hover:bg-[#F8FAFC]'"
+            :class="
+              activeTab === 'assets'
+                ? 'bg-[#5D87FF] text-white shadow-sm'
+                : 'text-[#7C8BAC] hover:bg-[#F8FAFC]'
+            "
           >
             <span class="material-symbols-outlined text-[16px]">devices</span>
             <span>Table Asset ({{ parsedAssetRows.length }})</span>
@@ -368,7 +414,10 @@ async function submitImport() {
         </div>
 
         <!-- Preview Table Karyawan -->
-        <div v-if="activeTab === 'karyawan'" class="rounded-xl border border-[#E5EAEF] overflow-hidden">
+        <div
+          v-if="activeTab === 'karyawan'"
+          class="rounded-xl border border-[#E5EAEF] overflow-hidden"
+        >
           <div class="max-h-[220px] overflow-auto">
             <table v-if="parsedKaryawanRows.length > 0" class="w-full text-left text-[11px]">
               <thead class="bg-[#F8FAFC] sticky top-0 border-b border-[#E5EAEF]">
@@ -382,17 +431,29 @@ async function submitImport() {
                 </tr>
               </thead>
               <tbody class="divide-y divide-[#F1F5F9]">
-                <tr v-for="(row, idx) in paginatedKaryawanRows" :key="idx" class="hover:bg-[#F8FAFC]">
-                  <td class="p-2 font-mono font-bold text-[#2A3547]">{{ row.NIK || row.nik || '—' }}</td>
-                  <td class="p-2 font-bold text-[#2A3547]">{{ row['Nama Karyawan'] || row.nama_karyawan || '—' }}</td>
-                  <td class="p-2 text-[#7C8BAC]">{{ row['Email Kantor'] || row.email_kantor || '—' }}</td>
+                <tr
+                  v-for="(row, idx) in paginatedKaryawanRows"
+                  :key="idx"
+                  class="hover:bg-[#F8FAFC]"
+                >
+                  <td class="p-2 font-mono font-bold text-[#2A3547]">
+                    {{ row.NIK || row.nik || '—' }}
+                  </td>
+                  <td class="p-2 font-bold text-[#2A3547]">
+                    {{ row['Nama Karyawan'] || row.nama_karyawan || '—' }}
+                  </td>
+                  <td class="p-2 text-[#7C8BAC]">
+                    {{ row['Email Kantor'] || row.email_kantor || '—' }}
+                  </td>
                   <td class="p-2 text-[#2A3547]">{{ row.Title || row.jabatan || '—' }}</td>
                   <td class="p-2 text-[#2A3547]">{{ row.Departemen || row.departemen || '—' }}</td>
                   <td class="p-2 text-[#2A3547]">{{ row['Lokasi Kerja'] || row.lokasi || '—' }}</td>
                 </tr>
               </tbody>
             </table>
-            <p v-else class="p-4 text-center text-[12px] text-[#7C8BAC]">Tidak ada baris data Karyawan.</p>
+            <p v-else class="p-4 text-center text-[12px] text-[#7C8BAC]">
+              Tidak ada baris data Karyawan.
+            </p>
           </div>
           <AppPagination
             v-if="parsedKaryawanRows.length > 0"
@@ -403,7 +464,10 @@ async function submitImport() {
         </div>
 
         <!-- Preview Table Asset -->
-        <div v-if="activeTab === 'assets'" class="rounded-xl border border-[#E5EAEF] overflow-hidden">
+        <div
+          v-if="activeTab === 'assets'"
+          class="rounded-xl border border-[#E5EAEF] overflow-hidden"
+        >
           <div class="max-h-[220px] overflow-auto">
             <table v-if="parsedAssetRows.length > 0" class="w-full text-left text-[11px]">
               <thead class="bg-[#F8FAFC] sticky top-0 border-b border-[#E5EAEF]">
@@ -418,16 +482,73 @@ async function submitImport() {
               </thead>
               <tbody class="divide-y divide-[#F1F5F9]">
                 <tr v-for="(row, idx) in paginatedAssetRows" :key="idx" class="hover:bg-[#F8FAFC]">
-                  <td class="p-2 font-bold text-[#2A3547]">{{ row.Hostname || row.hostname || row['Label Aset'] || row.label_aset || row['Label Asset'] || row.ID || row.id || row['Kode Aset'] || row['Asset Tag'] || '—' }}</td>
-                  <td class="p-2 font-mono font-bold text-[#2A3547]">{{ row['Serial Number'] || row.nomor_seri || row['Nomor Seri'] || row.SN || row.sn || row['S/N'] || '—' }}</td>
-                  <td class="p-2 text-[#2A3547]">{{ [row['Brand/Merek'] || row.merek || row.Brand || row.brand || row.Merk, row.Model || row.model].filter(Boolean).join(' ') || row['Tipe Perangkat'] || row.tipe_perangkat || row.Tipe || '—' }}</td>
-                  <td class="p-2 font-mono text-[#7C8BAC]">{{ row['NIK Pemegang Asset'] || row.NIK || row.nik || row['NIK Pemegang'] || 'Stock' }}</td>
-                  <td class="p-2 text-[#2A3547]">{{ row['Lokasi Asset'] || row.Lokasi || row.lokasi_aset || row['Lokasi Aset'] || row['Lokasi Kerja'] || '—' }}</td>
-                  <td class="p-2 font-semibold text-[#5D87FF]">{{ row.Status || row.status || row.status_aset || '—' }}</td>
+                  <td class="p-2 font-bold text-[#2A3547]">
+                    {{
+                      row.Hostname ||
+                      row.hostname ||
+                      row['Label Aset'] ||
+                      row.label_aset ||
+                      row['Label Asset'] ||
+                      row.ID ||
+                      row.id ||
+                      row['Kode Aset'] ||
+                      row['Asset Tag'] ||
+                      '—'
+                    }}
+                  </td>
+                  <td class="p-2 font-mono font-bold text-[#2A3547]">
+                    {{
+                      row['Serial Number'] ||
+                      row.nomor_seri ||
+                      row['Nomor Seri'] ||
+                      row.SN ||
+                      row.sn ||
+                      row['S/N'] ||
+                      '—'
+                    }}
+                  </td>
+                  <td class="p-2 text-[#2A3547]">
+                    {{
+                      [
+                        row['Brand/Merek'] || row.merek || row.Brand || row.brand || row.Merk,
+                        row.Model || row.model,
+                      ]
+                        .filter(Boolean)
+                        .join(' ') ||
+                      row['Tipe Perangkat'] ||
+                      row.tipe_perangkat ||
+                      row.Tipe ||
+                      '—'
+                    }}
+                  </td>
+                  <td class="p-2 font-mono text-[#7C8BAC]">
+                    {{
+                      row['NIK Pemegang Asset'] ||
+                      row.NIK ||
+                      row.nik ||
+                      row['NIK Pemegang'] ||
+                      'Stock'
+                    }}
+                  </td>
+                  <td class="p-2 text-[#2A3547]">
+                    {{
+                      row['Lokasi Asset'] ||
+                      row.Lokasi ||
+                      row.lokasi_aset ||
+                      row['Lokasi Aset'] ||
+                      row['Lokasi Kerja'] ||
+                      '—'
+                    }}
+                  </td>
+                  <td class="p-2 font-semibold text-[#5D87FF]">
+                    {{ row.Status || row.status || row.status_aset || '—' }}
+                  </td>
                 </tr>
               </tbody>
             </table>
-            <p v-else class="p-4 text-center text-[12px] text-[#7C8BAC]">Tidak ada baris data Aset IT.</p>
+            <p v-else class="p-4 text-center text-[12px] text-[#7C8BAC]">
+              Tidak ada baris data Aset IT.
+            </p>
           </div>
           <AppPagination
             v-if="parsedAssetRows.length > 0"
@@ -436,7 +557,6 @@ async function submitImport() {
             :items-per-page="itemsPerPage"
           />
         </div>
-
       </div>
 
       <!-- Action Buttons -->
@@ -450,16 +570,24 @@ async function submitImport() {
         </button>
         <button
           type="button"
-          :disabled="isSubmitting || (parsedKaryawanRows.length === 0 && parsedAssetRows.length === 0)"
+          :disabled="
+            isSubmitting || (parsedKaryawanRows.length === 0 && parsedAssetRows.length === 0)
+          "
           @click="submitImport"
           class="flex items-center gap-2 rounded-xl bg-[#5D87FF] px-5 py-2 text-[12px] font-bold text-white shadow-md hover:bg-[#4570EA] transition-all cursor-pointer disabled:opacity-50"
         >
-          <span v-if="isSubmitting" class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+          <span
+            v-if="isSubmitting"
+            class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+          ></span>
           <span v-else class="material-symbols-outlined text-[16px]">file_upload</span>
-          <span>{{ isSubmitting ? 'Memproses Import...' : `Proses Import Data (${parsedKaryawanRows.length} Karyawan, ${parsedAssetRows.length} Aset)` }}</span>
+          <span>{{
+            isSubmitting
+              ? 'Memproses Import...'
+              : `Proses Import Data (${parsedKaryawanRows.length} Karyawan, ${parsedAssetRows.length} Aset)`
+          }}</span>
         </button>
       </div>
-
     </div>
   </AppModal>
 </template>

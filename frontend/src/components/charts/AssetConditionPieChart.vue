@@ -8,9 +8,9 @@ import BaseChartCard from './BaseChartCard.vue'
 ChartJS.register(Title, Tooltip, Legend, ArcElement)
 
 const props = defineProps({
-  data:    { type: Array, default: () => [] },
+  data: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
-  error:   { type: String, default: '' },
+  error: { type: String, default: '' },
 })
 
 const { chartColors, commonOptions } = useChartTheme()

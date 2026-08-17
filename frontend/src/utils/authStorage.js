@@ -110,4 +110,3 @@ export function storeAuthSession({ token, user, remember = false } = {}) {
 
   return true
 }
-

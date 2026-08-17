@@ -37,7 +37,6 @@ async function parseResponse(response) {
 }
 
 export function useApi() {
-
   async function request(endpoint, options = {}) {
     let response
     const { withResponse = false, ...fetchOptions } = options
@@ -71,7 +70,7 @@ export function useApi() {
       if (window.location.pathname !== '/login') {
         window.location.href = '/login'
       }
-      
+
       const message = payload?.message || 'Sesi telah berakhir, silakan login kembali.'
       throw new Error(message)
     }

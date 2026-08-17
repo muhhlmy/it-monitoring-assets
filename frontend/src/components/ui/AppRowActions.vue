@@ -18,7 +18,7 @@ function updateDropdownPosition() {
   if (!buttonRef.value) return
   const rect = buttonRef.value.getBoundingClientRect()
   const visibleActions = props.actions.filter((a) => !a.hidden)
-  const estimatedHeight = (visibleActions.length * 38) + 16
+  const estimatedHeight = visibleActions.length * 38 + 16
   const spaceBelow = window.innerHeight - rect.bottom
 
   const rightDistance = window.innerWidth - rect.right
@@ -144,8 +144,11 @@ onBeforeUnmount(() => {
               @click.stop="handleAction(act)"
               class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] font-bold transition-all cursor-pointer text-left whitespace-nowrap"
               :class="[
-                act.disabled ? 'opacity-40 cursor-not-allowed text-gray-400' :
-                act.danger ? 'text-rose-600 hover:bg-rose-50' : 'text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF]'
+                act.disabled
+                  ? 'opacity-40 cursor-not-allowed text-gray-400'
+                  : act.danger
+                    ? 'text-rose-600 hover:bg-rose-50'
+                    : 'text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF]',
               ]"
             >
               <span v-if="act.icon" class="material-symbols-outlined text-[16px] shrink-0">
@@ -161,6 +164,13 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.fade-scale-enter-active, .fade-scale-leave-active { transition: all 0.15s ease-out; }
-.fade-scale-enter-from, .fade-scale-leave-to { opacity: 0; transform: scale(0.95) translateY(-4px); }
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+  transition: all 0.15s ease-out;
+}
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(-4px);
+}
 </style>

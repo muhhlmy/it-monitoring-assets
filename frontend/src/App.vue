@@ -3,7 +3,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from './components/layout/AppSidebar.vue'
-import AppHeader  from './components/layout/AppHeader.vue'
+import AppHeader from './components/layout/AppHeader.vue'
 import { getAuthToken } from './utils/authStorage.js'
 import { initTicketRealtime, stopTicketRealtime } from './composables/useTicketRealtime.js'
 
@@ -20,9 +20,7 @@ const isLoginPage = computed(() => {
 // Dual state navigasi sesuai Plan.md (mobile drawer vs desktop collapse)
 const isMobileNavigationOpen = ref(false)
 const isDesktopSidebarCollapsed = ref(
-  typeof window !== 'undefined'
-    ? localStorage.getItem('app_sidebar_collapsed') === 'true'
-    : false
+  typeof window !== 'undefined' ? localStorage.getItem('app_sidebar_collapsed') === 'true' : false,
 )
 
 watch(isDesktopSidebarCollapsed, (val) => {
@@ -75,7 +73,6 @@ watch(isLoginPage, (loginPage) => {
     </a>
 
     <div class="app-shell relative flex h-dvh min-h-0 overflow-hidden bg-[#F8FAFC]">
-
       <!-- ── Sidebar Navigasi ── -->
       <AppSidebar
         :is-mobile-open="isMobileNavigationOpen"
@@ -86,7 +83,6 @@ watch(isLoginPage, (loginPage) => {
 
       <!-- ── Area Konten Kanan ── -->
       <div class="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-
         <!-- Header: search + actions -->
         <AppHeader
           :is-mobile-open="isMobileNavigationOpen"
@@ -96,12 +92,15 @@ watch(isLoginPage, (loginPage) => {
         />
 
         <!-- Konten halaman aktif, scrollable -->
-        <main id="main-content" tabindex="-1" class="app-main flex-1 overflow-y-auto p-3.5 outline-none sm:p-4 lg:p-5">
+        <main
+          id="main-content"
+          tabindex="-1"
+          class="app-main flex-1 overflow-y-auto p-3.5 outline-none sm:p-4 lg:p-5"
+        >
           <div class="mx-auto w-full max-w-[1560px]">
             <RouterView />
           </div>
         </main>
-
       </div>
     </div>
   </template>

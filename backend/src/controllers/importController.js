@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { pool, withTransaction } from "../config/database.js";
 import { hashPassword } from "../security/passwordService.js";
 
@@ -80,8 +81,8 @@ export async function importExcelData(req, res) {
               [email]
             );
             
-            if (existingUserRes.rows.length === 0) {
-              const defaultPasswordHash = await hashPassword('admin123');
+              const randomTempPassword = crypto.randomBytes(16).toString('hex');
+              const defaultPasswordHash = await hashPassword(randomTempPassword);
               await client.query(
                 `INSERT INTO users (nama, email, password_hash, role, permissions, is_active)
                  VALUES ($1, $2, $3, 'user', '{}'::jsonb, true)`,

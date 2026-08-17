@@ -43,7 +43,7 @@ const handleLogin = async () => {
 
   try {
     const response = await login(email.value, password.value, rememberMe.value)
-    
+
     // Redirect based on role
     if (response.user.role === 'user') {
       router.push('/my-assets')
@@ -60,12 +60,15 @@ const handleLogin = async () => {
 
 <template>
   <!-- Outer Container - Fits exactly 100dvh without vertical scrollbar -->
-  <div class="h-screen h-dvh w-full overflow-hidden bg-[#F8FAFC] font-sans antialiased text-slate-900 flex flex-col md:flex-row">
-    
+  <div
+    class="h-screen h-dvh w-full overflow-hidden bg-[#F8FAFC] font-sans antialiased text-slate-900 flex flex-col md:flex-row"
+  >
     <!-- ── Skeleton Loading State ── -->
     <template v-if="isMounting">
       <!-- Left Branding Skeleton -->
-      <div class="hidden md:flex md:w-5/12 lg:w-1/2 bg-[#F1F5F9] border-r border-slate-200/80 p-8 lg:p-14 flex-col justify-between animate-pulse">
+      <div
+        class="hidden md:flex md:w-5/12 lg:w-1/2 bg-[#F1F5F9] border-r border-slate-200/80 p-8 lg:p-14 flex-col justify-between animate-pulse"
+      >
         <div class="h-9 w-32 bg-slate-200 rounded-lg"></div>
         <div class="space-y-4 max-w-md">
           <div class="h-10 w-3/4 bg-slate-200 rounded-xl"></div>
@@ -95,11 +98,16 @@ const handleLogin = async () => {
     <!-- ── Actual Content ── -->
     <template v-else>
       <!-- ── Left Column: Branding (Desktop) ── -->
-      <div class="hidden md:flex md:w-5/12 lg:w-1/2 bg-gradient-to-b from-[#F8FAFC] via-[#F1F5F9] to-[#E2E8F0]/50 border-r border-slate-200/70 p-8 lg:p-14 flex-col justify-between relative overflow-hidden">
-        
+      <div
+        class="hidden md:flex md:w-5/12 lg:w-1/2 bg-gradient-to-b from-[#F8FAFC] via-[#F1F5F9] to-[#E2E8F0]/50 border-r border-slate-200/70 p-8 lg:p-14 flex-col justify-between relative overflow-hidden"
+      >
         <!-- Ambient Subtle Background Glow -->
-        <div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[#0892F5]/5 blur-3xl pointer-events-none"></div>
-        <div class="absolute bottom-10 right-0 w-80 h-80 rounded-full bg-[#0A51B0]/5 blur-3xl pointer-events-none"></div>
+        <div
+          class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[#0892F5]/5 blur-3xl pointer-events-none"
+        ></div>
+        <div
+          class="absolute bottom-10 right-0 w-80 h-80 rounded-full bg-[#0A51B0]/5 blur-3xl pointer-events-none"
+        ></div>
 
         <!-- Top: ESB Logo -->
         <div class="relative z-10">
@@ -116,7 +124,9 @@ const handleLogin = async () => {
           </p>
 
           <div class="pt-4 flex items-center gap-3 text-xs text-slate-400 font-medium">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-200/60 text-slate-600 font-medium">
+            <span
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-200/60 text-slate-600 font-medium"
+            >
               #AhlinyaBisnisKuliner
             </span>
           </div>
@@ -129,17 +139,23 @@ const handleLogin = async () => {
       </div>
 
       <!-- ── Right Column: Login Form ── -->
-      <div class="flex-1 flex flex-col justify-between p-6 sm:p-8 lg:p-12 bg-white relative z-10 overflow-hidden h-full">
-        
+      <div
+        class="flex-1 flex flex-col justify-between p-6 sm:p-8 lg:p-12 bg-white relative z-10 overflow-hidden h-full"
+      >
         <!-- Mobile Header (Logo & Small Title on small viewports) -->
-        <div class="flex md:hidden items-center justify-between pb-3 border-b border-slate-100 mb-2 shrink-0">
+        <div
+          class="flex md:hidden items-center justify-between pb-3 border-b border-slate-100 mb-2 shrink-0"
+        >
           <img src="/ESB Logo.svg" alt="ESB Logo" class="h-7 w-auto object-contain" />
-          <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Aset IT</span>
+          <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider"
+            >Aset IT</span
+          >
         </div>
 
         <!-- Centered Form Container -->
-        <div class="w-full max-w-[380px] sm:max-w-[420px] mx-auto my-auto py-2 sm:py-4 flex flex-col justify-center">
-          
+        <div
+          class="w-full max-w-[380px] sm:max-w-[420px] mx-auto my-auto py-2 sm:py-4 flex flex-col justify-center"
+        >
           <!-- Header -->
           <div class="mb-5 sm:mb-7">
             <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
@@ -151,21 +167,27 @@ const handleLogin = async () => {
           </div>
 
           <!-- Error Alert -->
-          <div v-if="errorMessage" class="mb-4 rounded-xl bg-red-50 p-3 border border-red-100 flex items-start gap-2.5">
-            <span class="material-symbols-outlined text-red-500 text-[18px] mt-0.5 shrink-0">error</span>
+          <div
+            v-if="errorMessage"
+            class="mb-4 rounded-xl bg-red-50 p-3 border border-red-100 flex items-start gap-2.5"
+          >
+            <span class="material-symbols-outlined text-red-500 text-[18px] mt-0.5 shrink-0"
+              >error</span
+            >
             <p class="text-xs font-medium text-red-700 leading-relaxed">{{ errorMessage }}</p>
           </div>
 
           <!-- Form Fields -->
           <form @submit.prevent="handleLogin" class="space-y-4 sm:space-y-4">
-            
             <!-- Email / Username -->
             <div class="space-y-1.5">
               <label for="email" class="block text-xs font-semibold text-slate-700">
                 Email atau nama pengguna
               </label>
               <div class="relative">
-                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center">
+                <span
+                  class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center"
+                >
                   <span class="material-symbols-outlined text-[18px]">mail</span>
                 </span>
                 <input
@@ -185,7 +207,9 @@ const handleLogin = async () => {
                 Kata sandi
               </label>
               <div class="relative">
-                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center">
+                <span
+                  class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center"
+                >
                   <span class="material-symbols-outlined text-[18px]">lock</span>
                 </span>
                 <input
@@ -217,7 +241,9 @@ const handleLogin = async () => {
                   type="checkbox"
                   class="w-4 h-4 rounded border-slate-300 text-[#0892F5] focus:ring-[#0892F5]/20 accent-[#0892F5] cursor-pointer"
                 />
-                <span class="text-xs sm:text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors">
+                <span
+                  class="text-xs sm:text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors"
+                >
                   Ingat saya
                 </span>
               </label>
@@ -230,12 +256,17 @@ const handleLogin = async () => {
               class="w-full h-11 mt-1 rounded-xl bg-[#0892F5] hover:bg-[#0780D8] text-white font-semibold text-sm transition-all duration-150 shadow-sm active:scale-[0.99] disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center gap-2 group"
             >
               <span v-if="isLoading" class="flex items-center gap-2">
-                <span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                <span class="material-symbols-outlined animate-spin text-[18px]"
+                  >progress_activity</span
+                >
                 <span>Masuk...</span>
               </span>
               <template v-else>
                 <span>Masuk</span>
-                <span class="material-symbols-outlined text-[18px] transition-transform group-hover:translate-x-0.5">arrow_forward</span>
+                <span
+                  class="material-symbols-outlined text-[18px] transition-transform group-hover:translate-x-0.5"
+                  >arrow_forward</span
+                >
               </template>
             </button>
           </form>
@@ -249,7 +280,6 @@ const handleLogin = async () => {
         <!-- Bottom whitespace balancer -->
         <div class="hidden sm:block shrink-0 h-2"></div>
       </div>
-
     </template>
   </div>
 </template>

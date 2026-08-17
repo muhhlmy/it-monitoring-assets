@@ -68,7 +68,7 @@ function validateOptionalText(value, fieldLabel, maxLength) {
 }
 
 // Metadata skema tabel yang dapat diekspor
-const TABLE_SCHEMAS = {
+export const TABLE_SCHEMAS = {
   aset_ti: {
     tableName: 'aset_ti',
     label: 'Aset IT (Inventaris)',
@@ -127,22 +127,25 @@ const TABLE_SCHEMAS = {
     label: 'Tiket Kendala IT',
     description: 'Data tiket laporan masalah IT, status penanganan, dan penyelesaian',
     icon: 'confirmation_number',
-    dateField: 'dibuat_pada',
+    dateField: 'created_at',
     statusField: 'status_tiket',
     orderField: 'id',
+    fromClause: 'tickets LEFT JOIN users u_pelapor ON u_pelapor.id = tickets.pelapor_user_id LEFT JOIN users u_assignee ON u_assignee.id = tickets.assigned_to_user_id',
     columns: [
-      { name: 'id', label: 'ID Tiket', type: 'number', defaultSelected: true },
-      { name: 'nomor_tiket', label: 'Nomor Tiket', type: 'string', defaultSelected: true },
-      { name: 'judul', label: 'Judul / Subjek', type: 'string', defaultSelected: true },
-      { name: 'deskripsi', label: 'Deskripsi Kendala', type: 'string', defaultSelected: false },
-      { name: 'kategori', label: 'Kategori', type: 'string', defaultSelected: true },
-      { name: 'status_tiket', label: 'Status', type: 'string', defaultSelected: true },
-      { name: 'prioritas', label: 'Prioritas', type: 'string', defaultSelected: true },
-      { name: 'pelapor', label: 'Nama Pelapor', type: 'string', defaultSelected: true },
-      { name: 'assigned_to', label: 'Teknisi / Assignee', type: 'string', defaultSelected: true },
-      { name: 'dibuat_pada', label: 'Tanggal Dibuat', type: 'date', defaultSelected: true },
-      { name: 'diperbarui_pada', label: 'Terakhir Diperbarui', type: 'date', defaultSelected: false },
-      { name: 'resolved_at', label: 'Tanggal Selesai', type: 'date', defaultSelected: true }
+      { name: 'id', label: 'ID Tiket', type: 'number', defaultSelected: true, dbExpr: '"tickets"."id"' },
+      { name: 'nomor_tiket', label: 'Nomor Tiket', type: 'string', defaultSelected: true, dbExpr: '"tickets"."nomor_tiket"' },
+      { name: 'judul', label: 'Judul / Subjek', type: 'string', defaultSelected: true, dbExpr: '"tickets"."judul"' },
+      { name: 'deskripsi', label: 'Deskripsi Kendala', type: 'string', defaultSelected: false, dbExpr: '"tickets"."deskripsi"' },
+      { name: 'kategori', label: 'Kategori', type: 'string', defaultSelected: true, dbExpr: '"tickets"."kategori"' },
+      { name: 'status_tiket', label: 'Status', type: 'string', defaultSelected: true, dbExpr: '"tickets"."status_tiket"' },
+      { name: 'prioritas', label: 'Prioritas', type: 'string', defaultSelected: true, dbExpr: '"tickets"."prioritas"' },
+      { name: 'pelapor_user_id', label: 'ID Pelapor', type: 'number', defaultSelected: false, dbExpr: '"tickets"."pelapor_user_id"' },
+      { name: 'pelapor', label: 'Nama Pelapor', type: 'string', defaultSelected: true, dbExpr: 'COALESCE(u_pelapor.nama, \'\')', sourceTable: 'users', sourceColumn: 'nama' },
+      { name: 'assigned_to_user_id', label: 'ID Teknisi', type: 'number', defaultSelected: false, dbExpr: '"tickets"."assigned_to_user_id"' },
+      { name: 'assigned_to', label: 'Teknisi / Assignee', type: 'string', defaultSelected: true, dbExpr: 'COALESCE(u_assignee.nama, \'\')', sourceTable: 'users', sourceColumn: 'nama' },
+      { name: 'created_at', label: 'Tanggal Dibuat', type: 'date', defaultSelected: true, dbExpr: '"tickets"."created_at"' },
+      { name: 'updated_at', label: 'Terakhir Diperbarui', type: 'date', defaultSelected: false, dbExpr: '"tickets"."updated_at"' },
+      { name: 'resolved_at', label: 'Tanggal Selesai', type: 'date', defaultSelected: true, dbExpr: '"tickets"."resolved_at"' }
     ]
   },
   users: {
@@ -150,7 +153,7 @@ const TABLE_SCHEMAS = {
     label: 'Pengguna Sistem',
     description: 'Data akun pengguna aplikasi, peran (role), dan status keaktifan',
     icon: 'group',
-    dateField: 'dibuat_pada',
+    dateField: 'created_at',
     statusField: 'is_active',
     orderField: 'id',
     columns: [
@@ -159,8 +162,8 @@ const TABLE_SCHEMAS = {
       { name: 'email', label: 'Email Akses', type: 'string', defaultSelected: true },
       { name: 'role', label: 'Role / Hak Akses', type: 'string', defaultSelected: true },
       { name: 'is_active', label: 'Status Aktif', type: 'boolean', defaultSelected: true },
-      { name: 'dibuat_pada', label: 'Tanggal Registrasi', type: 'date', defaultSelected: true },
-      { name: 'diperbarui_pada', label: 'Terakhir Diperbarui', type: 'date', defaultSelected: false }
+      { name: 'created_at', label: 'Tanggal Registrasi', type: 'date', defaultSelected: true },
+      { name: 'updated_at', label: 'Terakhir Diperbarui', type: 'date', defaultSelected: false }
     ]
   },
   log_riwayat_aset: {
@@ -203,18 +206,20 @@ const TABLE_SCHEMAS = {
     icon: 'repeat',
     dateField: 'tanggal_mulai',
     orderField: 'id',
+    fromClause: 'riwayat_pemakaian_aset LEFT JOIN aset_ti a ON a.id = riwayat_pemakaian_aset.id_aset LEFT JOIN karyawan k ON k.nik = riwayat_pemakaian_aset.nik_pemegang',
     columns: [
-      { name: 'id', label: 'ID Riwayat', type: 'number', defaultSelected: true },
-      { name: 'label_aset', label: 'Label Aset', type: 'string', defaultSelected: true },
-      { name: 'nomor_seri', label: 'Nomor Seri', type: 'string', defaultSelected: true },
-      { name: 'tipe_perangkat', label: 'Tipe Perangkat', type: 'string', defaultSelected: true },
-      { name: 'merek', label: 'Merek', type: 'string', defaultSelected: false },
-      { name: 'model', label: 'Model', type: 'string', defaultSelected: false },
-      { name: 'nik', label: 'NIK Karyawan', type: 'string', defaultSelected: true },
-      { name: 'nama_karyawan', label: 'Nama Karyawan', type: 'string', defaultSelected: true },
-      { name: 'tanggal_mulai', label: 'Tanggal Penyerahan', type: 'date', defaultSelected: true },
-      { name: 'tanggal_selesai', label: 'Tanggal Pengembalian', type: 'date', defaultSelected: true },
-      { name: 'catatan', label: 'Catatan', type: 'string', defaultSelected: false }
+      { name: 'id', label: 'ID Riwayat', type: 'number', defaultSelected: true, dbExpr: '"riwayat_pemakaian_aset"."id"' },
+      { name: 'id_aset', label: 'ID Aset', type: 'number', defaultSelected: false, dbExpr: '"riwayat_pemakaian_aset"."id_aset"' },
+      { name: 'label_aset', label: 'Label Aset', type: 'string', defaultSelected: true, dbExpr: 'COALESCE(a.hostname, \'\')', sourceTable: 'aset_ti', sourceColumn: 'hostname' },
+      { name: 'nomor_seri', label: 'Nomor Seri', type: 'string', defaultSelected: true, dbExpr: 'COALESCE(a.serial_number, \'\')', sourceTable: 'aset_ti', sourceColumn: 'serial_number' },
+      { name: 'tipe_perangkat', label: 'Tipe Perangkat', type: 'string', defaultSelected: true, dbExpr: 'COALESCE(a.tipe_perangkat, \'\')', sourceTable: 'aset_ti', sourceColumn: 'tipe_perangkat' },
+      { name: 'merek', label: 'Merek', type: 'string', defaultSelected: false, dbExpr: 'COALESCE(a.brand_merek, \'\')', sourceTable: 'aset_ti', sourceColumn: 'brand_merek' },
+      { name: 'model', label: 'Model', type: 'string', defaultSelected: false, dbExpr: 'COALESCE(a.model, \'\')', sourceTable: 'aset_ti', sourceColumn: 'model' },
+      { name: 'nik', label: 'NIK Karyawan', type: 'string', defaultSelected: true, dbExpr: '"riwayat_pemakaian_aset"."nik_pemegang"', sourceTable: 'riwayat_pemakaian_aset', sourceColumn: 'nik_pemegang' },
+      { name: 'nama_karyawan', label: 'Nama Karyawan', type: 'string', defaultSelected: true, dbExpr: 'COALESCE(k.nama_karyawan, \'\')', sourceTable: 'karyawan', sourceColumn: 'nama_karyawan' },
+      { name: 'tanggal_mulai', label: 'Tanggal Penyerahan', type: 'date', defaultSelected: true, dbExpr: '"riwayat_pemakaian_aset"."tanggal_mulai"' },
+      { name: 'tanggal_selesai', label: 'Tanggal Pengembalian', type: 'date', defaultSelected: true, dbExpr: '"riwayat_pemakaian_aset"."tanggal_selesai"' },
+      { name: 'catatan', label: 'Catatan', type: 'string', defaultSelected: false, dbExpr: '"riwayat_pemakaian_aset"."catatan"' }
     ]
   },
   ticket_casp_ratings: {
@@ -224,16 +229,76 @@ const TABLE_SCHEMAS = {
     icon: 'star',
     dateField: 'submitted_at',
     orderField: 'id',
+    fromClause: 'ticket_casp_ratings LEFT JOIN users u_rep ON u_rep.id = ticket_casp_ratings.reporter_user_id LEFT JOIN users u_ass ON u_ass.id = ticket_casp_ratings.assignee_user_id',
     columns: [
-      { name: 'id', label: 'ID Rating', type: 'number', defaultSelected: true },
-      { name: 'ticket_id', label: 'ID Tiket', type: 'number', defaultSelected: true },
-      { name: 'reporter_name_snapshot', label: 'Nama Pelapor', type: 'string', defaultSelected: true },
-      { name: 'assignee_name_snapshot', label: 'Teknisi IT', type: 'string', defaultSelected: true },
-      { name: 'rating', label: 'Skor Rating (1-5)', type: 'number', defaultSelected: true },
-      { name: 'feedback', label: 'Feedback / Ulasan', type: 'string', defaultSelected: true },
-      { name: 'submitted_at', label: 'Waktu Penilaian', type: 'date', defaultSelected: true }
+      { name: 'id', label: 'ID Rating', type: 'number', defaultSelected: true, dbExpr: '"ticket_casp_ratings"."id"' },
+      { name: 'id_tiket', label: 'ID Tiket', type: 'number', defaultSelected: true, dbExpr: '"ticket_casp_ratings"."id_tiket"' },
+      { name: 'reporter_user_id', label: 'ID Pelapor', type: 'number', defaultSelected: false, dbExpr: '"ticket_casp_ratings"."reporter_user_id"' },
+      { name: 'reporter_name', label: 'Nama Pelapor', type: 'string', defaultSelected: true, dbExpr: 'COALESCE(u_rep.nama, \'\')', sourceTable: 'users', sourceColumn: 'nama' },
+      { name: 'assignee_user_id', label: 'ID Teknisi', type: 'number', defaultSelected: false, dbExpr: '"ticket_casp_ratings"."assignee_user_id"' },
+      { name: 'assignee_name', label: 'Nama Teknisi IT', type: 'string', defaultSelected: true, dbExpr: 'COALESCE(u_ass.nama, \'\')', sourceTable: 'users', sourceColumn: 'nama' },
+      { name: 'rating_score', label: 'Skor Rating (1-5)', type: 'number', defaultSelected: true, dbExpr: '"ticket_casp_ratings"."rating_score"' },
+      { name: 'feedback', label: 'Feedback / Ulasan', type: 'string', defaultSelected: true, dbExpr: '"ticket_casp_ratings"."feedback"' },
+      { name: 'submitted_at', label: 'Waktu Penilaian', type: 'date', defaultSelected: true, dbExpr: '"ticket_casp_ratings"."submitted_at"' }
     ]
   }
+}
+
+/**
+ * Validasi metadata export terhadap skema PostgreSQL yang sedang aktif.
+ * Melempar error jika tabel, kolom, dateField, statusField, atau orderField tidak ditemukan di database.
+ */
+export async function validateExportMetadata(queryable = pool) {
+  const dbTablesRes = await queryable.query(`
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+  `)
+  const existingTables = new Set(dbTablesRes.rows.map((r) => r.table_name))
+
+  const dbColsRes = await queryable.query(`
+    SELECT table_name, column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+  `)
+  const existingColumns = new Set(dbColsRes.rows.map((r) => `${r.table_name}.${r.column_name}`))
+
+  for (const [schemaKey, schema] of Object.entries(TABLE_SCHEMAS)) {
+    if (!existingTables.has(schema.tableName)) {
+      throw new Error(`Export schema '${schemaKey}' references non-existent table '${schema.tableName}'.`)
+    }
+
+    if (schema.dateField) {
+      const fieldName = schema.dateField.includes('.') ? schema.dateField.split('.').pop() : schema.dateField
+      if (!existingColumns.has(`${schema.tableName}.${fieldName}`)) {
+        throw new Error(`Export schema '${schemaKey}' references non-existent dateField '${schema.dateField}'.`)
+      }
+    }
+
+    if (schema.statusField) {
+      const fieldName = schema.statusField.includes('.') ? schema.statusField.split('.').pop() : schema.statusField
+      if (!existingColumns.has(`${schema.tableName}.${fieldName}`)) {
+        throw new Error(`Export schema '${schemaKey}' references non-existent statusField '${schema.statusField}'.`)
+      }
+    }
+
+    if (schema.orderField) {
+      const fieldName = schema.orderField.includes('.') ? schema.orderField.split('.').pop() : schema.orderField
+      if (!existingColumns.has(`${schema.tableName}.${fieldName}`)) {
+        throw new Error(`Export schema '${schemaKey}' references non-existent orderField '${schema.orderField}'.`)
+      }
+    }
+
+    for (const col of schema.columns) {
+      const targetTable = col.sourceTable || schema.tableName
+      const targetCol = col.sourceColumn || col.name
+      if (!existingColumns.has(`${targetTable}.${targetCol}`)) {
+        throw new Error(`Export schema '${schemaKey}' column '${col.name}' references non-existent column '${targetTable}.${targetCol}'.`)
+      }
+    }
+  }
+
+  return true
 }
 
 /**
@@ -243,26 +308,36 @@ const TABLE_SCHEMAS = {
 export async function getExportTablesMetadata(req, res) {
   try {
     const tableKeys = Object.keys(TABLE_SCHEMAS)
-    const tablesList = []
 
-    for (const key of tableKeys) {
-      const schema = TABLE_SCHEMAS[key]
-      let rowCount = 0
+    const tablesList = await Promise.all(
+      tableKeys.map(async (key) => {
+        const schema = TABLE_SCHEMAS[key]
+        let rowCount = null
+        let error = null
 
-      try {
-        const tableIdentifier = quoteAllowedIdentifier(schema.tableName)
-        const countRes = await pool.query(`SELECT COUNT(*)::int AS count FROM ${tableIdentifier}`)
-        rowCount = countRes.rows[0]?.count || 0
-      } catch (err) {
-        // Abaikan jika tabel belum terbuat di environment lokal
-        rowCount = 0
-      }
+        try {
+          const tableIdentifier = quoteAllowedIdentifier(schema.tableName)
+          const countRes = await pool.query(`SELECT COUNT(*)::int AS count FROM ${tableIdentifier}`)
+          rowCount = countRes.rows[0]?.count ?? null
+        } catch (err) {
+          // Log error internal tanpa membocorkan ke client
+          console.error(`[Export Metadata Error] Gagal menghitung jumlah baris untuk ${schema.tableName}:`, err.message)
+          rowCount = null
+          error = 'Gagal menghitung jumlah data'
+        }
 
-      tablesList.push({
-        ...schema,
-        rowCount
+        // Return clean client metadata representation (sanitized)
+        const { fromClause, ...clientSchema } = schema
+        const cleanColumns = clientSchema.columns.map(({ dbExpr, sourceTable, sourceColumn, ...col }) => col)
+
+        return {
+          ...clientSchema,
+          columns: cleanColumns,
+          rowCount,
+          ...(error ? { error } : {})
+        }
       })
-    }
+    )
 
     res.json({
       success: true,
@@ -334,34 +409,47 @@ export async function exportTableData(req, res) {
     const search = validateOptionalText(req.body.search, 'Pencarian', MAX_SEARCH_LENGTH)
     const status = validateOptionalText(req.body.status, 'Status', MAX_STATUS_LENGTH)
 
-    const selectClause = selectedCols.map(quoteAllowedIdentifier).join(', ')
-    const tableIdentifier = quoteAllowedIdentifier(schema.tableName)
-    let sql = `SELECT ${selectClause} FROM ${tableIdentifier}`
+    const selectClause = selectedCols
+      .map((colName) => {
+        const colMeta = schema.columns.find((c) => c.name === colName)
+        const colAlias = quoteAllowedIdentifier(colName)
+        if (colMeta && colMeta.dbExpr) {
+          return `${colMeta.dbExpr} AS ${colAlias}`
+        }
+        return `${quoteAllowedIdentifier(schema.tableName)}.${colAlias} AS ${colAlias}`
+      })
+      .join(', ')
+
+    const fromClause = schema.fromClause || quoteAllowedIdentifier(schema.tableName)
+    let sql = `SELECT ${selectClause} FROM ${fromClause}`
     const whereConditions = []
     const queryParams = []
     let paramIndex = 1
 
     if (schema.dateField) {
+      const dateExpr = schema.dateField.includes('.')
+        ? schema.dateField
+        : `${quoteAllowedIdentifier(schema.tableName)}.${quoteAllowedIdentifier(schema.dateField)}`
+
       if (startDate) {
-        const dateIdentifier = quoteAllowedIdentifier(schema.dateField)
-        whereConditions.push(`${dateIdentifier} >= $${paramIndex}::date`)
+        whereConditions.push(`${dateExpr} >= $${paramIndex}::date`)
         queryParams.push(startDate)
         paramIndex++
       }
       if (endDate) {
-        const dateIdentifier = quoteAllowedIdentifier(schema.dateField)
-        whereConditions.push(`${dateIdentifier} < ($${paramIndex}::date + INTERVAL '1 day')`)
+        whereConditions.push(`${dateExpr} < ($${paramIndex}::date + INTERVAL '1 day')`)
         queryParams.push(endDate)
         paramIndex++
       }
     }
 
     if (search) {
-      const searchCols = schema.columns.filter((c) => c.type === 'string').map((c) => c.name)
+      const searchCols = schema.columns.filter((c) => c.type === 'string')
       if (searchCols.length > 0) {
-        const searchConditions = searchCols.map(
-          (col) => `${quoteAllowedIdentifier(col)}::text ILIKE $${paramIndex}`
-        )
+        const searchConditions = searchCols.map((c) => {
+          const expr = c.dbExpr || `${quoteAllowedIdentifier(schema.tableName)}.${quoteAllowedIdentifier(c.name)}`
+          return `${expr}::text ILIKE $${paramIndex}`
+        })
         whereConditions.push(`(${searchConditions.join(' OR ')})`)
         queryParams.push(`%${search}%`)
         paramIndex++
@@ -370,8 +458,10 @@ export async function exportTableData(req, res) {
 
     if (status && status.toLowerCase() !== 'semua' && status.toLowerCase() !== 'all') {
       if (schema.statusField) {
-        const statusIdentifier = quoteAllowedIdentifier(schema.statusField)
-        whereConditions.push(`${statusIdentifier}::text ILIKE $${paramIndex}`)
+        const statusExpr = schema.statusField.includes('.')
+          ? schema.statusField
+          : `${quoteAllowedIdentifier(schema.tableName)}.${quoteAllowedIdentifier(schema.statusField)}`
+        whereConditions.push(`${statusExpr}::text ILIKE $${paramIndex}`)
         queryParams.push(status)
         paramIndex++
       }
@@ -381,8 +471,10 @@ export async function exportTableData(req, res) {
       sql += ` WHERE ${whereConditions.join(' AND ')}`
     }
 
-    const orderIdentifier = quoteAllowedIdentifier(schema.orderField)
-    sql += ` ORDER BY ${orderIdentifier} DESC LIMIT $${paramIndex}`
+    const orderExpr = schema.orderField.includes('.')
+      ? schema.orderField
+      : `${quoteAllowedIdentifier(schema.tableName)}.${quoteAllowedIdentifier(schema.orderField)}`
+    sql += ` ORDER BY ${orderExpr} DESC LIMIT $${paramIndex}`
     queryParams.push(limit)
 
     const result = await pool.query(sql, queryParams)

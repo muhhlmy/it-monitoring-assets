@@ -7,7 +7,7 @@ import AppModal from '../ui/AppModal.vue'
 
 const props = defineProps({
   isMobileOpen: { type: Boolean, default: false },
-  isCollapsed:  { type: Boolean, default: false },
+  isCollapsed: { type: Boolean, default: false },
 })
 const emit = defineEmits(['close-mobile', 'toggle-collapse'])
 const route = useRoute()
@@ -191,7 +191,7 @@ function calcPopoverPosition(btn) {
 
   const spaceBelow = viewportHeight - rect.bottom
   let top
-  let placement = 'down'
+  let placement
 
   if (spaceBelow < popoverHeight + gap && rect.top > popoverHeight + gap) {
     placement = 'up'
@@ -375,7 +375,8 @@ const menuGroups = computed(() => {
         .map((p) => ({
           ...p,
           items: (p.items || []).filter(
-            (item) => (!item.superadminOnly || isSuperAdmin.value) && hasPermission(item.permission),
+            (item) =>
+              (!item.superadminOnly || isSuperAdmin.value) && hasPermission(item.permission),
           ),
         }))
         .filter((p) => p.items.length > 0)
@@ -423,12 +424,7 @@ function handleClickOutside(event) {
   if (!showProfilePopover.value) return
   const popoverEl = profilePopoverRef.value
   const btnEl = profileBtnRef.value
-  if (
-    popoverEl &&
-    !popoverEl.contains(event.target) &&
-    btnEl &&
-    !btnEl.contains(event.target)
-  ) {
+  if (popoverEl && !popoverEl.contains(event.target) && btnEl && !btnEl.contains(event.target)) {
     showProfilePopover.value = false
   }
 }
@@ -450,6 +446,21 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside, true)
   window.removeEventListener('resize', handleWindowResize)
 })
+
+function closeSubmenuAndMobile() {
+  activeFlyoutParent.value = null
+  emit('close-mobile')
+}
+
+function handlePopoverChangePassword() {
+  showProfilePopover.value = false
+  openChangePassword()
+}
+
+function handlePopoverLogout() {
+  showProfilePopover.value = false
+  logout()
+}
 </script>
 
 <template>
@@ -474,14 +485,18 @@ onBeforeUnmount(() => {
     aria-label="Navigasi aplikasi"
     class="fixed inset-y-0 left-0 z-40 flex h-dvh shrink-0 flex-col border-r border-[#E5EAEF] bg-white text-[#2A3547] shadow-xl transition-all duration-300 ease-in-out lg:static lg:z-10 lg:shadow-none select-none"
     :class="[
-      isMobileOpen ? 'w-[250px] translate-x-0 visible opacity-100' : '-translate-x-full lg:translate-x-0',
-      isCollapsed ? 'lg:w-[74px]' : 'lg:w-[245px]'
+      isMobileOpen
+        ? 'w-[250px] translate-x-0 visible opacity-100'
+        : '-translate-x-full lg:translate-x-0',
+      isCollapsed ? 'lg:w-[74px]' : 'lg:w-[245px]',
     ]"
   >
     <!-- ── Brand Logo Top Header Area ── -->
     <div
       class="relative flex h-[56px] shrink-0 items-center border-b border-[#F1F5F9] transition-all"
-      :class="isCollapsed ? 'justify-center flex-col gap-1 px-0 py-1' : 'justify-between gap-2 px-3.5'"
+      :class="
+        isCollapsed ? 'justify-center flex-col gap-1 px-0 py-1' : 'justify-between gap-2 px-3.5'
+      "
     >
       <!-- Logo saat Expanded -->
       <RouterLink
@@ -519,7 +534,9 @@ onBeforeUnmount(() => {
             class="flex h-6 w-6 items-center justify-center rounded-md text-[#7C8BAC] hover:bg-[#ECF2FF] hover:text-[#5D87FF] transition-all cursor-pointer shrink-0"
             @click="emit('toggle-collapse')"
           >
-            <span aria-hidden="true" class="material-symbols-outlined text-[16px]">chevron_right</span>
+            <span aria-hidden="true" class="material-symbols-outlined text-[16px]"
+              >chevron_right</span
+            >
           </button>
         </div>
       </template>
@@ -554,7 +571,11 @@ onBeforeUnmount(() => {
       class="relative flex-1 overflow-y-auto py-3 transition-all"
       :class="isCollapsed ? 'px-0 space-y-3' : 'px-2.5 space-y-4'"
     >
-      <div v-for="group in menuGroups" :key="group.title" :class="isCollapsed ? 'space-y-2' : 'space-y-1'">
+      <div
+        v-for="group in menuGroups"
+        :key="group.title"
+        :class="isCollapsed ? 'space-y-2' : 'space-y-1'"
+      >
         <!-- Category Title (Hanya di Expanded Mode) -->
         <p
           v-if="!isCollapsed"
@@ -564,7 +585,6 @@ onBeforeUnmount(() => {
         </p>
 
         <nav :class="isCollapsed ? 'flex flex-col items-center gap-1.5' : 'space-y-0.5'">
-          
           <!-- 1. Direct Items (e.g. Dashboard) -->
           <template v-if="group.items && group.items.length">
             <div
@@ -584,7 +604,7 @@ onBeforeUnmount(() => {
                     : 'w-full gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px]',
                   route.path === item.to
                     ? 'bg-[#5D87FF] text-white shadow-xs font-semibold'
-                    : 'text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] font-medium'
+                    : 'text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF] font-medium',
                 ]"
                 @click="emit('close-mobile')"
               >
@@ -593,16 +613,15 @@ onBeforeUnmount(() => {
                   class="material-symbols-outlined transition-colors shrink-0"
                   :class="[
                     isCollapsed ? 'text-[20px]' : 'text-[18px]',
-                    route.path === item.to ? 'text-white' : 'text-[#7C8BAC] group-hover:text-[#5D87FF]'
+                    route.path === item.to
+                      ? 'text-white'
+                      : 'text-[#7C8BAC] group-hover:text-[#5D87FF]',
                   ]"
                 >
                   {{ item.icon }}
                 </span>
 
-                <span
-                  v-if="!isCollapsed"
-                  class="min-w-0 flex-1 leading-none whitespace-nowrap"
-                >
+                <span v-if="!isCollapsed" class="min-w-0 flex-1 leading-none whitespace-nowrap">
                   {{ item.label }}
                 </span>
 
@@ -610,7 +629,9 @@ onBeforeUnmount(() => {
                   v-if="item.badge && !isCollapsed"
                   class="rounded-full px-1.5 py-0.2 text-[9px] font-bold shrink-0"
                   :class="
-                    route.path === item.to ? 'bg-white/20 text-white' : 'bg-[#ECF2FF] text-[#5D87FF]'
+                    route.path === item.to
+                      ? 'bg-white/20 text-white'
+                      : 'bg-[#ECF2FF] text-[#5D87FF]'
                   "
                 >
                   {{ item.badge }}
@@ -637,27 +658,35 @@ onBeforeUnmount(() => {
                   isCollapsed
                     ? 'h-10 w-10 justify-center rounded-xl'
                     : 'w-full gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] font-semibold justify-between',
-                  parent.items.some(child => route.path === child.to)
-                    ? (isCollapsed ? 'bg-[#ECF2FF] text-[#5D87FF]' : 'text-[#2A3547] bg-[#F8FAFC]')
-                    : 'text-[#2A3547] hover:bg-[#F8FAFC] hover:text-[#5D87FF]'
+                  parent.items.some((child) => route.path === child.to)
+                    ? isCollapsed
+                      ? 'bg-[#ECF2FF] text-[#5D87FF]'
+                      : 'text-[#2A3547] bg-[#F8FAFC]'
+                    : 'text-[#2A3547] hover:bg-[#F8FAFC] hover:text-[#5D87FF]',
                 ]"
                 @click="handleParentClick(parent, $event)"
               >
-                <div class="flex items-center gap-2.5 min-w-0" :class="isCollapsed ? 'justify-center' : ''">
+                <div
+                  class="flex items-center gap-2.5 min-w-0"
+                  :class="isCollapsed ? 'justify-center' : ''"
+                >
                   <span
                     aria-hidden="true"
                     class="material-symbols-outlined transition-colors shrink-0"
                     :class="[
                       isCollapsed ? 'text-[20px]' : 'text-[18px]',
-                      parent.items.some(child => route.path === child.to)
+                      parent.items.some((child) => route.path === child.to)
                         ? 'text-[#5D87FF]'
-                        : 'text-[#7C8BAC] group-hover:text-[#5D87FF]'
+                        : 'text-[#7C8BAC] group-hover:text-[#5D87FF]',
                     ]"
                   >
                     {{ parent.icon }}
                   </span>
 
-                  <span v-if="!isCollapsed" class="min-w-0 flex-1 leading-none whitespace-nowrap text-left">
+                  <span
+                    v-if="!isCollapsed"
+                    class="min-w-0 flex-1 leading-none whitespace-nowrap text-left"
+                  >
                     {{ parent.label }}
                   </span>
                 </div>
@@ -694,7 +723,9 @@ onBeforeUnmount(() => {
                     aria-hidden="true"
                     class="material-symbols-outlined text-[16px] transition-colors shrink-0"
                     :class="
-                      route.path === sub.to ? 'text-[#5D87FF]' : 'text-[#94A3B8] group-hover:text-[#5D87FF]'
+                      route.path === sub.to
+                        ? 'text-[#5D87FF]'
+                        : 'text-[#94A3B8] group-hover:text-[#5D87FF]'
                     "
                   >
                     {{ sub.icon }}
@@ -705,7 +736,6 @@ onBeforeUnmount(() => {
                   </span>
                 </RouterLink>
               </div>
-
             </div>
           </template>
         </nav>
@@ -723,15 +753,24 @@ onBeforeUnmount(() => {
           class="flex w-full items-center justify-between gap-2 rounded-xl p-2 text-left hover:bg-[#F8FAFC] transition-colors cursor-pointer select-none group"
         >
           <div class="flex items-center gap-2.5 min-w-0">
-            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#2563EB] text-xs font-bold text-white shadow-2xs">
+            <div
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#2563EB] text-xs font-bold text-white shadow-2xs"
+            >
               {{ (user && user.nama ? user.nama.charAt(0) : 'U').toUpperCase() }}
             </div>
             <div class="min-w-0">
-              <p class="text-xs font-bold text-[#0F172A] truncate leading-tight">{{ user?.nama || 'Pengguna' }}</p>
-              <p class="text-[10.5px] font-normal text-[#64748B] truncate leading-tight capitalize">{{ user?.role || 'User' }}</p>
+              <p class="text-xs font-bold text-[#0F172A] truncate leading-tight">
+                {{ user?.nama || 'Pengguna' }}
+              </p>
+              <p class="text-[10.5px] font-normal text-[#64748B] truncate leading-tight capitalize">
+                {{ user?.role || 'User' }}
+              </p>
             </div>
           </div>
-          <span class="material-symbols-outlined text-[16px] text-[#94A3B8] group-hover:text-[#0F172A] shrink-0">unfold_more</span>
+          <span
+            class="material-symbols-outlined text-[16px] text-[#94A3B8] group-hover:text-[#0F172A] shrink-0"
+            >unfold_more</span
+          >
         </button>
       </div>
 
@@ -761,7 +800,9 @@ onBeforeUnmount(() => {
       @mouseleave="handleParentMouseLeave"
     >
       <div class="px-2 py-1.5 border-b border-[#F1F5F9] mb-1">
-        <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-[#7C8BAC]">{{ activeFlyoutParent.label }}</p>
+        <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-[#7C8BAC]">
+          {{ activeFlyoutParent.label }}
+        </p>
       </div>
       <div class="space-y-0.5">
         <RouterLink
@@ -774,9 +815,15 @@ onBeforeUnmount(() => {
               ? 'bg-[#EFF6FF] text-[#2563EB] font-bold'
               : 'text-[#2A3547] hover:bg-[#F8FAFC] hover:text-[#2563EB] font-medium'
           "
-          @click="activeFlyoutParent = null; emit('close-mobile')"
+          @click="closeSubmenuAndMobile"
         >
-          <span aria-hidden="true" class="material-symbols-outlined text-[16px] shrink-0" :class="route.path === sub.to ? 'text-[#2563EB]' : 'text-[#7C8BAC] group-hover:text-[#2563EB]'">
+          <span
+            aria-hidden="true"
+            class="material-symbols-outlined text-[16px] shrink-0"
+            :class="
+              route.path === sub.to ? 'text-[#2563EB]' : 'text-[#7C8BAC] group-hover:text-[#2563EB]'
+            "
+          >
             {{ sub.icon }}
           </span>
           <span class="truncate">{{ sub.label }}</span>
@@ -803,12 +850,14 @@ onBeforeUnmount(() => {
       >
         <div class="px-3 py-2 border-b border-[#F1F5F9] mb-1">
           <p class="truncate text-xs font-bold text-[#0F172A]">{{ user?.nama || 'Pengguna' }}</p>
-          <p class="truncate text-[11px] text-[#64748B] capitalize mt-0.5">{{ user?.role || 'Guest' }} {{ user?.nik ? '· ' + user.nik : '' }}</p>
+          <p class="truncate text-[11px] text-[#64748B] capitalize mt-0.5">
+            {{ user?.role || 'Guest' }} {{ user?.nik ? '· ' + user.nik : '' }}
+          </p>
         </div>
         <div class="space-y-0.5">
           <button
             type="button"
-            @click="showProfilePopover = false; openChangePassword()"
+            @click="handlePopoverChangePassword"
             class="w-full flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-[#334155] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
           >
             <span class="material-symbols-outlined text-[16px] text-[#64748B]">key</span>
@@ -817,7 +866,7 @@ onBeforeUnmount(() => {
           <div class="my-1 border-t border-[#F1F5F9]"></div>
           <button
             type="button"
-            @click="showProfilePopover = false; logout()"
+            @click="handlePopoverLogout"
             class="w-full flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
           >
             <span class="material-symbols-outlined text-[16px]">logout</span>
@@ -829,22 +878,26 @@ onBeforeUnmount(() => {
   </Teleport>
 
   <!-- Modal Ganti Password Akun -->
-  <AppModal
-    :is-open="showPasswordModal"
-    title="Ganti Password Akun"
-    @close="closePasswordModal"
-  >
+  <AppModal :is-open="showPasswordModal" title="Ganti Password Akun" @close="closePasswordModal">
     <form @submit.prevent="submitChangePassword" class="space-y-4">
-      <div v-if="passwordModalError" class="rounded-xl bg-rose-50 p-3 text-[12px] font-semibold text-rose-600">
+      <div
+        v-if="passwordModalError"
+        class="rounded-xl bg-rose-50 p-3 text-[12px] font-semibold text-rose-600"
+      >
         {{ passwordModalError }}
       </div>
 
-      <div v-if="passwordSuccessMessage" class="rounded-xl bg-emerald-50 p-3 text-[12px] font-semibold text-emerald-600">
+      <div
+        v-if="passwordSuccessMessage"
+        class="rounded-xl bg-emerald-50 p-3 text-[12px] font-semibold text-emerald-600"
+      >
         {{ passwordSuccessMessage }}
       </div>
 
       <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Password Saat Ini *</label>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1"
+          >Password Saat Ini *</label
+        >
         <input
           v-model="passwordForm.currentPassword"
           type="password"
@@ -855,7 +908,9 @@ onBeforeUnmount(() => {
       </div>
 
       <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Password Baru (min 8 karakter) *</label>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1"
+          >Password Baru (min 8 karakter) *</label
+        >
         <input
           v-model="passwordForm.newPassword"
           type="password"
@@ -867,7 +922,9 @@ onBeforeUnmount(() => {
       </div>
 
       <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1">Konfirmasi Password Baru *</label>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-[#7C8BAC] mb-1"
+          >Konfirmasi Password Baru *</label
+        >
         <input
           v-model="passwordForm.confirmPassword"
           type="password"
@@ -911,7 +968,9 @@ onBeforeUnmount(() => {
 /* User Profile Popover Directional Animations */
 .popover-up-enter-active,
 .popover-up-leave-active {
-  transition: opacity 150ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    opacity 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
   transform-origin: bottom left;
 }
 .popover-up-enter-from,
@@ -922,7 +981,9 @@ onBeforeUnmount(() => {
 
 .popover-down-enter-active,
 .popover-down-leave-active {
-  transition: opacity 150ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    opacity 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
   transform-origin: top left;
 }
 .popover-down-enter-from,

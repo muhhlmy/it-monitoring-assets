@@ -5,7 +5,6 @@ import { useApi } from '../composables/useApi.js'
 import { useAuth } from '@/composables/useAuth'
 import { onTicketEvent } from '../composables/useTicketRealtime.js'
 import { validateAttachmentFile } from '../utils/attachmentPolicy.js'
-import AppBadge from '../components/ui/AppBadge.vue'
 import AppModal from '../components/ui/AppModal.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
@@ -22,7 +21,10 @@ let tickerInterval = null
 const handleTicketCreated = (data) => {
   if (!data) return
   if (isAdmin.value || isSuperAdmin.value) {
-    toast(`🔔 Tiket Baru! ${data.nomor_tiket || ''}: ${data.judul || 'Tanpa Judul'} — oleh ${data.pelapor || 'User'}`, 'info')
+    toast(
+      `🔔 Tiket Baru! ${data.nomor_tiket || ''}: ${data.judul || 'Tanpa Judul'} — oleh ${data.pelapor || 'User'}`,
+      'info',
+    )
   }
   // Tiket baru mungkin di luar filter aktif; refetch untuk konsistensi.
   // Tapi hanya list, bukan stats (stats di-patch terpisah).
@@ -90,7 +92,7 @@ const handleCommentCreated = (data) => {
     }
   }
   // Refresh comments jika detail modal terbuka untuk tiket ini
-  if (selectedTicket.value && (ticketId === selectedTicket.value.id)) {
+  if (selectedTicket.value && ticketId === selectedTicket.value.id) {
     fetchTicketComments(selectedTicket.value.id, true)
   }
 }
@@ -142,12 +144,12 @@ onUnmounted(() => {
 })
 
 // ── Queue / Tab state ─────────────────────────────────────────
-const queues      = ref([])       // list queue (HR, IT, GA, OPS)
-const activeTab   = ref('all')    // 'all' | 'unassigned' | 'mine'
-const filterQueue = ref('')       // queue_id filter
+const queues = ref([]) // list queue (HR, IT, GA, OPS)
+const activeTab = ref('all') // 'all' | 'unassigned' | 'mine'
+const filterQueue = ref('') // queue_id filter
 
 // ── Ticket state ──────────────────────────────────────────────
-const tickets  = ref([])
+const tickets = ref([])
 const stats = ref({
   totalTickets: 0,
   pendingTickets: 0,
@@ -155,31 +157,31 @@ const stats = ref({
   closedTickets: 0,
   unassignedTickets: 0,
 })
-const isLoading    = ref(true)
+const isLoading = ref(true)
 const isSubmitting = ref(false)
-const searchQuery  = ref('')
-const filterStatus   = ref('')
+const searchQuery = ref('')
+const filterStatus = ref('')
 const filterPrioritas = ref('')
-const pageError    = ref('')
+const pageError = ref('')
 const notification = ref(null)
-const isClaiming   = ref(null)   // ticket id yang sedang di-claim
+const isClaiming = ref(null) // ticket id yang sedang di-claim
 
-const showFormModal   = ref(false)
+const showFormModal = ref(false)
 const showDeleteModal = ref(false)
 const showDetailModal = ref(false)
 const modalMode = ref('add')
-const selectedTicket  = ref(null)
+const selectedTicket = ref(null)
 const modalError = ref('')
 
-const activeDetailTab  = ref('detail')
-const ticketHistory    = ref([])
+const activeDetailTab = ref('detail')
+const ticketHistory = ref([])
 const isHistoryLoading = ref(false)
 
-const ticketComments       = ref([])
-const isCommentsLoading    = ref(false)
-const newCommentText       = ref('')
-const commentAttachment    = ref(null)
-const isSubmittingComment  = ref(false)
+const ticketComments = ref([])
+const isCommentsLoading = ref(false)
+const newCommentText = ref('')
+const commentAttachment = ref(null)
+const isSubmittingComment = ref(false)
 const isTicketAttachmentLoading = ref(false)
 const ticketAttachmentError = ref('')
 const attachmentChanged = ref(false)
@@ -245,7 +247,8 @@ function removeCommentAttachment() {
 const filteredTickets = computed(() => {
   return tickets.value.filter((t) => {
     const q = searchQuery.value.trim().toLowerCase()
-    const matchQuery = !q || (
+    const matchQuery =
+      !q ||
       (t.judul || '').toLowerCase().includes(q) ||
       (t.nomor_tiket || '').toLowerCase().includes(q) ||
       (t.pelapor || '').toLowerCase().includes(q) ||
@@ -253,9 +256,8 @@ const filteredTickets = computed(() => {
       (t.assigned_to || '').toLowerCase().includes(q) ||
       (t.assigned_to_nama || '').toLowerCase().includes(q) ||
       (t.queue_kode || '').toLowerCase().includes(q)
-    )
-    const matchStatus    = !filterStatus.value    || t.status_tiket === filterStatus.value
-    const matchPrioritas = !filterPrioritas.value || t.prioritas    === filterPrioritas.value
+    const matchStatus = !filterStatus.value || t.status_tiket === filterStatus.value
+    const matchPrioritas = !filterPrioritas.value || t.prioritas === filterPrioritas.value
     return matchQuery && matchStatus && matchPrioritas
   })
 })
@@ -283,8 +285,7 @@ const paginatedTickets = computed(() => {
   return filteredTickets.value.slice(start, start + itemsPerPage.value)
 })
 
-const queueAdmins   = ref({})       // mapping queue_id => array of admin objects
-const isReassigning = ref(null)     // ticket id being reassigned
+const queueAdmins = ref({})
 
 async function fetchQueueAdmins() {
   if (!isSuperAdmin.value) {
@@ -299,7 +300,7 @@ async function fetchQueueAdmins() {
         if (Array.isArray(data)) {
           adminMap[q.id] = data
         }
-      })
+      }),
     )
     queueAdmins.value = adminMap
   } catch (err) {
@@ -307,6 +308,7 @@ async function fetchQueueAdmins() {
   }
 }
 
+// eslint-disable-next-line no-unused-vars
 function getAdminsForQueue(queueId) {
   if (!queueId) return []
   return queueAdmins.value[queueId] || []
@@ -330,10 +332,10 @@ async function fetchTickets(silent = false) {
   try {
     const params = new URLSearchParams()
     if (activeTab.value !== 'all') params.set('tab', activeTab.value)
-    if (filterQueue.value)         params.set('queue_id', filterQueue.value)
-    if (filterStatus.value)        params.set('status', filterStatus.value)
-    if (filterPrioritas.value)     params.set('prioritas', filterPrioritas.value)
-    if (searchQuery.value.trim())  params.set('search', searchQuery.value.trim())
+    if (filterQueue.value) params.set('queue_id', filterQueue.value)
+    if (filterStatus.value) params.set('status', filterStatus.value)
+    if (filterPrioritas.value) params.set('prioritas', filterPrioritas.value)
+    if (searchQuery.value.trim()) params.set('search', searchQuery.value.trim())
 
     const qs = params.toString()
     const [data, statsData] = await Promise.all([
@@ -341,7 +343,13 @@ async function fetchTickets(silent = false) {
       get('/api/tickets/stats'),
     ])
     tickets.value = Array.isArray(data) ? data : []
-    stats.value = statsData || { totalTickets: 0, pendingTickets: 0, openTickets: 0, closedTickets: 0, unassignedTickets: 0 }
+    stats.value = statsData || {
+      totalTickets: 0,
+      pendingTickets: 0,
+      openTickets: 0,
+      closedTickets: 0,
+      unassignedTickets: 0,
+    }
   } catch (err) {
     if (!silent) {
       console.error('Gagal memuat tiket:', err)
@@ -354,28 +362,6 @@ async function fetchTickets(silent = false) {
 
 async function switchTab(tab) {
   activeTab.value = tab
-  await fetchTickets()
-}
-
-async function filterByStat(statusName) {
-  if (statusName === 'all' || !statusName) {
-    filterStatus.value = ''
-    if (activeTab.value === 'unassigned') activeTab.value = 'all'
-  } else if (statusName === 'unassigned') {
-    if (activeTab.value === 'unassigned') {
-      activeTab.value = 'all'
-    } else {
-      activeTab.value = 'unassigned'
-      filterStatus.value = ''
-    }
-  } else {
-    if (filterStatus.value === statusName) {
-      filterStatus.value = ''
-    } else {
-      filterStatus.value = statusName
-      if (activeTab.value === 'unassigned') activeTab.value = 'all'
-    }
-  }
   await fetchTickets()
 }
 
@@ -436,9 +422,7 @@ async function loadCommentAttachment(comment) {
   comment.is_attachment_loading = true
   comment.attachment_error = ''
   try {
-    const result = await get(
-      `/api/tickets/${ticketId}/comments/${comment.id}/attachment`,
-    )
+    const result = await get(`/api/tickets/${ticketId}/comments/${comment.id}/attachment`)
     if (selectedTicket.value?.id !== ticketId) return
 
     const currentComment = ticketComments.value.find((item) => item.id === comment.id)
@@ -535,51 +519,6 @@ async function claimTicket(ticket) {
     toast(err.message || 'Gagal mengambil tiket.', 'error')
   } finally {
     isClaiming.value = null
-  }
-}
-
-async function assignTicketToUser(ticket, targetUserId) {
-  if (!targetUserId) return
-  const targetId = Number(targetUserId)
-  isReassigning.value = ticket.id
-
-  // Cari nama admin target dari queueAdmins untuk optimistic update.
-  // Koersi ke Number: id dari API bisa berupa string (bigint PostgreSQL).
-  const targetAdmin = getAdminsForQueue(ticket.queue_id)?.find((a) => Number(a.id) === targetId)
-  const targetName = targetAdmin?.nama || ''
-
-  // Optimistic update
-  const idx = tickets.value.findIndex((t) => t.id === ticket.id)
-  if (idx >= 0 && targetName) {
-    tickets.value[idx] = {
-      ...tickets.value[idx],
-      assigned_to_user_id: targetId,
-      assigned_to: targetName,
-      assigned_to_nama: targetName,
-    }
-  }
-  try {
-    if (targetId === user.value?.id && !ticket.assigned_to_user_id) {
-      await post(`/api/tickets/${ticket.id}/claim`, {})
-      toast(`Tiket '${ticket.judul}' berhasil Anda ambil!`)
-    } else {
-      await post(`/api/tickets/${ticket.id}/reassign`, { target_user_id: targetId })
-      toast(`Tiket '${ticket.judul}' berhasil ditugaskan!`)
-    }
-    scheduleStatsRefresh()
-  } catch (err) {
-    // Rollback
-    if (idx >= 0) {
-      tickets.value[idx] = {
-        ...tickets.value[idx],
-        assigned_to_user_id: ticket.assigned_to_user_id,
-        assigned_to: ticket.assigned_to,
-        assigned_to_nama: ticket.assigned_to_nama,
-      }
-    }
-    toast(err.message || 'Gagal menugaskan tiket.', 'error')
-  } finally {
-    isReassigning.value = null
   }
 }
 
@@ -808,35 +747,6 @@ async function confirmDeleteTicket() {
   }
 }
 
-function getQueueBadgeType(kode) {
-  const k = (kode || '').toUpperCase()
-  if (k === 'IT')  return 'primary'
-  if (k === 'HR')  return 'warning'
-  if (k === 'GA')  return 'success'
-  if (k === 'OPS') return 'info'
-  return 'default'
-}
-
-function getStatusBadgeType(status) {
-  const s = (status || '').toLowerCase()
-  if (s === 'open')        return 'success'
-  if (s === 'in progress') return 'info'
-  if (s === 'pending')     return 'warning'
-  if (s === 'closed')      return 'default'
-  if (s === 'resolved')    return 'purple'
-  return 'info'
-}
-
-function getPriorityBadgeType(prio) {
-  const p = (prio || '').toLowerCase()
-  if (p.includes('urgent')) return 'danger'
-  if (p.includes('high')) return 'warning'
-  if (p.includes('medium')) return 'info'
-  return 'default'
-}
-
-
-
 function getSlaHours(prioritas) {
   const p = (prioritas || '').toLowerCase()
   if (p.includes('urgent') || p.includes('4h')) return 4
@@ -884,71 +794,15 @@ function getSlaCountdownInfo(ticket) {
     return {
       text: `⚠️ Terlewat ${formatted}`,
       isOverdue: true,
-      isClosed: false
+      isClosed: false,
     }
   }
 
   return {
     text: `⏱️ ${formatted} sisa`,
     isOverdue: false,
-    isClosed: false
+    isClosed: false,
   }
-}
-
-function getActionBadgeType(action) {
-  if (action === 'PEMBUATAN' || action === 'TAMBAH')  return 'success'
-  if (action === 'PERUBAHAN_STATUS' || action === 'UBAH' || action === 'UPDATE_DETAIL') return 'warning'
-  if (action === 'PENUGASAN' || action === 'CLAIM' || action === 'REASSIGN') return 'info'
-  if (action === 'LAMPIRAN')  return 'primary'
-  if (action === 'HAPUS')     return 'danger'
-  return 'default'
-}
-
-function getActionIcon(action) {
-  if (action === 'PEMBUATAN' || action === 'TAMBAH')  return 'add_circle'
-  if (action === 'CLAIM')     return 'person_check'
-  if (action === 'REASSIGN')  return 'swap_horiz'
-  if (action === 'PERUBAHAN_STATUS' || action === 'UBAH' || action === 'UPDATE_DETAIL' || action === 'PENUGASAN') return 'edit_note'
-  if (action === 'LAMPIRAN')  return 'attach_file'
-  if (action === 'HAPUS')     return 'delete'
-  return 'info'
-}
-
-function getActionColor(action) {
-  if (action === 'PEMBUATAN' || action === 'TAMBAH') return 'text-[#059669] bg-[#ECFDF5]'
-  if (action === 'PERUBAHAN_STATUS' || action === 'UBAH' || action === 'UPDATE_DETAIL' || action === 'PENUGASAN') return 'text-[#D97706] bg-[#FFF8E6]'
-  if (action === 'LAMPIRAN') return 'text-[#0284C7] bg-[#E0F2FE]'
-  if (action === 'HAPUS') return 'text-[#DC2626] bg-[#FEF2F2]'
-  return 'text-[#6B7280] bg-[#F3F4F6]'
-}
-
-function parseTicketPerubahan(perubahan) {
-  if (!perubahan) return []
-  const parts = perubahan.split('. ')
-  const result = []
-
-  for (const part of parts) {
-    if (!part.trim()) continue
-    const match = part.match(/^(.+?)\s+diubah dari\s+'(.*?)'\s+menjadi\s+'(.*?)'$/i)
-    if (match) {
-      result.push({
-        field: match[1].trim(),
-        old: match[2] || '—',
-        new: match[3] || '—',
-      })
-    } else {
-      result.push({ field: null, text: part.trim() })
-    }
-  }
-
-  return result
-}
-
-function formatDate(iso) {
-  if (!iso) return '-'
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 function formatDateTime(iso) {
@@ -981,13 +835,31 @@ function formatRelativeTime(iso) {
 
 function getStatusDotInfo(status) {
   const s = (status || '').toLowerCase()
-  if (s === 'open') return { dotClass: 'bg-emerald-500', textClass: 'text-emerald-700 font-semibold', label: 'Open' }
-  if (s === 'in progress') return { dotClass: 'bg-blue-500', textClass: 'text-blue-700 font-semibold', label: 'In Progress' }
-  if (s === 'pending') return { dotClass: 'bg-amber-500', textClass: 'text-amber-700 font-semibold', label: 'Pending' }
-  if (s === 'resolved') return { dotClass: 'bg-teal-500', textClass: 'text-teal-700 font-semibold', label: 'Resolved' }
-  if (s === 'closed') return { dotClass: 'bg-slate-400', textClass: 'text-slate-600 font-medium', label: 'Closed' }
-  if (s === 'cancelled') return { dotClass: 'bg-rose-500', textClass: 'text-rose-600 font-medium', label: 'Cancelled' }
-  return { dotClass: 'bg-slate-400', textClass: 'text-slate-600 font-medium', label: status || 'Open' }
+  if (s === 'open')
+    return {
+      dotClass: 'bg-emerald-500',
+      textClass: 'text-emerald-700 font-semibold',
+      label: 'Open',
+    }
+  if (s === 'in progress')
+    return {
+      dotClass: 'bg-blue-500',
+      textClass: 'text-blue-700 font-semibold',
+      label: 'In Progress',
+    }
+  if (s === 'pending')
+    return { dotClass: 'bg-amber-500', textClass: 'text-amber-700 font-semibold', label: 'Pending' }
+  if (s === 'resolved')
+    return { dotClass: 'bg-teal-500', textClass: 'text-teal-700 font-semibold', label: 'Resolved' }
+  if (s === 'closed')
+    return { dotClass: 'bg-slate-400', textClass: 'text-slate-600 font-medium', label: 'Closed' }
+  if (s === 'cancelled')
+    return { dotClass: 'bg-rose-500', textClass: 'text-rose-600 font-medium', label: 'Cancelled' }
+  return {
+    dotClass: 'bg-slate-400',
+    textClass: 'text-slate-600 font-medium',
+    label: status || 'Open',
+  }
 }
 
 function getPriorityInfo(prioritas) {
@@ -1021,7 +893,10 @@ function getTicketActions(ticket) {
   ]
 
   if (isAdmin.value || isSuperAdmin.value) {
-    if (!ticket.assigned_to_user_id && !['Closed', 'Resolved', 'Cancelled'].includes(ticket.status_tiket)) {
+    if (
+      !ticket.assigned_to_user_id &&
+      !['Closed', 'Resolved', 'Cancelled'].includes(ticket.status_tiket)
+    ) {
       actions.push({
         label: 'Ambil Tiket Ini',
         icon: 'person_add',
@@ -1049,16 +924,6 @@ function getTicketActions(ticket) {
   return actions
 }
 
-function getInitial(val) {
-  if (!val) return '?'
-  if (typeof val === 'string') return val.trim().charAt(0).toUpperCase() || '?'
-  if (typeof val === 'object' && val !== null) {
-    const name = val.nama || val.name || val.username || ''
-    if (name) return String(name).trim().charAt(0).toUpperCase() || '?'
-  }
-  return String(val).trim().charAt(0).toUpperCase() || '?'
-}
-
 function getAssigneeName(val, fallback = 'Unassigned') {
   if (!val) return fallback
   if (typeof val === 'string') return val
@@ -1072,15 +937,14 @@ let toastTimer
 function toast(message, type = 'success') {
   window.clearTimeout(toastTimer)
   notification.value = { message, type }
-  toastTimer = window.setTimeout(() => { notification.value = null }, 3500)
+  toastTimer = window.setTimeout(() => {
+    notification.value = null
+  }, 3500)
 }
-
-
 </script>
 
 <template>
   <div class="flex min-w-0 flex-col gap-5">
-
     <!-- Toast Notification -->
     <Transition name="slide-right">
       <div
@@ -1088,19 +952,25 @@ function toast(message, type = 'success') {
         class="fixed left-4 right-4 top-4 z-[60] flex items-center gap-3 rounded-2xl px-4 py-3 text-white shadow-xl sm:left-auto sm:right-5 sm:max-w-md"
         :class="notification.type === 'error' ? 'bg-[#FA896B]' : 'bg-[#13DEB9]'"
       >
-        <span class="material-symbols-outlined text-[20px]">{{ notification.type === 'error' ? 'error' : 'check_circle' }}</span>
+        <span class="material-symbols-outlined text-[20px]">{{
+          notification.type === 'error' ? 'error' : 'check_circle'
+        }}</span>
         <span class="text-[13px] font-bold">{{ notification.message }}</span>
       </div>
     </Transition>
 
     <!-- ── 1. Page Header ───────────────────────────────── -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
+    <div
+      class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs"
+    >
       <div>
         <h1 class="text-xl font-bold text-[#0F172A] tracking-tight">
-          {{ (isAdmin || isSuperAdmin) ? 'Ticket Inbox' : 'Tiket' }}
+          {{ isAdmin || isSuperAdmin ? 'Ticket Inbox' : 'Tiket' }}
         </h1>
         <p class="text-xs font-normal text-[#64748B] mt-0.5">
-          {{ (isAdmin || isSuperAdmin) ? 'Kelola pengajuan dan kendala IT' : 'Pengajuan dan layanan IT' }}
+          {{
+            isAdmin || isSuperAdmin ? 'Kelola pengajuan dan kendala IT' : 'Pengajuan dan layanan IT'
+          }}
         </p>
       </div>
 
@@ -1108,49 +978,53 @@ function toast(message, type = 'success') {
         type="button"
         @click="openAdd"
         class="h-9 shrink-0 whitespace-nowrap rounded-xl bg-[#2563EB] px-4 text-xs font-bold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all flex items-center justify-center gap-1.5 cursor-pointer self-start sm:self-auto"
-        :title="(isAdmin || isSuperAdmin) ? 'Buat tiket baru' : 'Request ticket baru'"
+        :title="isAdmin || isSuperAdmin ? 'Buat tiket baru' : 'Request ticket baru'"
       >
         <span class="material-symbols-outlined text-[16px]">add</span>
-        <span>{{ (isAdmin || isSuperAdmin) ? 'Buat Tiket' : 'Request Ticket' }}</span>
+        <span>{{ isAdmin || isSuperAdmin ? 'Buat Tiket' : 'Request Ticket' }}</span>
       </button>
     </div>
 
     <!-- ── 2. Integrated Control Bar & Workspace Navigation ─ -->
     <div class="flex flex-col gap-3 bg-white p-4 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
-      
       <!-- Top Row: Queue Tabs & Secondary Summary -->
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#F1F5F9] pb-3">
         <!-- Ticket Queue Navigation (Tabs) -->
         <div class="flex items-center gap-1.5 overflow-x-auto">
           <button
-            v-for="tab in (!isAdmin && !isSuperAdmin
+            v-for="tab in !isAdmin && !isSuperAdmin
               ? [
                   { key: 'all', label: 'Semua Request' },
                   { key: 'open', label: 'Sedang Diproses' },
-                  { key: 'closed', label: 'Selesai' }
+                  { key: 'closed', label: 'Selesai' },
                 ]
               : [
                   { key: 'all', label: 'Inbox', count: stats.totalTickets },
                   { key: 'unassigned', label: 'Belum Diambil', count: stats.unassignedTickets },
                   { key: 'assigned', label: 'Ditangani Saya', count: stats.openTickets },
-                  { key: 'closed', label: 'Selesai', count: stats.closedTickets }
-                ]
-            )"
+                  { key: 'closed', label: 'Selesai', count: stats.closedTickets },
+                ]"
             :key="tab.key"
             type="button"
             @click="switchTab(tab.key)"
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
-            :class="activeTab === tab.key
-              ? 'bg-[#2563EB] text-white shadow-2xs'
-              : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
+            :class="
+              activeTab === tab.key
+                ? 'bg-[#2563EB] text-white shadow-2xs'
+                : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'
+            "
           >
             <span>{{ tab.label }}</span>
             <span
               v-if="tab.count !== undefined"
               class="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
-              :class="activeTab === tab.key
-                ? 'bg-white/20 text-white'
-                : (tab.key === 'unassigned' && tab.count > 0 ? 'bg-rose-500 text-white' : 'bg-[#F1F5F9] text-[#64748B]')"
+              :class="
+                activeTab === tab.key
+                  ? 'bg-white/20 text-white'
+                  : tab.key === 'unassigned' && tab.count > 0
+                    ? 'bg-rose-500 text-white'
+                    : 'bg-[#F1F5F9] text-[#64748B]'
+              "
             >
               {{ tab.count }}
             </span>
@@ -1158,14 +1032,26 @@ function toast(message, type = 'success') {
         </div>
 
         <!-- Secondary Summary (Quiet metadata) -->
-        <div class="text-[12px] font-medium text-[#64748B] flex items-center gap-1.5 shrink-0 select-none">
-          <span><strong class="text-[#0F172A] font-bold">{{ stats.totalTickets }}</strong> Inbox</span>
+        <div
+          class="text-[12px] font-medium text-[#64748B] flex items-center gap-1.5 shrink-0 select-none"
+        >
+          <span
+            ><strong class="text-[#0F172A] font-bold">{{ stats.totalTickets }}</strong> Inbox</span
+          >
           <span>·</span>
-          <span><strong class="text-emerald-600 font-bold">{{ stats.openTickets }}</strong> Open</span>
+          <span
+            ><strong class="text-emerald-600 font-bold">{{ stats.openTickets }}</strong> Open</span
+          >
           <span>·</span>
-          <span><strong class="text-amber-600 font-bold">{{ stats.pendingTickets }}</strong> Pending</span>
+          <span
+            ><strong class="text-amber-600 font-bold">{{ stats.pendingTickets }}</strong>
+            Pending</span
+          >
           <span>·</span>
-          <span><strong class="text-slate-600 font-bold">{{ stats.closedTickets }}</strong> Closed</span>
+          <span
+            ><strong class="text-slate-600 font-bold">{{ stats.closedTickets }}</strong>
+            Closed</span
+          >
         </div>
       </div>
 
@@ -1173,7 +1059,10 @@ function toast(message, type = 'success') {
       <div class="flex flex-wrap items-center justify-between gap-3">
         <!-- Search Input -->
         <div class="relative flex-1 min-w-[220px]">
-          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#94A3B8] pointer-events-none">search</span>
+          <span
+            class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#94A3B8] pointer-events-none"
+            >search</span
+          >
           <input
             v-model="searchQuery"
             type="search"
@@ -1216,19 +1105,23 @@ function toast(message, type = 'success') {
             class="h-9 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-xs font-semibold text-[#334155] focus:border-[#2563EB] focus:outline-none cursor-pointer"
           >
             <option value="">Unit: Semua</option>
-            <option v-for="q in queues" :key="q.id" :value="q.id">{{ q.kode }} — {{ q.nama }}</option>
+            <option v-for="q in queues" :key="q.id" :value="q.id">
+              {{ q.kode }} — {{ q.nama }}
+            </option>
           </select>
         </div>
       </div>
-
     </div>
 
     <!-- ── 3. Ticket Inbox / Issue List Surface ───────────── -->
     <div class="rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs overflow-hidden">
-      
       <!-- Loading Skeleton -->
       <div v-if="isLoading" class="p-4 space-y-3">
-        <div v-for="n in 5" :key="n" class="h-16 w-full animate-pulse rounded-xl bg-[#F8FAFC]"></div>
+        <div
+          v-for="n in 5"
+          :key="n"
+          class="h-16 w-full animate-pulse rounded-xl bg-[#F8FAFC]"
+        ></div>
       </div>
 
       <!-- Error State -->
@@ -1238,7 +1131,6 @@ function toast(message, type = 'success') {
 
       <!-- Content Surface (Horizontal Flex Issue Items) -->
       <div v-else class="divide-y divide-[#F1F5F9]">
-        
         <!-- ── USER ROLE ISSUE LIST ITEMS ── -->
         <template v-if="!isAdmin && !isSuperAdmin">
           <div
@@ -1250,18 +1142,25 @@ function toast(message, type = 'success') {
             <!-- Left Zone: Ticket Identity & Metadata Stack -->
             <div class="flex flex-col gap-1 min-w-0 flex-1">
               <!-- Title (16px semibold/bold focal point) -->
-              <h3 class="text-[16px] font-semibold text-[#0F172A] group-hover:text-[#2563EB] transition-colors line-clamp-1">
+              <h3
+                class="text-[16px] font-semibold text-[#0F172A] group-hover:text-[#2563EB] transition-colors line-clamp-1"
+              >
                 {{ ticket.judul }}
               </h3>
 
               <!-- Description Snippet (13.5px muted) -->
-              <p v-if="ticket.deskripsi" class="text-[13.5px] font-normal text-[#64748B] line-clamp-1">
+              <p
+                v-if="ticket.deskripsi"
+                class="text-[13.5px] font-normal text-[#64748B] line-clamp-1"
+              >
                 {{ ticket.deskripsi }}
               </p>
 
               <!-- Single Muted Sub-metadata Line -->
               <div class="flex items-center gap-2 text-[12px] text-[#94A3B8] flex-wrap mt-0.5">
-                <span class="font-mono text-[#64748B]">{{ ticket.nomor_tiket || `TCK-${ticket.id}` }}</span>
+                <span class="font-mono text-[#64748B]">{{
+                  ticket.nomor_tiket || `TCK-${ticket.id}`
+                }}</span>
                 <span>·</span>
                 <span>{{ ticket.queue_kode || 'IT' }}</span>
                 <span>·</span>
@@ -1269,20 +1168,30 @@ function toast(message, type = 'success') {
                 <span>·</span>
                 <span>{{ formatRelativeTime(ticket.diperbarui_pada || ticket.dibuat_pada) }}</span>
                 <span v-if="ticket.total_komentar > 0">· {{ ticket.total_komentar }} comments</span>
-                <span v-if="ticket.has_attachment" class="flex items-center gap-0.5"><span class="material-symbols-outlined text-[13px]">attach_file</span></span>
+                <span v-if="ticket.has_attachment" class="flex items-center gap-0.5"
+                  ><span class="material-symbols-outlined text-[13px]">attach_file</span></span
+                >
               </div>
             </div>
 
             <!-- Right Zone: Status Indicator & Chevron -->
             <div class="flex items-center gap-3 shrink-0">
               <div class="flex items-center gap-1.5 min-w-[95px] justify-end">
-                <span class="h-2 w-2 rounded-full shrink-0" :class="getStatusDotInfo(ticket.status_tiket).dotClass"></span>
-                <span class="text-[13.5px] font-semibold" :class="getStatusDotInfo(ticket.status_tiket).textClass">
+                <span
+                  class="h-2 w-2 rounded-full shrink-0"
+                  :class="getStatusDotInfo(ticket.status_tiket).dotClass"
+                ></span>
+                <span
+                  class="text-[13.5px] font-semibold"
+                  :class="getStatusDotInfo(ticket.status_tiket).textClass"
+                >
                   {{ getStatusDotInfo(ticket.status_tiket).label }}
                 </span>
               </div>
 
-              <span class="material-symbols-outlined text-[18px] text-[#CBD5E1] group-hover:text-[#2563EB] group-hover:translate-x-0.5 transition-all">
+              <span
+                class="material-symbols-outlined text-[18px] text-[#CBD5E1] group-hover:text-[#2563EB] group-hover:translate-x-0.5 transition-all"
+              >
                 chevron_right
               </span>
             </div>
@@ -1300,20 +1209,29 @@ function toast(message, type = 'success') {
             <!-- Left Zone: Ticket Identity & Metadata Stack -->
             <div class="flex flex-col gap-1 min-w-0 flex-1">
               <!-- Title (16px semibold/bold focal point) -->
-              <h3 class="text-[16px] font-semibold text-[#0F172A] group-hover:text-[#2563EB] transition-colors line-clamp-1">
+              <h3
+                class="text-[16px] font-semibold text-[#0F172A] group-hover:text-[#2563EB] transition-colors line-clamp-1"
+              >
                 {{ ticket.judul }}
               </h3>
 
               <!-- Description Snippet (13.5px muted) -->
-              <p v-if="ticket.deskripsi" class="text-[13.5px] font-normal text-[#64748B] line-clamp-1">
+              <p
+                v-if="ticket.deskripsi"
+                class="text-[13.5px] font-normal text-[#64748B] line-clamp-1"
+              >
                 {{ ticket.deskripsi }}
               </p>
 
               <!-- Single Muted Sub-metadata Line -->
               <div class="flex items-center gap-2 text-[12px] text-[#94A3B8] flex-wrap mt-0.5">
-                <span class="font-mono text-[#64748B]">{{ ticket.nomor_tiket || `TCK-${ticket.id}` }}</span>
+                <span class="font-mono text-[#64748B]">{{
+                  ticket.nomor_tiket || `TCK-${ticket.id}`
+                }}</span>
                 <span>·</span>
-                <span class="text-[#334155] font-medium">{{ ticket.pelapor_nama || ticket.pelapor || 'User' }}</span>
+                <span class="text-[#334155] font-medium">{{
+                  ticket.pelapor_nama || ticket.pelapor || 'User'
+                }}</span>
                 <span>·</span>
                 <span>{{ ticket.queue_kode || 'IT' }}</span>
                 <span>·</span>
@@ -1325,15 +1243,23 @@ function toast(message, type = 'success') {
                 <span>·</span>
                 <span>{{ formatRelativeTime(ticket.diperbarui_pada || ticket.dibuat_pada) }}</span>
                 <span v-if="ticket.total_komentar > 0">· {{ ticket.total_komentar }} comments</span>
-                <span v-if="ticket.has_attachment" class="flex items-center gap-0.5"><span class="material-symbols-outlined text-[13px]">attach_file</span></span>
+                <span v-if="ticket.has_attachment" class="flex items-center gap-0.5"
+                  ><span class="material-symbols-outlined text-[13px]">attach_file</span></span
+                >
               </div>
             </div>
 
             <!-- Right Zone: Status Indicator & Actions -->
             <div class="flex items-center gap-3 shrink-0">
               <div class="flex items-center gap-1.5 min-w-[100px] justify-end">
-                <span class="h-2 w-2 rounded-full shrink-0" :class="getStatusDotInfo(ticket.status_tiket).dotClass"></span>
-                <span class="text-[13.5px] font-semibold" :class="getStatusDotInfo(ticket.status_tiket).textClass">
+                <span
+                  class="h-2 w-2 rounded-full shrink-0"
+                  :class="getStatusDotInfo(ticket.status_tiket).dotClass"
+                ></span>
+                <span
+                  class="text-[13.5px] font-semibold"
+                  :class="getStatusDotInfo(ticket.status_tiket).textClass"
+                >
                   {{ getStatusDotInfo(ticket.status_tiket).label }}
                 </span>
               </div>
@@ -1349,26 +1275,36 @@ function toast(message, type = 'success') {
         <!-- ── EMPTY STATES ── -->
         <div v-if="filteredTickets.length === 0" class="py-16 text-center">
           <div class="mx-auto flex max-w-sm flex-col items-center justify-center text-center">
-            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F1F5F9] text-[#94A3B8] mb-3">
+            <div
+              class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F1F5F9] text-[#94A3B8] mb-3"
+            >
               <span class="material-symbols-outlined text-[24px]">inbox</span>
             </div>
 
             <!-- Empty state title -->
             <h3 class="text-sm font-bold text-[#0F172A]">
-              {{ (searchQuery || filterStatus || filterPrioritas || filterQueue)
+              {{
+                searchQuery || filterStatus || filterPrioritas || filterQueue
                   ? 'Tidak ada ticket yang cocok'
-                  : (!isAdmin && !isSuperAdmin)
+                  : !isAdmin && !isSuperAdmin
                     ? 'Belum ada request'
-                    : (activeTab === 'all' ? 'Inbox kosong' : 'Tidak ada ticket') }}
+                    : activeTab === 'all'
+                      ? 'Inbox kosong'
+                      : 'Tidak ada ticket'
+              }}
             </h3>
 
             <!-- Empty state description -->
             <p class="mt-1 text-xs text-[#64748B] max-w-xs">
-              {{ (searchQuery || filterStatus || filterPrioritas || filterQueue)
+              {{
+                searchQuery || filterStatus || filterPrioritas || filterQueue
                   ? 'Coba ubah pencarian atau filter.'
-                  : (!isAdmin && !isSuperAdmin)
+                  : !isAdmin && !isSuperAdmin
                     ? 'Pengajuan bantuan IT Anda akan muncul di sini.'
-                    : (activeTab === 'all' ? 'Tidak ada ticket yang menunggu penanganan.' : 'Belum ada ticket pada kategori ini.') }}
+                    : activeTab === 'all'
+                      ? 'Tidak ada ticket yang menunggu penanganan.'
+                      : 'Belum ada ticket pada kategori ini.'
+              }}
             </p>
 
             <button
@@ -1378,11 +1314,12 @@ function toast(message, type = 'success') {
               class="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-3.5 py-2 text-xs font-bold text-white shadow-2xs hover:bg-[#1D4ED8] transition-all cursor-pointer"
             >
               <span class="material-symbols-outlined text-[16px]">add</span>
-              <span>{{ (!isAdmin && !isSuperAdmin) ? 'Request Ticket Pertama' : 'Buat Tiket Baru' }}</span>
+              <span>{{
+                !isAdmin && !isSuperAdmin ? 'Request Ticket Pertama' : 'Buat Tiket Baru'
+              }}</span>
             </button>
           </div>
         </div>
-
       </div>
 
       <!-- Pagination -->
@@ -1397,15 +1334,30 @@ function toast(message, type = 'success') {
     <!-- ── Create / Edit Ticket Modal ─────────────────────── -->
     <AppModal
       :is-open="showFormModal"
-      :title="modalMode === 'add' ? ((isAdmin || isSuperAdmin) ? 'Buat Tiket Baru' : 'Request Ticket Baru') : 'Edit Tiket Kendala'"
-      :subtitle="modalMode === 'add' ? ((isAdmin || isSuperAdmin) ? 'Buat dan kelola tiket penanganan masalah IT' : 'Ajukan permintaan bantuan IT kepada tim support') : 'Perbarui rincian kendala atau status tiket'"
+      :title="
+        modalMode === 'add'
+          ? isAdmin || isSuperAdmin
+            ? 'Buat Tiket Baru'
+            : 'Request Ticket Baru'
+          : 'Edit Tiket Kendala'
+      "
+      :subtitle="
+        modalMode === 'add'
+          ? isAdmin || isSuperAdmin
+            ? 'Buat dan kelola tiket penanganan masalah IT'
+            : 'Ajukan permintaan bantuan IT kepada tim support'
+          : 'Perbarui rincian kendala atau status tiket'
+      "
       icon="confirmation_number"
       size="lg"
       @close="closeModal"
     >
       <form class="space-y-6 p-1" @submit.prevent="saveTicket">
         <!-- Error Banner -->
-        <div v-if="modalError" class="flex items-center gap-2.5 rounded-xl bg-rose-50 p-3.5 text-xs font-semibold text-rose-600 border border-rose-100">
+        <div
+          v-if="modalError"
+          class="flex items-center gap-2.5 rounded-xl bg-rose-50 p-3.5 text-xs font-semibold text-rose-600 border border-rose-100"
+        >
           <span class="material-symbols-outlined text-[18px] shrink-0">error</span>
           <span>{{ modalError }}</span>
         </div>
@@ -1413,7 +1365,9 @@ function toast(message, type = 'success') {
         <!-- SECTION 1: KENDALA -->
         <div class="space-y-4">
           <div class="border-b border-[#F1F5F9] pb-1.5">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">1. Kendala</span>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]"
+              >1. Kendala</span
+            >
           </div>
 
           <!-- Judul Kendala -->
@@ -1449,7 +1403,9 @@ function toast(message, type = 'success') {
         <!-- SECTION 2: PENANGANAN -->
         <div class="space-y-4">
           <div class="border-b border-[#F1F5F9] pb-1.5">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">2. Kategori & Penanganan</span>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]"
+              >2. Kategori & Penanganan</span
+            >
           </div>
 
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -1481,7 +1437,9 @@ function toast(message, type = 'success') {
                 class="h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 text-xs font-medium text-[#0F172A] transition-all focus:bg-white focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10 cursor-pointer"
               >
                 <option value="" disabled>-- Pilih Unit Tujuan --</option>
-                <option v-for="q in queues" :key="q.id" :value="q.id">{{ q.kode }} — {{ q.nama }}</option>
+                <option v-for="q in queues" :key="q.id" :value="q.id">
+                  {{ q.kode }} — {{ q.nama }}
+                </option>
               </select>
             </div>
 
@@ -1519,19 +1477,36 @@ function toast(message, type = 'success') {
         <!-- SECTION 3: LAMPIRAN -->
         <div class="space-y-3">
           <div class="border-b border-[#F1F5F9] pb-1.5">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">3. Lampiran</span>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]"
+              >3. Lampiran</span
+            >
           </div>
 
           <div class="flex flex-col gap-2">
             <div class="flex items-center gap-3 flex-wrap">
-              <label class="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-xs font-semibold text-[#334155] hover:bg-[#F1F5F9] hover:border-[#CBD5E1] transition-all cursor-pointer select-none">
-                <span class="material-symbols-outlined text-[18px] text-[#64748B]">attach_file</span>
+              <label
+                class="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-xs font-semibold text-[#334155] hover:bg-[#F1F5F9] hover:border-[#CBD5E1] transition-all cursor-pointer select-none"
+              >
+                <span class="material-symbols-outlined text-[18px] text-[#64748B]"
+                  >attach_file</span
+                >
                 <span>+ Tambah File</span>
-                <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="handleFileChange" />
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  class="hidden"
+                  @change="handleFileChange"
+                />
               </label>
               <span class="text-[11.5px] font-normal text-[#94A3B8]">PNG, JPG hingga 5 MB</span>
-              <span v-if="isTicketAttachmentLoading" class="text-[11.5px] font-medium text-[#2563EB] flex items-center gap-1">
-                <span class="material-symbols-outlined text-[14px] animate-spin">progress_activity</span> Memuat...
+              <span
+                v-if="isTicketAttachmentLoading"
+                class="text-[11.5px] font-medium text-[#2563EB] flex items-center gap-1"
+              >
+                <span class="material-symbols-outlined text-[14px] animate-spin"
+                  >progress_activity</span
+                >
+                Memuat...
               </span>
             </div>
 
@@ -1540,14 +1515,25 @@ function toast(message, type = 'success') {
             </p>
 
             <!-- Attachment Item Card / Preview -->
-            <div v-if="form.attachment" class="relative mt-2 flex items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 max-w-md">
+            <div
+              v-if="form.attachment"
+              class="relative mt-2 flex items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 max-w-md"
+            >
               <div class="flex items-center gap-3 min-w-0">
-                <div class="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-[#E2E8F0] bg-white">
-                  <img :src="form.attachment" alt="Preview Attachment" class="h-full w-full object-cover" />
+                <div
+                  class="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-[#E2E8F0] bg-white"
+                >
+                  <img
+                    :src="form.attachment"
+                    alt="Preview Attachment"
+                    class="h-full w-full object-cover"
+                  />
                 </div>
                 <div class="min-w-0">
                   <p class="text-xs font-bold text-[#0F172A] truncate">Gambar kendala terlampir</p>
-                  <p class="text-[10.5px] text-[#64748B] truncate mt-0.5">Siap diunggah bersama tiket</p>
+                  <p class="text-[10.5px] text-[#64748B] truncate mt-0.5">
+                    Siap diunggah bersama tiket
+                  </p>
                 </div>
               </div>
               <button
@@ -1577,8 +1563,18 @@ function toast(message, type = 'success') {
             :disabled="isSubmitting"
             class="h-10 rounded-xl bg-[#2563EB] px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#1D4ED8] transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
           >
-            <span v-if="isSubmitting" class="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
-            <span>{{ isSubmitting ? 'Menyimpan...' : (modalMode === 'add' ? ((isAdmin || isSuperAdmin) ? 'Buat Tiket' : 'Submit Request') : 'Simpan Perubahan') }}</span>
+            <span v-if="isSubmitting" class="material-symbols-outlined text-[16px] animate-spin"
+              >progress_activity</span
+            >
+            <span>{{
+              isSubmitting
+                ? 'Menyimpan...'
+                : modalMode === 'add'
+                  ? isAdmin || isSuperAdmin
+                    ? 'Buat Tiket'
+                    : 'Submit Request'
+                  : 'Simpan Perubahan'
+            }}</span>
           </button>
         </div>
       </form>
@@ -1587,18 +1583,25 @@ function toast(message, type = 'success') {
     <!-- ── Detail Ticket Modal (Modern SaaS Ticket Workspace) ─ -->
     <AppModal :is-open="showDetailModal" title="" size="xl" @close="closeModal">
       <div v-if="selectedTicket" class="flex flex-col text-[#0F172A]">
-        
         <!-- HEADER AREA (Compact SaaS Title Block) -->
         <div class="flex items-center justify-between gap-4 border-b border-[#F1F5F9] pb-4 mb-4">
           <div class="flex flex-col gap-1 min-w-0 flex-1">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="font-mono text-xs font-semibold text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-md">
+              <span
+                class="font-mono text-xs font-semibold text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-md"
+              >
                 {{ selectedTicket.nomor_tiket }}
               </span>
               <span class="text-xs text-[#CBD5E1]">·</span>
               <div class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full shrink-0" :class="getStatusDotInfo(selectedTicket.status_tiket).dotClass"></span>
-                <span class="text-xs font-semibold" :class="getStatusDotInfo(selectedTicket.status_tiket).textClass">
+                <span
+                  class="h-2 w-2 rounded-full shrink-0"
+                  :class="getStatusDotInfo(selectedTicket.status_tiket).dotClass"
+                ></span>
+                <span
+                  class="text-xs font-semibold"
+                  :class="getStatusDotInfo(selectedTicket.status_tiket).textClass"
+                >
                   {{ getStatusDotInfo(selectedTicket.status_tiket).label }}
                 </span>
               </div>
@@ -1615,7 +1618,11 @@ function toast(message, type = 'success') {
             type="button"
             @click="activeDetailTab = 'detail'"
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer select-none"
-            :class="activeDetailTab === 'detail' ? 'bg-[#F1F5F9] text-[#0F172A]' : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
+            :class="
+              activeDetailTab === 'detail'
+                ? 'bg-[#F1F5F9] text-[#0F172A]'
+                : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'
+            "
           >
             <span class="material-symbols-outlined text-[16px] text-[#64748B]">info</span>
             <span>Overview</span>
@@ -1625,11 +1632,17 @@ function toast(message, type = 'success') {
             type="button"
             @click="activeDetailTab = 'history'"
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer select-none"
-            :class="activeDetailTab === 'history' ? 'bg-[#F1F5F9] text-[#0F172A]' : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
+            :class="
+              activeDetailTab === 'history'
+                ? 'bg-[#F1F5F9] text-[#0F172A]'
+                : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'
+            "
           >
             <span class="material-symbols-outlined text-[16px] text-[#64748B]">history</span>
             <span>Activity</span>
-            <span class="ml-0.5 rounded-full bg-[#E2E8F0]/70 px-1.5 py-0.2 text-[10px] font-medium text-[#475569]">
+            <span
+              class="ml-0.5 rounded-full bg-[#E2E8F0]/70 px-1.5 py-0.2 text-[10px] font-medium text-[#475569]"
+            >
               {{ ticketHistory.length }}
             </span>
           </button>
@@ -1638,11 +1651,17 @@ function toast(message, type = 'success') {
             type="button"
             @click="activeDetailTab = 'comments'"
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer select-none"
-            :class="activeDetailTab === 'comments' ? 'bg-[#F1F5F9] text-[#0F172A]' : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
+            :class="
+              activeDetailTab === 'comments'
+                ? 'bg-[#F1F5F9] text-[#0F172A]'
+                : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'
+            "
           >
             <span class="material-symbols-outlined text-[16px] text-[#64748B]">forum</span>
             <span>Discussion</span>
-            <span class="ml-0.5 rounded-full bg-[#E2E8F0]/70 px-1.5 py-0.2 text-[10px] font-medium text-[#475569]">
+            <span
+              class="ml-0.5 rounded-full bg-[#E2E8F0]/70 px-1.5 py-0.2 text-[10px] font-medium text-[#475569]"
+            >
               {{ ticketComments.length }}
             </span>
           </button>
@@ -1650,12 +1669,13 @@ function toast(message, type = 'success') {
 
         <!-- MAIN SCROLL CONTENT AREA -->
         <div class="space-y-6">
-          
           <!-- TAB 1: OVERVIEW -->
           <div v-if="activeDetailTab === 'detail'" class="space-y-6">
             <!-- Deskripsi Kendala -->
             <div class="space-y-1.5">
-              <h3 class="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Deskripsi</h3>
+              <h3 class="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                Deskripsi
+              </h3>
               <p class="text-xs text-[#334155] leading-relaxed whitespace-pre-wrap">
                 {{ selectedTicket.deskripsi || 'Tidak ada catatan deskripsi rincian.' }}
               </p>
@@ -1663,50 +1683,78 @@ function toast(message, type = 'success') {
 
             <!-- Detail Tiket Grid (2-Column Desktop, 1-Column Mobile) -->
             <div class="pt-4 border-t border-[#F1F5F9] space-y-3">
-              <h3 class="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Detail Tiket</h3>
+              <h3 class="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                Detail Tiket
+              </h3>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-xs">
-                
                 <!-- Pelapor -->
                 <div class="flex flex-col gap-0.5">
                   <span class="text-[11px] font-medium text-[#94A3B8]">Pelapor</span>
-                  <span class="font-semibold text-[#0F172A]">{{ selectedTicket.pelapor_nama || selectedTicket.pelapor || '—' }}</span>
-                  <span v-if="selectedTicket.pelapor_jabatan || selectedTicket.pelapor_nik" class="text-[11px] text-[#64748B]">
-                    {{ selectedTicket.pelapor_jabatan || 'User' }} {{ selectedTicket.pelapor_nik ? '· NIK ' + selectedTicket.pelapor_nik : '' }}
+                  <span class="font-semibold text-[#0F172A]">{{
+                    selectedTicket.pelapor_nama || selectedTicket.pelapor || '—'
+                  }}</span>
+                  <span
+                    v-if="selectedTicket.pelapor_jabatan || selectedTicket.pelapor_nik"
+                    class="text-[11px] text-[#64748B]"
+                  >
+                    {{ selectedTicket.pelapor_jabatan || 'User' }}
+                    {{ selectedTicket.pelapor_nik ? '· NIK ' + selectedTicket.pelapor_nik : '' }}
                   </span>
                 </div>
 
                 <!-- Penanggung Jawab -->
                 <div class="flex flex-col gap-0.5">
                   <span class="text-[11px] font-medium text-[#94A3B8]">Assignee</span>
-                  <span class="font-semibold" :class="(selectedTicket.assigned_to_nama || selectedTicket.assigned_to) ? 'text-[#0F172A]' : 'text-[#94A3B8] italic'">
-                    {{ getAssigneeName(selectedTicket.assigned_to_nama || selectedTicket.assigned_to, 'Unassigned') }}
+                  <span
+                    class="font-semibold"
+                    :class="
+                      selectedTicket.assigned_to_nama || selectedTicket.assigned_to
+                        ? 'text-[#0F172A]'
+                        : 'text-[#94A3B8] italic'
+                    "
+                  >
+                    {{
+                      getAssigneeName(
+                        selectedTicket.assigned_to_nama || selectedTicket.assigned_to,
+                        'Unassigned',
+                      )
+                    }}
                   </span>
                 </div>
 
                 <!-- Kategori -->
                 <div class="flex flex-col gap-0.5">
                   <span class="text-[11px] font-medium text-[#94A3B8]">Kategori</span>
-                  <span class="font-medium text-[#0F172A]">{{ selectedTicket.kategori || 'Support' }}</span>
+                  <span class="font-medium text-[#0F172A]">{{
+                    selectedTicket.kategori || 'Support'
+                  }}</span>
                 </div>
 
                 <!-- Priority & SLA -->
                 <div class="flex flex-col gap-0.5">
                   <span class="text-[11px] font-medium text-[#94A3B8]">Priority & SLA</span>
                   <span class="font-medium text-[#0F172A]">
-                    {{ getPriorityInfo(selectedTicket.prioritas).label }} · <span :class="getSlaInfo(selectedTicket).class">{{ getSlaInfo(selectedTicket).text }}</span>
+                    {{ getPriorityInfo(selectedTicket.prioritas).label }} ·
+                    <span :class="getSlaInfo(selectedTicket).class">{{
+                      getSlaInfo(selectedTicket).text
+                    }}</span>
                   </span>
                 </div>
 
                 <!-- Unit Tujuan -->
                 <div class="flex flex-col gap-0.5">
                   <span class="text-[11px] font-medium text-[#94A3B8]">Unit Tujuan</span>
-                  <span class="font-medium text-[#0F172A]">{{ selectedTicket.queue_nama || selectedTicket.queue_kode || 'IT Support' }}</span>
+                  <span class="font-medium text-[#0F172A]">{{
+                    selectedTicket.queue_nama || selectedTicket.queue_kode || 'IT Support'
+                  }}</span>
                 </div>
 
                 <!-- Created At -->
                 <div class="flex flex-col gap-0.5">
                   <span class="text-[11px] font-medium text-[#94A3B8]">Dibuat Pada</span>
-                  <span class="font-medium text-[#334155]">{{ formatDateTime(selectedTicket.dibuat_pada) }}</span>
+                  <span class="font-medium text-[#334155]">{{
+                    formatDateTime(selectedTicket.dibuat_pada)
+                  }}</span>
                 </div>
               </div>
             </div>
@@ -1715,12 +1763,22 @@ function toast(message, type = 'success') {
             <div v-if="isTicketAttachmentLoading" class="text-xs text-[#94A3B8] py-2">
               Memuat lampiran tiket...
             </div>
-            <div v-else-if="selectedTicket.attachment" class="pt-4 border-t border-[#F1F5F9] space-y-2">
-              <h3 class="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8] flex items-center gap-1">
-                <span class="material-symbols-outlined text-[15px]">attach_file</span> Lampiran Gambar
+            <div
+              v-else-if="selectedTicket.attachment"
+              class="pt-4 border-t border-[#F1F5F9] space-y-2"
+            >
+              <h3
+                class="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8] flex items-center gap-1"
+              >
+                <span class="material-symbols-outlined text-[15px]">attach_file</span> Lampiran
+                Gambar
               </h3>
               <div class="overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2">
-                <img :src="selectedTicket.attachment" alt="Attachment Kendala" class="max-h-64 w-full object-contain rounded-lg" />
+                <img
+                  :src="selectedTicket.attachment"
+                  alt="Attachment Kendala"
+                  class="max-h-64 w-full object-contain rounded-lg"
+                />
               </div>
             </div>
 
@@ -1733,22 +1791,32 @@ function toast(message, type = 'success') {
                 @rated="fetchTickets"
               />
             </div>
-
           </div>
 
           <!-- TAB 2: ACTIVITY TIMELINE -->
           <div v-else-if="activeDetailTab === 'history'" class="space-y-4">
-            <div v-if="isHistoryLoading" class="flex flex-col items-center justify-center py-10 gap-2 text-[#94A3B8]">
-              <span class="material-symbols-outlined text-[24px] animate-spin text-[#2563EB]">progress_activity</span>
+            <div
+              v-if="isHistoryLoading"
+              class="flex flex-col items-center justify-center py-10 gap-2 text-[#94A3B8]"
+            >
+              <span class="material-symbols-outlined text-[24px] animate-spin text-[#2563EB]"
+                >progress_activity</span
+              >
               <span class="text-xs font-medium">Memuat riwayat aktivitas...</span>
             </div>
 
-            <div v-else-if="ticketHistory.length === 0" class="py-8 text-center text-xs text-[#94A3B8]">
+            <div
+              v-else-if="ticketHistory.length === 0"
+              class="py-8 text-center text-xs text-[#94A3B8]"
+            >
               Belum ada riwayat aktivitas pada ticket ini.
             </div>
 
             <!-- Activity Timeline -->
-            <div v-else class="relative pl-5 space-y-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-px before:bg-[#E2E8F0]">
+            <div
+              v-else
+              class="relative pl-5 space-y-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-px before:bg-[#E2E8F0]"
+            >
               <div
                 v-for="log in ticketHistory"
                 :key="log.id"
@@ -1761,13 +1829,20 @@ function toast(message, type = 'success') {
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-1.5">
                     <span class="font-semibold text-[#0F172A]">{{ log.aksi }}</span>
-                    <span class="text-[11px] text-[#64748B]">oleh <strong>{{ log.oleh_pengguna || 'Sistem' }}</strong></span>
+                    <span class="text-[11px] text-[#64748B]"
+                      >oleh <strong>{{ log.oleh_pengguna || 'Sistem' }}</strong></span
+                    >
                   </div>
-                  <span class="text-[11px] text-[#94A3B8]">{{ formatDateTime(log.dibuat_pada) }}</span>
+                  <span class="text-[11px] text-[#94A3B8]">{{
+                    formatDateTime(log.dibuat_pada)
+                  }}</span>
                 </div>
 
                 <!-- Details / Diffs -->
-                <div v-if="log.perubahan" class="text-[11.5px] text-[#475569] bg-[#F8FAFC] p-2.5 rounded-lg border border-[#F1F5F9] mt-0.5">
+                <div
+                  v-if="log.perubahan"
+                  class="text-[11.5px] text-[#475569] bg-[#F8FAFC] p-2.5 rounded-lg border border-[#F1F5F9] mt-0.5"
+                >
                   {{ log.perubahan }}
                 </div>
               </div>
@@ -1778,14 +1853,24 @@ function toast(message, type = 'success') {
           <div v-else-if="activeDetailTab === 'comments'" class="flex flex-col gap-4">
             <!-- Messages Container (No nested scrollbar, natural main scroll) -->
             <div class="flex flex-col gap-3 min-h-[160px]">
-              <div v-if="isCommentsLoading" class="flex flex-col items-center justify-center py-10 gap-2 text-[#94A3B8]">
-                <span class="material-symbols-outlined text-[24px] animate-spin text-[#2563EB]">progress_activity</span>
+              <div
+                v-if="isCommentsLoading"
+                class="flex flex-col items-center justify-center py-10 gap-2 text-[#94A3B8]"
+              >
+                <span class="material-symbols-outlined text-[24px] animate-spin text-[#2563EB]"
+                  >progress_activity</span
+                >
                 <span class="text-xs font-medium">Memuat percakapan...</span>
               </div>
 
-              <div v-else-if="ticketComments.length === 0" class="flex flex-col items-center justify-center py-10 gap-2 text-center text-[#94A3B8]">
+              <div
+                v-else-if="ticketComments.length === 0"
+                class="flex flex-col items-center justify-center py-10 gap-2 text-center text-[#94A3B8]"
+              >
                 <span class="material-symbols-outlined text-[28px]">chat_bubble_outline</span>
-                <p class="text-xs font-semibold text-[#334155]">Belum ada diskusi pada ticket ini.</p>
+                <p class="text-xs font-semibold text-[#334155]">
+                  Belum ada diskusi pada ticket ini.
+                </p>
                 <p class="text-[11px]">Tulis komentar melalui form di bawah.</p>
               </div>
 
@@ -1794,7 +1879,9 @@ function toast(message, type = 'success') {
                 v-for="c in ticketComments"
                 :key="c.id"
                 class="flex flex-col gap-1 max-w-[85%]"
-                :class="c.nama_pengguna === user?.nama ? 'self-end items-end' : 'self-start items-start'"
+                :class="
+                  c.nama_pengguna === user?.nama ? 'self-end items-end' : 'self-start items-start'
+                "
               >
                 <div class="flex items-center gap-1.5 text-[10.5px] text-[#94A3B8]">
                   <span class="font-bold text-[#334155]">{{ c.nama_pengguna }}</span>
@@ -1805,9 +1892,11 @@ function toast(message, type = 'success') {
 
                 <div
                   class="rounded-2xl px-4 py-2.5 text-xs leading-relaxed"
-                  :class="c.nama_pengguna === user?.nama
-                    ? 'bg-[#EFF6FF] border border-[#DBEAFE] text-[#1E3A8A] rounded-br-xs'
-                    : 'bg-[#F8FAFC] text-[#0F172A] border border-[#E2E8F0] rounded-bl-xs'"
+                  :class="
+                    c.nama_pengguna === user?.nama
+                      ? 'bg-[#EFF6FF] border border-[#DBEAFE] text-[#1E3A8A] rounded-br-xs'
+                      : 'bg-[#F8FAFC] text-[#0F172A] border border-[#E2E8F0] rounded-bl-xs'
+                  "
                 >
                   <p class="whitespace-pre-wrap">{{ c.pesan }}</p>
 
@@ -1822,34 +1911,68 @@ function toast(message, type = 'success') {
                     {{ c.is_attachment_loading ? 'Memuat...' : 'Tampilkan lampiran' }}
                   </button>
 
-                  <div v-if="c.attachment" class="mt-2 overflow-hidden rounded-xl border border-white/20">
-                    <img :src="c.attachment" alt="Attachment Komentar" class="max-h-40 w-full object-cover" />
+                  <div
+                    v-if="c.attachment"
+                    class="mt-2 overflow-hidden rounded-xl border border-white/20"
+                  >
+                    <img
+                      :src="c.attachment"
+                      alt="Attachment Komentar"
+                      class="max-h-40 w-full object-cover"
+                    />
                   </div>
                 </div>
               </div>
             </div>
 
             <!-- Comment Composer or Locked Notice -->
-            <div v-if="['Resolved', 'Closed', 'Cancelled'].includes(selectedTicket.status_tiket)" class="flex items-center gap-2 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] p-3 text-xs font-medium text-[#64748B]">
+            <div
+              v-if="['Resolved', 'Closed', 'Cancelled'].includes(selectedTicket.status_tiket)"
+              class="flex items-center gap-2 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] p-3 text-xs font-medium text-[#64748B]"
+            >
               <span class="material-symbols-outlined text-[16px] text-[#94A3B8]">lock</span>
-              <span>Discussion ditutup karena status ticket sudah {{ selectedTicket.status_tiket }}.</span>
+              <span
+                >Discussion ditutup karena status ticket sudah
+                {{ selectedTicket.status_tiket }}.</span
+              >
             </div>
 
             <div v-else class="flex flex-col gap-2 rounded-xl border border-[#E2E8F0] bg-white p-3">
-              <div v-if="commentAttachment" class="flex items-center justify-between gap-2 rounded-lg bg-[#F8FAFC] p-2 border border-[#E2E8F0]">
+              <div
+                v-if="commentAttachment"
+                class="flex items-center justify-between gap-2 rounded-lg bg-[#F8FAFC] p-2 border border-[#E2E8F0]"
+              >
                 <div class="flex items-center gap-2 min-w-0">
-                  <img :src="commentAttachment" alt="Preview Attachment" class="h-9 w-9 rounded-lg object-cover" />
-                  <span class="text-xs font-bold text-[#0F172A] truncate">Gambar lampiran siap dikirim</span>
+                  <img
+                    :src="commentAttachment"
+                    alt="Preview Attachment"
+                    class="h-9 w-9 rounded-lg object-cover"
+                  />
+                  <span class="text-xs font-bold text-[#0F172A] truncate"
+                    >Gambar lampiran siap dikirim</span
+                  >
                 </div>
-                <button type="button" @click="removeCommentAttachment" class="text-rose-500 hover:text-rose-700 cursor-pointer">
+                <button
+                  type="button"
+                  @click="removeCommentAttachment"
+                  class="text-rose-500 hover:text-rose-700 cursor-pointer"
+                >
                   <span class="material-symbols-outlined text-[16px]">close</span>
                 </button>
               </div>
 
               <form class="flex items-center gap-2" @submit.prevent="sendComment">
-                <label title="Tambah Lampiran Gambar" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#2563EB] transition-all cursor-pointer">
+                <label
+                  title="Tambah Lampiran Gambar"
+                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#2563EB] transition-all cursor-pointer"
+                >
                   <span class="material-symbols-outlined text-[18px]">add_a_photo</span>
-                  <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="handleCommentFileChange" />
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    class="hidden"
+                    @change="handleCommentFileChange"
+                  />
                 </label>
 
                 <input
@@ -1870,15 +1993,17 @@ function toast(message, type = 'success') {
               </form>
             </div>
           </div>
-
         </div>
 
         <!-- FOOTER ACTION BAR (Admin Status Selector & Claim Actions) -->
-        <div v-if="isAdmin || isSuperAdmin" class="flex items-center justify-between gap-4 border-t border-[#F1F5F9] pt-4 mt-6">
+        <div
+          v-if="isAdmin || isSuperAdmin"
+          class="flex items-center justify-between gap-4 border-t border-[#F1F5F9] pt-4 mt-6"
+        >
           <div class="flex items-center gap-2">
             <!-- Compact Status Selector -->
             <select
-              v-if="!['Closed','Resolved','Cancelled'].includes(selectedTicket.status_tiket)"
+              v-if="!['Closed', 'Resolved', 'Cancelled'].includes(selectedTicket.status_tiket)"
               :value="selectedTicket.status_tiket"
               :disabled="isUpdatingStatus"
               @change="updateTicketStatus(selectedTicket, $event.target.value)"
@@ -1893,14 +2018,19 @@ function toast(message, type = 'success') {
 
             <!-- Claim Button -->
             <button
-              v-if="!selectedTicket.assigned_to_user_id && !['Closed','Resolved','Cancelled'].includes(selectedTicket.status_tiket)"
+              v-if="
+                !selectedTicket.assigned_to_user_id &&
+                !['Closed', 'Resolved', 'Cancelled'].includes(selectedTicket.status_tiket)
+              "
               type="button"
               @click="claimTicket(selectedTicket)"
               :disabled="isClaiming === selectedTicket.id"
               class="h-9 inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-3 text-xs font-bold text-white hover:bg-[#1D4ED8] disabled:opacity-50 transition-all cursor-pointer"
             >
               <span class="material-symbols-outlined text-[16px]">person_add</span>
-              <span>{{ isClaiming === selectedTicket.id ? 'Mengambil...' : 'Ambil Ticket Ini' }}</span>
+              <span>{{
+                isClaiming === selectedTicket.id ? 'Mengambil...' : 'Ambil Ticket Ini'
+              }}</span>
             </button>
           </div>
 
@@ -1915,33 +2045,50 @@ function toast(message, type = 'success') {
             </button>
           </div>
         </div>
-
       </div>
     </AppModal>
 
     <!-- ── Delete Confirmation Modal ────────────────────── -->
     <AppModal :is-open="showDeleteModal" title="Hapus Tiket" size="sm" @close="closeModal">
       <div class="flex flex-col items-center gap-4 text-center">
-        <div v-if="modalError" class="w-full rounded-xl bg-[#FDEDE8] p-3 text-left text-[12px] font-bold text-[#FA896B]">
+        <div
+          v-if="modalError"
+          class="w-full rounded-xl bg-[#FDEDE8] p-3 text-left text-[12px] font-bold text-[#FA896B]"
+        >
           {{ modalError }}
         </div>
-        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FDEDE8] text-[#FA896B]">
+        <div
+          class="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FDEDE8] text-[#FA896B]"
+        >
           <span class="material-symbols-outlined text-[28px]">warning</span>
         </div>
         <div>
-          <h4 class="text-[16px] font-extrabold text-[#2A3547]">Hapus Tiket {{ selectedTicket?.nomor_tiket }}?</h4>
-          <p class="mt-1 text-[12px] text-[#7C8BAC]">Data tiket akan dihapus permanen dari sistem.</p>
+          <h4 class="text-[16px] font-extrabold text-[#2A3547]">
+            Hapus Tiket {{ selectedTicket?.nomor_tiket }}?
+          </h4>
+          <p class="mt-1 text-[12px] text-[#7C8BAC]">
+            Data tiket akan dihapus permanen dari sistem.
+          </p>
         </div>
         <div class="flex w-full gap-3 mt-2">
-          <button type="button" :disabled="isSubmitting" @click="closeModal" class="h-10 flex-1 rounded-xl border border-[#DFE5EF] text-[12px] font-semibold text-[#2A3547]">
+          <button
+            type="button"
+            :disabled="isSubmitting"
+            @click="closeModal"
+            class="h-10 flex-1 rounded-xl border border-[#DFE5EF] text-[12px] font-semibold text-[#2A3547]"
+          >
             Batal
           </button>
-          <button type="button" :disabled="isSubmitting" @click="confirmDeleteTicket" class="h-10 flex-1 rounded-xl bg-[#FA896B] text-[12px] font-bold text-white hover:bg-[#E06748]">
+          <button
+            type="button"
+            :disabled="isSubmitting"
+            @click="confirmDeleteTicket"
+            class="h-10 flex-1 rounded-xl bg-[#FA896B] text-[12px] font-bold text-white hover:bg-[#E06748]"
+          >
             {{ isSubmitting ? 'Menghapus...' : 'Ya, Hapus' }}
           </button>
         </div>
       </div>
     </AppModal>
-
   </div>
 </template>

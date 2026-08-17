@@ -20,7 +20,7 @@ export const ASSET_STATUS_MAP = {
     dot: 'bg-[#2563EB]',
     border: 'border-[#BFDBFE]/60',
   },
-  'Stock': {
+  Stock: {
     label: 'Stok',
     bg: 'bg-[#ECFDF5]',
     text: 'text-[#059669]',
@@ -34,14 +34,14 @@ export const ASSET_STATUS_MAP = {
     dot: 'bg-[#D97706]',
     border: 'border-[#FDE68A]/60',
   },
-  'Damaged': {
+  Damaged: {
     label: 'Rusak',
     bg: 'bg-[#FEF2F2]',
     text: 'text-[#DC2626]',
     dot: 'bg-[#DC2626]',
     border: 'border-[#FECACA]/60',
   },
-  'Disposal': {
+  Disposal: {
     label: 'Disposal',
     bg: 'bg-[#F8FAFC]',
     text: 'text-[#64748B]',
@@ -59,7 +59,10 @@ export function getAssetStatusLabel(status) {
   if (!status) return '—'
   const s = String(status).trim().toLowerCase()
   const foundKey = Object.keys(ASSET_STATUS_MAP).find(
-    (k) => k.toLowerCase() === s || (s === 'stok' && k === 'Stock') || (s === 'maintenance' && k === 'In Service')
+    (k) =>
+      k.toLowerCase() === s ||
+      (s === 'stok' && k === 'Stock') ||
+      (s === 'maintenance' && k === 'In Service'),
   )
   if (foundKey) return ASSET_STATUS_MAP[foundKey].label
   return status
@@ -82,7 +85,10 @@ export function formatStatusPill(status) {
   }
   const s = String(status).trim().toLowerCase()
   const foundKey = Object.keys(ASSET_STATUS_MAP).find(
-    (k) => k.toLowerCase() === s || (s === 'stok' && k === 'Stock') || (s === 'maintenance' && k === 'In Service')
+    (k) =>
+      k.toLowerCase() === s ||
+      (s === 'stok' && k === 'Stock') ||
+      (s === 'maintenance' && k === 'In Service'),
   )
   if (foundKey) return ASSET_STATUS_MAP[foundKey]
   return {

@@ -8,8 +8,8 @@
 import { computed } from 'vue'
 
 const props = defineProps({
-  value: { type: Number, default: 0 },          // 0–5 (desimal boleh, mis. 4.6)
-  size: { type: String, default: '24px' },      // ukuran font icon
+  value: { type: Number, default: 0 }, // 0–5 (desimal boleh, mis. 4.6)
+  size: { type: String, default: '24px' }, // ukuran font icon
   showValue: { type: Boolean, default: false }, // tampilkan angka "4.6/5"
 })
 

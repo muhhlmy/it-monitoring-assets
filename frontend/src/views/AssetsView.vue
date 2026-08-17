@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
@@ -200,17 +200,6 @@ const paginatedAssets = computed(() => {
   return filteredAssets.value.slice(start, start + itemsPerPage.value)
 })
 
-const assignedAssetsCount = computed(
-  () => assets.value.filter((asset) => Boolean(asset.nik || asset.nik_pemegang_asset)).length,
-)
-
-const availableAssetsCount = computed(
-  () =>
-    assets.value.filter((asset) =>
-      ['stock', 'tersedia'].includes(((asset.status || asset.status_aset) || '').toLowerCase()),
-    ).length,
-)
-
 async function fetchData() {
   isLoading.value = true
   pageError.value = ''
@@ -332,11 +321,6 @@ async function openDetails(asset) {
   }
 }
 
-function openSpecification(asset) {
-  selectedAsset.value = asset
-  showSpecificationModal.value = true
-}
-
 function closeModal() {
   if (isSubmitting.value || isExporting.value) return
   showFormModal.value = false
@@ -373,14 +357,14 @@ async function nextStep() {
       return
     }
   }
-  
+
   // Pindah ke step berikutnya
   if (activeTab.value === 'info') {
     activeTab.value = 'placement'
   } else if (activeTab.value === 'placement') {
     activeTab.value = 'specifications'
   }
-  
+
   modalError.value = ''
 }
 
@@ -516,8 +500,6 @@ function openStatusChange(asset) {
   activeTab.value = 'specifications'
 }
 
-
-
 function formatKondisiText(kondisi) {
   if (!kondisi) return 'Kondisi —'
   const k = String(kondisi).trim().toLowerCase()
@@ -652,12 +634,16 @@ onMounted(async () => {
 <template>
   <div class="space-y-4">
     <!-- Simplified SaaS Header & Toolbar Container -->
-    <div class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs">
+    <div
+      class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs"
+    >
       <!-- Row 1: Page Title & Primary CTA -->
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">Aset IT</h2>
-          <p class="text-xs text-[#64748B] mt-0.5 leading-normal">Monitor dan kelola seluruh perangkat IT perusahaan</p>
+          <p class="text-xs text-[#64748B] mt-0.5 leading-normal">
+            Monitor dan kelola seluruh perangkat IT perusahaan
+          </p>
         </div>
 
         <!-- Primary Action CTA -->
@@ -677,7 +663,10 @@ onMounted(async () => {
       <div class="flex flex-wrap items-center gap-2 w-full min-w-0 pt-2 border-t border-[#F1F5F9]">
         <!-- Search Input -->
         <div class="relative flex-1 min-w-[200px]">
-          <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[17px] text-[#94A3B8] pointer-events-none">search</span>
+          <span
+            class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[17px] text-[#94A3B8] pointer-events-none"
+            >search</span
+          >
           <input
             v-model="searchQuery"
             type="text"
@@ -695,14 +684,17 @@ onMounted(async () => {
           <option v-for="s in ASSET_STATUSES" :key="s.value" :value="s.value">{{ s.label }}</option>
         </select>
 
-        <!-- Filter Tipe -->
-        <select
-          v-model="filterTipe"
-          class="h-9 w-[125px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
+        <!-- Reset Filter Button -->
+        <button
+          v-if="searchQuery || filterStatus || filterTipe"
+          type="button"
+          @click="resetFilters"
+          class="h-9 shrink-0 whitespace-nowrap rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 text-xs font-medium text-[#64748B] hover:text-[#0F172A] transition-all flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+          title="Reset filter"
         >
-          <option value="">Semua Tipe</option>
-          <option v-for="tipe in availableTipeOptions" :key="tipe" :value="tipe">{{ tipe }}</option>
-        </select>
+          <span class="material-symbols-outlined text-[15px]">restart_alt</span>
+          <span>Reset</span>
+        </button>
 
         <!-- Export Button -->
         <button
@@ -733,7 +725,11 @@ onMounted(async () => {
     <div>
       <!-- Loading State Skeleton -->
       <div v-if="isLoading" class="p-5 space-y-3 bg-white rounded-2xl border border-[#E2E8F0]/80">
-        <div v-for="n in 5" :key="n" class="h-12 w-full animate-pulse rounded-xl bg-[#F8FAFC]"></div>
+        <div
+          v-for="n in 5"
+          :key="n"
+          class="h-12 w-full animate-pulse rounded-xl bg-[#F8FAFC]"
+        ></div>
       </div>
 
       <!-- Error State -->
@@ -744,18 +740,26 @@ onMounted(async () => {
       >
         <span class="material-symbols-outlined text-[18px]">error</span>
         <span class="flex-1 font-semibold">{{ pageError }}</span>
-        <button type="button" class="font-bold underline cursor-pointer" @click="fetchData">Coba lagi</button>
+        <button type="button" class="font-bold underline cursor-pointer" @click="fetchData">
+          Coba lagi
+        </button>
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="filteredAssets.length === 0" class="py-12 px-4 text-center bg-white rounded-2xl border border-[#E2E8F0]/80">
+      <div
+        v-else-if="filteredAssets.length === 0"
+        class="py-12 px-4 text-center bg-white rounded-2xl border border-[#E2E8F0]/80"
+      >
         <div class="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
-          <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F1F5F9] text-[#64748B]">
+          <span
+            class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F1F5F9] text-[#64748B]"
+          >
             <span class="material-symbols-outlined text-[24px]">devices_off</span>
           </span>
           <h3 class="text-[14px] font-bold text-[#0F172A] mt-1">Belum Ada Aset IT</h3>
           <p class="text-[11.5px] text-[#64748B] leading-relaxed">
-            Belum ada aset IT yang terdaftar dalam inventaris atau sesuai dengan kata kunci pencarian.
+            Belum ada aset IT yang terdaftar dalam inventaris atau sesuai dengan kata kunci
+            pencarian.
           </p>
           <button
             v-if="canWriteAssets"
@@ -779,14 +783,22 @@ onMounted(async () => {
         >
           <!-- 1. Asset Identity (Code & SN + Device Icon) -->
           <div class="flex items-center gap-3.5 min-w-[210px]">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB] group-hover:scale-105 transition-transform">
-              <span class="material-symbols-outlined text-[20px]">{{ getDeviceIcon(asset.tipe_perangkat) }}</span>
+            <div
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB] group-hover:scale-105 transition-transform"
+            >
+              <span class="material-symbols-outlined text-[20px]">{{
+                getDeviceIcon(asset.tipe_perangkat)
+              }}</span>
             </div>
             <div class="flex flex-col min-w-0">
-              <span class="text-[14px] font-bold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate">
+              <span
+                class="text-[14px] font-bold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate"
+              >
                 {{ asset.hostname || asset.label_aset || '—' }}
               </span>
-              <span class="font-mono text-[11px] font-normal text-[#64748B] mt-0.5 tracking-tight truncate">
+              <span
+                class="font-mono text-[11px] font-normal text-[#64748B] mt-0.5 tracking-tight truncate"
+              >
                 {{ asset.serial_number || asset.nomor_seri || '—' }}
               </span>
             </div>
@@ -794,7 +806,9 @@ onMounted(async () => {
 
           <!-- 2. Perangkat & Model -->
           <div class="flex flex-col min-w-[150px]">
-            <span class="text-[10px] font-semibold uppercase text-[#94A3B8] tracking-wider">Perangkat</span>
+            <span class="text-[10px] font-semibold uppercase text-[#94A3B8] tracking-wider"
+              >Perangkat</span
+            >
             <span class="text-[12.5px] font-semibold text-[#1E293B] mt-0.5 truncate">
               {{ asset.tipe_perangkat || '—' }}
             </span>
@@ -805,18 +819,32 @@ onMounted(async () => {
 
           <!-- 3. Penanggung Jawab -->
           <div class="flex flex-col min-w-[160px]">
-            <span class="text-[10px] font-semibold uppercase text-[#94A3B8] tracking-wider">Penanggung Jawab</span>
-            <span class="text-[12.5px] mt-0.5 truncate" :class="asset.nama_karyawan ? 'font-semibold text-[#1E293B]' : 'text-[#94A3B8] italic font-normal'">
+            <span class="text-[10px] font-semibold uppercase text-[#94A3B8] tracking-wider"
+              >Penanggung Jawab</span
+            >
+            <span
+              class="text-[12.5px] mt-0.5 truncate"
+              :class="
+                asset.nama_karyawan
+                  ? 'font-semibold text-[#1E293B]'
+                  : 'text-[#94A3B8] italic font-normal'
+              "
+            >
               {{ asset.nama_karyawan || 'Belum ditetapkan' }}
             </span>
-            <span v-if="asset.nama_karyawan && asset.nik" class="font-mono text-[11px] text-[#64748B] mt-0.5 truncate">
+            <span
+              v-if="asset.nama_karyawan && asset.nik"
+              class="font-mono text-[11px] text-[#64748B] mt-0.5 truncate"
+            >
               NIK: {{ asset.nik }}
             </span>
           </div>
 
           <!-- 4. Lokasi -->
           <div class="flex flex-col min-w-[120px]">
-            <span class="text-[10px] font-semibold uppercase text-[#94A3B8] tracking-wider">Lokasi</span>
+            <span class="text-[10px] font-semibold uppercase text-[#94A3B8] tracking-wider"
+              >Lokasi</span
+            >
             <span class="text-[12.5px] font-normal text-[#1E293B] mt-0.5 truncate">
               {{ asset.lokasi_kerja || asset.lokasi_aset || '—' }}
             </span>
@@ -826,13 +854,25 @@ onMounted(async () => {
           <div class="flex items-center justify-between md:justify-end gap-4 min-w-[150px]">
             <div class="flex flex-col items-start min-w-[125px] select-none">
               <!-- Primary Status Line -->
-              <div class="flex items-center gap-1.5 text-[12.5px] font-semibold" :class="formatStatusPill(asset.status_aset).text">
-                <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="formatStatusPill(asset.status_aset).dot"></span>
+              <div
+                class="flex items-center gap-1.5 text-[12.5px] font-semibold"
+                :class="formatStatusPill(asset.status_aset).text"
+              >
+                <span
+                  class="h-1.5 w-1.5 rounded-full shrink-0"
+                  :class="formatStatusPill(asset.status_aset).dot"
+                ></span>
                 <span>{{ formatStatusPill(asset.status_aset).label }}</span>
               </div>
               <!-- Secondary Condition Line (Tight vertical spacing directly underneath) -->
-              <div class="flex items-center gap-1 text-[11px] mt-0.5" :class="formatKondisiStyle(asset.kondisi_aset)">
-                <span class="h-1 w-1 rounded-full shrink-0 opacity-60" :class="formatKondisiDot(asset.kondisi_aset)"></span>
+              <div
+                class="flex items-center gap-1 text-[11px] mt-0.5"
+                :class="formatKondisiStyle(asset.kondisi_aset)"
+              >
+                <span
+                  class="h-1 w-1 rounded-full shrink-0 opacity-60"
+                  :class="formatKondisiDot(asset.kondisi_aset)"
+                ></span>
                 <span>{{ formatKondisiText(asset.kondisi_aset) }}</span>
               </div>
             </div>
@@ -858,7 +898,11 @@ onMounted(async () => {
     <AppModal
       :is-open="showFormModal"
       :title="modalMode === 'add' ? 'Tambah Aset IT' : 'Edit Aset IT'"
-      :subtitle="modalMode === 'add' ? 'Tambahkan perangkat baru ke inventaris.' : 'Perbarui informasi dan konfigurasi aset.'"
+      :subtitle="
+        modalMode === 'add'
+          ? 'Tambahkan perangkat baru ke inventaris.'
+          : 'Perbarui informasi dan konfigurasi aset.'
+      "
       size="lg"
       @close="closeModal"
     >
@@ -874,7 +918,9 @@ onMounted(async () => {
           >
             <span
               class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-extrabold"
-              :class="activeTab === 'info' ? 'bg-[#5D87FF] text-white' : 'bg-[#E5EAEF] text-[#7C8BAC]'"
+              :class="
+                activeTab === 'info' ? 'bg-[#5D87FF] text-white' : 'bg-[#E5EAEF] text-[#7C8BAC]'
+              "
             >
               1
             </span>
@@ -888,11 +934,17 @@ onMounted(async () => {
             type="button"
             @click="activeTab = 'placement'"
             class="flex items-center gap-1.5 transition-colors cursor-pointer select-none"
-            :class="activeTab === 'placement' ? 'text-[#5D87FF]' : 'text-[#7C8BAC] hover:text-[#2A3547]'"
+            :class="
+              activeTab === 'placement' ? 'text-[#5D87FF]' : 'text-[#7C8BAC] hover:text-[#2A3547]'
+            "
           >
             <span
               class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-extrabold"
-              :class="activeTab === 'placement' ? 'bg-[#5D87FF] text-white' : 'bg-[#E5EAEF] text-[#7C8BAC]'"
+              :class="
+                activeTab === 'placement'
+                  ? 'bg-[#5D87FF] text-white'
+                  : 'bg-[#E5EAEF] text-[#7C8BAC]'
+              "
             >
               2
             </span>
@@ -906,11 +958,19 @@ onMounted(async () => {
             type="button"
             @click="activeTab = 'specifications'"
             class="flex items-center gap-1.5 transition-colors cursor-pointer select-none"
-            :class="activeTab === 'specifications' ? 'text-[#5D87FF]' : 'text-[#7C8BAC] hover:text-[#2A3547]'"
+            :class="
+              activeTab === 'specifications'
+                ? 'text-[#5D87FF]'
+                : 'text-[#7C8BAC] hover:text-[#2A3547]'
+            "
           >
             <span
               class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-extrabold"
-              :class="activeTab === 'specifications' ? 'bg-[#5D87FF] text-white' : 'bg-[#E5EAEF] text-[#7C8BAC]'"
+              :class="
+                activeTab === 'specifications'
+                  ? 'bg-[#5D87FF] text-white'
+                  : 'bg-[#E5EAEF] text-[#7C8BAC]'
+              "
             >
               3
             </span>
@@ -932,36 +992,47 @@ onMounted(async () => {
         <!-- Step 1: Informasi Perangkat -->
         <div v-show="activeTab === 'info'" class="space-y-3.5">
           <div class="flex items-center gap-2 border-b border-[#F1F5F9] pb-1.5">
-            <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#7C8BAC]">Basic Information</span>
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#7C8BAC]"
+              >Basic Information</span
+            >
           </div>
 
           <fieldset class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label class="flex flex-col gap-1.5">
-              <span class="text-[12px] font-semibold text-[#2A3547]">Hostname <span class="text-[#FA896B]">*</span></span>
-              <input 
-                v-model="form.hostname" 
-                required 
-                autofocus 
-                maxlength="100" 
-                placeholder="Laptop-HR-01 atau SN-ABC123" 
-                class="h-10 w-full rounded-lg border border-[#E5EAEF] bg-white px-3 text-[12px] font-medium text-[#2A3547] placeholder-[#94A3B8] focus:border-[#5D87FF] focus:outline-none transition-all shadow-2xs" 
-              />
-            </label>
-            
-            <label class="flex flex-col gap-1.5">
-              <span class="text-[12px] font-semibold text-[#2A3547]">Serial Number <span class="text-[#FA896B]">*</span></span>
-              <input 
-                v-model="form.serial_number" 
+              <span class="text-[12px] font-semibold text-[#2A3547]"
+                >Hostname <span class="text-[#FA896B]">*</span></span
+              >
+              <input
+                v-model="form.hostname"
                 required
-                maxlength="100" 
-                placeholder="Nomor seri perangkat" 
-                class="h-10 w-full rounded-lg border border-[#E5EAEF] bg-white px-3 text-[12px] font-medium text-[#2A3547] placeholder-[#94A3B8] focus:border-[#5D87FF] focus:outline-none transition-all shadow-2xs" 
+                autofocus
+                maxlength="100"
+                placeholder="Laptop-HR-01 atau SN-ABC123"
+                class="h-10 w-full rounded-lg border border-[#E5EAEF] bg-white px-3 text-[12px] font-medium text-[#2A3547] placeholder-[#94A3B8] focus:border-[#5D87FF] focus:outline-none transition-all shadow-2xs"
               />
             </label>
-            
+
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[12px] font-semibold text-[#2A3547]"
+                >Serial Number <span class="text-[#FA896B]">*</span></span
+              >
+              <input
+                v-model="form.serial_number"
+                required
+                maxlength="100"
+                placeholder="Nomor seri perangkat"
+                class="h-10 w-full rounded-lg border border-[#E5EAEF] bg-white px-3 text-[12px] font-medium text-[#2A3547] placeholder-[#94A3B8] focus:border-[#5D87FF] focus:outline-none transition-all shadow-2xs"
+              />
+            </label>
+
             <label class="flex flex-col gap-1.5 col-span-1 sm:col-span-2">
-              <span class="text-[12px] font-semibold text-[#2A3547]">Tipe Perangkat <span class="text-[#FA896B]">*</span></span>
-              <select v-model="form.tipe_perangkat" class="h-10 w-full rounded-lg border border-[#E5EAEF] bg-white px-3 text-[12px] font-medium text-[#2A3547] focus:border-[#5D87FF] focus:outline-none transition-all appearance-none cursor-pointer shadow-2xs">
+              <span class="text-[12px] font-semibold text-[#2A3547]"
+                >Tipe Perangkat <span class="text-[#FA896B]">*</span></span
+              >
+              <select
+                v-model="form.tipe_perangkat"
+                class="h-10 w-full rounded-lg border border-[#E5EAEF] bg-white px-3 text-[12px] font-medium text-[#2A3547] focus:border-[#5D87FF] focus:outline-none transition-all appearance-none cursor-pointer shadow-2xs"
+              >
                 <option value="">Pilih tipe perangkat</option>
                 <option v-for="type in availableTipeOptions" :key="type">{{ type }}</option>
               </select>
@@ -972,7 +1043,9 @@ onMounted(async () => {
         <!-- Step 2: Penempatan & Pemegang -->
         <div v-show="activeTab === 'placement'" class="space-y-3.5">
           <div class="flex items-center gap-2 border-b border-[#F1F5F9] pb-1.5">
-            <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#7C8BAC]">Assignment & Placement</span>
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#7C8BAC]"
+              >Assignment & Placement</span
+            >
           </div>
 
           <fieldset class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -990,27 +1063,29 @@ onMounted(async () => {
                 class="w-full"
               />
             </label>
-            
+
             <label class="flex flex-col gap-1.5">
               <span class="text-[12px] font-semibold text-[#7C8BAC]">Nama Pemegang</span>
-              <input 
-                :value="form.nama_karyawan_pemegang_asset || '— (Stock)'" 
-                readonly 
-                class="h-10 w-full cursor-not-allowed rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] px-3 text-[12px] font-medium text-[#7C8BAC]" 
+              <input
+                :value="form.nama_karyawan_pemegang_asset || '— (Stock)'"
+                readonly
+                class="h-10 w-full cursor-not-allowed rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] px-3 text-[12px] font-medium text-[#7C8BAC]"
               />
             </label>
-            
+
             <label class="flex flex-col gap-1.5">
               <span class="text-[12px] font-semibold text-[#7C8BAC]">Departemen</span>
-              <input 
-                :value="form.departemen_pemegang_asset || '—'" 
-                readonly 
-                class="h-10 w-full cursor-not-allowed rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] px-3 text-[12px] font-medium text-[#7C8BAC]" 
+              <input
+                :value="form.departemen_pemegang_asset || '—'"
+                readonly
+                class="h-10 w-full cursor-not-allowed rounded-lg border border-[#E5EAEF] bg-[#F8FAFC] px-3 text-[12px] font-medium text-[#7C8BAC]"
               />
             </label>
-            
+
             <label class="flex flex-col gap-1.5 col-span-1 sm:col-span-2">
-              <span class="text-[12px] font-semibold text-[#2A3547]">Lokasi Aset <span class="text-[#FA896B]">*</span></span>
+              <span class="text-[12px] font-semibold text-[#2A3547]"
+                >Lokasi Aset <span class="text-[#FA896B]">*</span></span
+              >
               <SearchableSelect
                 v-model="form.lokasi_asset"
                 :options="locationOptions"
@@ -1029,7 +1104,9 @@ onMounted(async () => {
         <!-- Step 3: Spesifikasi & Details -->
         <div v-show="activeTab === 'specifications'" class="space-y-3.5">
           <div class="flex items-center gap-2 border-b border-[#F1F5F9] pb-1.5">
-            <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#7C8BAC]">Brand, Status & Details</span>
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#7C8BAC]"
+              >Brand, Status & Details</span
+            >
           </div>
 
           <fieldset class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1048,47 +1125,61 @@ onMounted(async () => {
                 class="w-full"
               />
             </label>
-            
+
             <label class="flex flex-col gap-1.5">
               <span class="text-[12px] font-semibold text-[#2A3547]">Model</span>
-              <input 
-                v-model="form.model" 
-                maxlength="100" 
-                placeholder="Model perangkat (e.g. ThinkPad X1)" 
-                class="h-10 w-full rounded-lg border border-[#E5EAEF] bg-white px-3 text-[12px] font-medium text-[#2A3547] placeholder-[#94A3B8] focus:border-[#5D87FF] focus:outline-none transition-all shadow-2xs" 
+              <input
+                v-model="form.model"
+                maxlength="100"
+                placeholder="Model perangkat (e.g. ThinkPad X1)"
+                class="h-10 w-full rounded-lg border border-[#E5EAEF] bg-white px-3 text-[12px] font-medium text-[#2A3547] placeholder-[#94A3B8] focus:border-[#5D87FF] focus:outline-none transition-all shadow-2xs"
               />
             </label>
-            
+
             <label class="flex flex-col gap-1.5">
-              <span class="text-[12px] font-semibold text-[#2A3547]">Status Aset <span class="text-[#FA896B]">*</span></span>
-              <select v-model="form.status" class="h-10 w-full rounded-lg border border-[#E5EAEF] bg-white px-3 text-[12px] font-medium text-[#2A3547] focus:border-[#5D87FF] focus:outline-none transition-all appearance-none cursor-pointer shadow-2xs">
-                <option v-for="s in ASSET_STATUSES" :key="s.value" :value="s.value">{{ s.label }}</option>
+              <span class="text-[12px] font-semibold text-[#2A3547]"
+                >Status Aset <span class="text-[#FA896B]">*</span></span
+              >
+              <select
+                v-model="form.status"
+                class="h-10 w-full rounded-lg border border-[#E5EAEF] bg-white px-3 text-[12px] font-medium text-[#2A3547] focus:border-[#5D87FF] focus:outline-none transition-all appearance-none cursor-pointer shadow-2xs"
+              >
+                <option v-for="s in ASSET_STATUSES" :key="s.value" :value="s.value">
+                  {{ s.label }}
+                </option>
               </select>
             </label>
-            
+
             <label class="flex flex-col gap-1.5">
-              <span class="text-[12px] font-semibold text-[#2A3547]">Kondisi Aset <span class="text-[#FA896B]">*</span></span>
-              <select v-model="form.kondisi" class="h-10 w-full rounded-lg border border-[#E5EAEF] bg-white px-3 text-[12px] font-medium text-[#2A3547] focus:border-[#5D87FF] focus:outline-none transition-all appearance-none cursor-pointer shadow-2xs">
-                <option v-for="condition in availableKondisiOptions" :key="condition">{{ condition }}</option>
+              <span class="text-[12px] font-semibold text-[#2A3547]"
+                >Kondisi Aset <span class="text-[#FA896B]">*</span></span
+              >
+              <select
+                v-model="form.kondisi"
+                class="h-10 w-full rounded-lg border border-[#E5EAEF] bg-white px-3 text-[12px] font-medium text-[#2A3547] focus:border-[#5D87FF] focus:outline-none transition-all appearance-none cursor-pointer shadow-2xs"
+              >
+                <option v-for="condition in availableKondisiOptions" :key="condition">
+                  {{ condition }}
+                </option>
               </select>
             </label>
-            
+
             <label class="flex flex-col gap-1.5 col-span-1 sm:col-span-2">
               <span class="text-[12px] font-semibold text-[#2A3547]">Spesifikasi Detail</span>
-              <textarea 
-                v-model="form.spesifikasi" 
-                rows="2" 
-                placeholder="CPU, RAM, Storage, OS, dll." 
+              <textarea
+                v-model="form.spesifikasi"
+                rows="2"
+                placeholder="CPU, RAM, Storage, OS, dll."
                 class="min-h-[52px] max-h-[80px] w-full rounded-lg border border-[#E5EAEF] bg-white p-2.5 text-[12px] font-medium text-[#2A3547] placeholder-[#94A3B8] focus:border-[#5D87FF] focus:outline-none transition-all resize-y shadow-2xs"
               ></textarea>
             </label>
-            
+
             <label class="flex flex-col gap-1.5 col-span-1 sm:col-span-2">
               <span class="text-[12px] font-semibold text-[#2A3547]">Catatan Aset</span>
-              <textarea 
-                v-model="form.note_asset" 
-                rows="2" 
-                placeholder="Catatan tambahan untuk aset ini" 
+              <textarea
+                v-model="form.note_asset"
+                rows="2"
+                placeholder="Catatan tambahan untuk aset ini"
                 class="min-h-[52px] max-h-[80px] w-full rounded-lg border border-[#E5EAEF] bg-white p-2.5 text-[12px] font-medium text-[#2A3547] placeholder-[#94A3B8] focus:border-[#5D87FF] focus:outline-none transition-all resize-y shadow-2xs"
               ></textarea>
             </label>
@@ -1097,50 +1188,58 @@ onMounted(async () => {
 
         <!-- Footer Action Bar -->
         <div class="flex items-center justify-between pt-4 mt-5 border-t border-[#E5EAEF]">
-          <button 
-            type="button" 
-            @click="closeModal" 
+          <button
+            type="button"
+            @click="closeModal"
             class="h-9 rounded-lg border border-[#E5EAEF] px-3.5 text-[12px] font-bold text-[#7C8BAC] hover:bg-[#F8FAFC] hover:text-[#2A3547] transition-all cursor-pointer"
           >
             Batal
           </button>
-          
+
           <div class="flex items-center gap-2">
-            <button 
+            <button
               v-if="activeTab !== 'info'"
-              type="button" 
-              @click="activeTab = activeTab === 'specifications' ? 'placement' : 'info'" 
+              type="button"
+              @click="activeTab = activeTab === 'specifications' ? 'placement' : 'info'"
               class="h-9 rounded-lg border border-[#E5EAEF] bg-white px-3.5 text-[12px] font-bold text-[#2A3547] hover:bg-[#F8FAFC] transition-all flex items-center gap-1 cursor-pointer"
             >
               <span class="material-symbols-outlined text-[15px]">arrow_back</span>
               <span>Kembali</span>
             </button>
-            
-            <button 
+
+            <button
               v-if="activeTab !== 'specifications'"
-              type="button" 
-              @click="nextStep" 
-              :disabled="isSubmitting || hasValidationErrors" 
+              type="button"
+              @click="nextStep"
+              :disabled="isSubmitting || hasValidationErrors"
               class="h-9 rounded-lg bg-[#5D87FF] px-4 text-[12px] font-bold text-white shadow-sm hover:bg-[#4570EA] disabled:opacity-50 transition-all flex items-center gap-1 cursor-pointer"
             >
               <span>Lanjutkan</span>
               <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
             </button>
 
-            <button 
+            <button
               v-else
-              type="submit" 
-              :disabled="isSubmitting || !canWriteAssets || hasValidationErrors" 
+              type="submit"
+              :disabled="isSubmitting || !canWriteAssets || hasValidationErrors"
               class="h-9 rounded-lg bg-[#5D87FF] px-4 text-[12px] font-bold text-white shadow-sm hover:bg-[#4570EA] disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <span v-if="isSubmitting" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
-              <span>{{ isSubmitting ? 'Menyimpan...' : (modalMode === 'add' ? 'Tambah Aset' : 'Simpan Perubahan') }}</span>
+              <span
+                v-if="isSubmitting"
+                class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"
+              ></span>
+              <span>{{
+                isSubmitting
+                  ? 'Menyimpan...'
+                  : modalMode === 'add'
+                    ? 'Tambah Aset'
+                    : 'Simpan Perubahan'
+              }}</span>
             </button>
           </div>
         </div>
       </form>
     </AppModal>
-
 
     <AppModal :is-open="showDeleteModal" title="Hapus Aset IT" size="sm" @close="closeModal">
       <div class="flex flex-col items-center gap-4 text-center">
@@ -1175,7 +1274,7 @@ onMounted(async () => {
             class="h-10 flex-1 rounded-lg bg-[#EF4444] font-bold text-white"
           >
             {{ isSubmitting ? 'Menghapus...' : 'Ya, Hapus' }}
-            </button>
+          </button>
         </div>
       </div>
     </AppModal>
@@ -1223,7 +1322,7 @@ onMounted(async () => {
             @click="closeModal"
           >
             Tutup
-            </button>
+          </button>
         </div>
       </div>
     </AppModal>
@@ -1259,7 +1358,7 @@ onMounted(async () => {
           >
             <span class="material-symbols-outlined text-[16px]">info</span>
             Informasi Detail
-            </button>
+          </button>
           <button
             v-if="isAdmin || isSuperAdmin"
             type="button"
@@ -1279,7 +1378,7 @@ onMounted(async () => {
             >
               {{ deviceLogs.length }}
             </span>
-            </button>
+          </button>
         </div>
 
         <!-- Tab 1: Info Detail -->
@@ -1477,7 +1576,7 @@ onMounted(async () => {
             class="h-9 rounded-lg bg-[#111827] px-5 text-[13px] font-bold text-white"
           >
             Tutup
-            </button>
+          </button>
         </div>
       </div>
     </AppModal>
@@ -1566,14 +1665,14 @@ onMounted(async () => {
             class="h-10 rounded-xl border border-[#DCE3EC] px-5 text-[12px] font-semibold text-[#475569] hover:bg-[#F8FAFC]"
           >
             Batal
-            </button>
+          </button>
           <button
             type="submit"
             :disabled="isExporting"
             class="h-10 rounded-xl bg-brand px-5 text-[12px] font-bold text-white shadow-md shadow-brand/20 hover:bg-brand-dark disabled:opacity-50"
           >
             {{ isExporting ? 'Mengekspor...' : 'Unduh File' }}
-            </button>
+          </button>
         </div>
       </form>
     </AppModal>

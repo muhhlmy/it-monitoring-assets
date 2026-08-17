@@ -7,11 +7,7 @@ import {
   canWritePermission,
   getTicketEligibility,
 } from '../utils/permissionAccess.js'
-import {
-  clearAuthSession,
-  getAuthSnapshot,
-  storeAuthSession,
-} from '../utils/authStorage.js'
+import { clearAuthSession, getAuthSnapshot, storeAuthSession } from '../utils/authStorage.js'
 
 // State global menggunakan ref (bisa juga pakai Pinia)
 const initialSession = getAuthSnapshot()
@@ -24,17 +20,13 @@ export function useAuth() {
 
   const isAuthenticated = computed(() => !!token.value)
   const ticketEligibility = computed(() => getTicketEligibility(user.value))
-  const isSuperAdmin = computed(
-    () => ticketEligibility.value.role === TICKET_ROLES.SUPERADMIN,
-  )
+  const isSuperAdmin = computed(() => ticketEligibility.value.role === TICKET_ROLES.SUPERADMIN)
   const isAdmin = computed(
     () =>
       ticketEligibility.value.role === TICKET_ROLES.ADMIN ||
       ticketEligibility.value.role === TICKET_ROLES.SUPERADMIN,
   )
-  const isUser = computed(
-    () => ticketEligibility.value.role === TICKET_ROLES.REPORTER,
-  )
+  const isUser = computed(() => ticketEligibility.value.role === TICKET_ROLES.REPORTER)
 
   const login = async (email, password, remember = false) => {
     const response = await api.post('/api/auth/login', { email, password })
