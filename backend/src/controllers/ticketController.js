@@ -1461,13 +1461,15 @@ export async function getTicketCasp(req, res) {
 
   const caspRes = await pool.query(
     `SELECT
-       rating,
-       feedback,
-       submitted_at,
-       reporter_name_snapshot,
-       assignee_name_snapshot
-     FROM ticket_casp_ratings
-     WHERE ticket_id = $1`,
+       cr.rating_score AS rating,
+       cr.feedback,
+       cr.submitted_at,
+       u_rep.nama AS reporter_name_snapshot,
+       u_ass.nama AS assignee_name_snapshot
+     FROM ticket_casp_ratings cr
+     LEFT JOIN users u_rep ON u_rep.id = cr.reporter_user_id
+     LEFT JOIN users u_ass ON u_ass.id = cr.assignee_user_id
+     WHERE cr.id_tiket = $1`,
     [id],
   )
   const existingRating = caspRes.rows[0] || null
@@ -1483,7 +1485,7 @@ export async function getTicketCasp(req, res) {
     reason = 'CASP sudah dikirim.'
   } else if (!isResolved) {
     reason = 'Tiket belum berstatus Resolved atau Closed.'
-  } else if (isAssignee) {
+  } else if (isAssignee && !isReporter) {
     reason = 'Petugas penanggung jawab tidak dapat memberikan penilaian CASP.'
   } else if (!isReporter || !canRateTicket(identity, ticket)) {
     reason = 'Hanya pelapor tiket yang dapat memberikan penilaian CASP.'
@@ -1550,27 +1552,22 @@ export async function submitTicketCasp(req, res) {
     }
 
     const checkCasp = await client.query(
-      'SELECT id FROM ticket_casp_ratings WHERE ticket_id = $1',
+      'SELECT id FROM ticket_casp_ratings WHERE id_tiket = $1',
       [id],
     )
     if (checkCasp.rowCount > 0) {
       throw createHttpError(409, 'Penilaian CASP untuk tiket ini sudah pernah dikirim.')
     }
 
-    const reporterName = identity.name
-    const assigneeName = ticket.assigned_to || 'Belum Ditugaskan'
-
     const insertRes = await client.query(
       `INSERT INTO ticket_casp_ratings
-         (ticket_id, reporter_user_id, assignee_user_id, reporter_name_snapshot, assignee_name_snapshot, rating, feedback)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING rating, feedback, submitted_at`,
+         (id_tiket, reporter_user_id, assignee_user_id, rating_score, feedback)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING rating_score AS rating, feedback, submitted_at`,
       [
         id,
         identity.id,
         ticket.assigned_to_user_id || null,
-        reporterName,
-        assigneeName,
         numericRating,
         normalizedFeedback,
       ],
@@ -1585,15 +1582,15 @@ export async function submitTicketCasp(req, res) {
     }
     const ratingLabel = labelMap[numericRating] || ''
 
-    await client.query(
-      `INSERT INTO log_riwayat_tiket (id_tiket, nomor_tiket, aksi, perubahan, oleh_pengguna) VALUES ($1, $2, $3, $4, $5)`,
-      [
-        id,
-        ticket.nomor_tiket,
-        'CASP_SUBMITTED',
-        `Pelapor memberikan penilaian CASP ${numericRating}/5 (${ratingLabel}).`,
-        reporterName,
-      ],
+    const reporterName = identity.name || 'Pelapor'
+
+    await addTicketLog(
+      client,
+      id,
+      ticket.nomor_tiket,
+      'CASP_SUBMITTED',
+      `Pelapor memberikan penilaian CASP ${numericRating}/5 (${ratingLabel}).`,
+      reporterName,
     )
 
     await client.query('COMMIT')

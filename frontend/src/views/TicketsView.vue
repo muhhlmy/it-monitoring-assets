@@ -1585,61 +1585,51 @@ function toast(message, type = 'success') {
     </AppModal>
 
     <!-- ── Detail Ticket Modal (Modern SaaS Ticket Workspace) ─ -->
-    <AppModal :is-open="showDetailModal" title="" size="lg" @close="closeModal">
-      <div v-if="selectedTicket" class="flex flex-col h-[85vh] max-h-[720px] -m-6 bg-white rounded-2xl overflow-hidden text-[#0F172A]">
+    <AppModal :is-open="showDetailModal" title="" size="xl" @close="closeModal">
+      <div v-if="selectedTicket" class="flex flex-col text-[#0F172A]">
         
-        <!-- STICKY HEADER AREA -->
-        <div class="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-[#F1F5F9] bg-white px-6 py-4">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="flex flex-col min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="font-mono text-xs font-bold text-[#475569] bg-[#F1F5F9] px-2 py-0.5 rounded-md">
-                  {{ selectedTicket.nomor_tiket }}
+        <!-- HEADER AREA (Compact SaaS Title Block) -->
+        <div class="flex items-center justify-between gap-4 border-b border-[#F1F5F9] pb-4 mb-4">
+          <div class="flex flex-col gap-1 min-w-0 flex-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-mono text-xs font-semibold text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-md">
+                {{ selectedTicket.nomor_tiket }}
+              </span>
+              <span class="text-xs text-[#CBD5E1]">·</span>
+              <div class="flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full shrink-0" :class="getStatusDotInfo(selectedTicket.status_tiket).dotClass"></span>
+                <span class="text-xs font-semibold" :class="getStatusDotInfo(selectedTicket.status_tiket).textClass">
+                  {{ getStatusDotInfo(selectedTicket.status_tiket).label }}
                 </span>
-                <div class="flex items-center gap-1.5 ml-1">
-                  <span class="h-2 w-2 rounded-full shrink-0" :class="getStatusDotInfo(selectedTicket.status_tiket).dotClass"></span>
-                  <span class="text-xs" :class="getStatusDotInfo(selectedTicket.status_tiket).textClass">
-                    {{ getStatusDotInfo(selectedTicket.status_tiket).label }}
-                  </span>
-                </div>
               </div>
-              <h2 class="text-base font-bold text-[#0F172A] truncate mt-1">
-                {{ selectedTicket.judul }}
-              </h2>
             </div>
+            <h2 class="text-[17px] font-bold text-[#0F172A] leading-snug line-clamp-2">
+              {{ selectedTicket.judul }}
+            </h2>
           </div>
-
-          <button
-            type="button"
-            @click="closeModal"
-            class="flex h-8 w-8 items-center justify-center rounded-xl text-[#94A3B8] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-colors cursor-pointer shrink-0"
-            title="Tutup Modal"
-          >
-            <span class="material-symbols-outlined text-[20px]">close</span>
-          </button>
         </div>
 
-        <!-- STICKY TABS AREA -->
-        <div class="sticky top-[68px] z-10 flex items-center gap-2 border-b border-[#F1F5F9] bg-white px-6 py-2.5">
+        <!-- NAVIGATION TABS (Clean Segmented Bar) -->
+        <div class="flex items-center gap-1 border-b border-[#F1F5F9] pb-3 mb-5">
           <button
             type="button"
             @click="activeDetailTab = 'detail'"
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer"
-            :class="activeDetailTab === 'detail' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer select-none"
+            :class="activeDetailTab === 'detail' ? 'bg-[#F1F5F9] text-[#0F172A]' : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
           >
-            <span class="material-symbols-outlined text-[16px]">info</span>
+            <span class="material-symbols-outlined text-[16px] text-[#64748B]">info</span>
             <span>Overview</span>
           </button>
 
           <button
             type="button"
             @click="activeDetailTab = 'history'"
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer"
-            :class="activeDetailTab === 'history' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer select-none"
+            :class="activeDetailTab === 'history' ? 'bg-[#F1F5F9] text-[#0F172A]' : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
           >
-            <span class="material-symbols-outlined text-[16px]">history</span>
+            <span class="material-symbols-outlined text-[16px] text-[#64748B]">history</span>
             <span>Activity</span>
-            <span class="ml-0.5 rounded-full bg-[#F1F5F9] px-1.5 py-0.2 text-[10px] font-extrabold text-[#64748B]">
+            <span class="ml-0.5 rounded-full bg-[#E2E8F0]/70 px-1.5 py-0.2 text-[10px] font-medium text-[#475569]">
               {{ ticketHistory.length }}
             </span>
           </button>
@@ -1647,112 +1637,95 @@ function toast(message, type = 'success') {
           <button
             type="button"
             @click="activeDetailTab = 'comments'"
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer"
-            :class="activeDetailTab === 'comments' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer select-none"
+            :class="activeDetailTab === 'comments' ? 'bg-[#F1F5F9] text-[#0F172A]' : 'text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]'"
           >
-            <span class="material-symbols-outlined text-[16px]">forum</span>
+            <span class="material-symbols-outlined text-[16px] text-[#64748B]">forum</span>
             <span>Discussion</span>
-            <span class="ml-0.5 rounded-full bg-[#F1F5F9] px-1.5 py-0.2 text-[10px] font-extrabold text-[#64748B]">
+            <span class="ml-0.5 rounded-full bg-[#E2E8F0]/70 px-1.5 py-0.2 text-[10px] font-medium text-[#475569]">
               {{ ticketComments.length }}
             </span>
           </button>
         </div>
 
-        <!-- MAIN SCROLLABLE CONTENT BODY -->
-        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+        <!-- MAIN SCROLL CONTENT AREA -->
+        <div class="space-y-6">
           
           <!-- TAB 1: OVERVIEW -->
           <div v-if="activeDetailTab === 'detail'" class="space-y-6">
-            <!-- Ticket Title & Description -->
-            <div class="space-y-2">
-              <h3 class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">Deskripsi Kendala</h3>
-              <div class="rounded-xl border border-[#F1F5F9] bg-[#F8FAFC] p-4 text-xs leading-relaxed text-[#334155] whitespace-pre-wrap">
+            <!-- Deskripsi Kendala -->
+            <div class="space-y-1.5">
+              <h3 class="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Deskripsi</h3>
+              <p class="text-xs text-[#334155] leading-relaxed whitespace-pre-wrap">
                 {{ selectedTicket.deskripsi || 'Tidak ada catatan deskripsi rincian.' }}
-              </div>
+              </p>
             </div>
 
-            <!-- Flat Compact Metadata Grid -->
-            <div class="space-y-2">
-              <h3 class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">Informasi Rincian</h3>
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 text-xs divide-y sm:divide-y-0 sm:divide-x divide-[#F1F5F9]">
+            <!-- Detail Tiket Grid (2-Column Desktop, 1-Column Mobile) -->
+            <div class="pt-4 border-t border-[#F1F5F9] space-y-3">
+              <h3 class="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Detail Tiket</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-xs">
                 
-                <div class="space-y-3 pr-2">
-                  <div class="flex flex-col gap-0.5">
-                    <span class="text-[11px] font-medium text-[#94A3B8]">Pelapor</span>
-                    <span class="font-bold text-[#0F172A]">{{ selectedTicket.pelapor_nama || selectedTicket.pelapor || '—' }}</span>
-                    <span v-if="selectedTicket.pelapor_jabatan || selectedTicket.pelapor_nik" class="text-[11px] text-[#64748B]">
-                      {{ selectedTicket.pelapor_jabatan || 'User' }} {{ selectedTicket.pelapor_nik ? '· NIK ' + selectedTicket.pelapor_nik : '' }}
-                    </span>
-                  </div>
-
-                  <div class="flex flex-col gap-0.5">
-                    <span class="text-[11px] font-medium text-[#94A3B8]">Kategori</span>
-                    <span class="font-semibold text-[#0F172A]">{{ selectedTicket.kategori || 'Support' }}</span>
-                  </div>
-
-                  <div class="flex flex-col gap-0.5">
-                    <span class="text-[11px] font-medium text-[#94A3B8]">Unit Tujuan</span>
-                    <span class="font-semibold text-[#0F172A]">{{ selectedTicket.queue_nama || selectedTicket.queue_kode || 'IT Support' }}</span>
-                  </div>
+                <!-- Pelapor -->
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-[11px] font-medium text-[#94A3B8]">Pelapor</span>
+                  <span class="font-semibold text-[#0F172A]">{{ selectedTicket.pelapor_nama || selectedTicket.pelapor || '—' }}</span>
+                  <span v-if="selectedTicket.pelapor_jabatan || selectedTicket.pelapor_nik" class="text-[11px] text-[#64748B]">
+                    {{ selectedTicket.pelapor_jabatan || 'User' }} {{ selectedTicket.pelapor_nik ? '· NIK ' + selectedTicket.pelapor_nik : '' }}
+                  </span>
                 </div>
 
-                <div class="space-y-3 sm:pl-4 pt-3 sm:pt-0">
-                  <div class="flex flex-col gap-0.5">
-                    <span class="text-[11px] font-medium text-[#94A3B8]">Penanggung Jawab (Assignee)</span>
-                    <div class="flex items-center gap-2">
-                      <div class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
-                           :class="(selectedTicket.assigned_to_nama || selectedTicket.assigned_to) ? 'bg-[#EFF6FF] text-[#2563EB]' : 'bg-[#F1F5F9] text-[#94A3B8]'">
-                        {{ getInitial(selectedTicket.assigned_to_nama || selectedTicket.assigned_to) }}
-                      </div>
-                      <span class="font-semibold" :class="(selectedTicket.assigned_to_nama || selectedTicket.assigned_to) ? 'text-[#0F172A]' : 'text-[#94A3B8] italic'">
-                        {{ getAssigneeName(selectedTicket.assigned_to_nama || selectedTicket.assigned_to, 'Belum ditugaskan') }}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="flex flex-col gap-0.5">
-                    <span class="text-[11px] font-medium text-[#94A3B8]">Prioritas & SLA</span>
-                    <div class="flex items-center gap-2">
-                      <span :class="getPriorityInfo(selectedTicket.prioritas).class" class="px-1.5 py-0.2 rounded border text-[10px] uppercase font-bold">
-                        {{ getPriorityInfo(selectedTicket.prioritas).label }}
-                      </span>
-                      <span class="text-[11px]" :class="getSlaInfo(selectedTicket).class">
-                        {{ getSlaInfo(selectedTicket).text }}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="flex flex-col gap-0.5">
-                    <span class="text-[11px] font-medium text-[#94A3B8]">Dibuat Pada</span>
-                    <span class="font-medium text-[#64748B]">{{ formatDateTime(selectedTicket.dibuat_pada) }}</span>
-                  </div>
+                <!-- Penanggung Jawab -->
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-[11px] font-medium text-[#94A3B8]">Assignee</span>
+                  <span class="font-semibold" :class="(selectedTicket.assigned_to_nama || selectedTicket.assigned_to) ? 'text-[#0F172A]' : 'text-[#94A3B8] italic'">
+                    {{ getAssigneeName(selectedTicket.assigned_to_nama || selectedTicket.assigned_to, 'Unassigned') }}
+                  </span>
                 </div>
 
+                <!-- Kategori -->
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-[11px] font-medium text-[#94A3B8]">Kategori</span>
+                  <span class="font-medium text-[#0F172A]">{{ selectedTicket.kategori || 'Support' }}</span>
+                </div>
+
+                <!-- Priority & SLA -->
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-[11px] font-medium text-[#94A3B8]">Priority & SLA</span>
+                  <span class="font-medium text-[#0F172A]">
+                    {{ getPriorityInfo(selectedTicket.prioritas).label }} · <span :class="getSlaInfo(selectedTicket).class">{{ getSlaInfo(selectedTicket).text }}</span>
+                  </span>
+                </div>
+
+                <!-- Unit Tujuan -->
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-[11px] font-medium text-[#94A3B8]">Unit Tujuan</span>
+                  <span class="font-medium text-[#0F172A]">{{ selectedTicket.queue_nama || selectedTicket.queue_kode || 'IT Support' }}</span>
+                </div>
+
+                <!-- Created At -->
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-[11px] font-medium text-[#94A3B8]">Dibuat Pada</span>
+                  <span class="font-medium text-[#334155]">{{ formatDateTime(selectedTicket.dibuat_pada) }}</span>
+                </div>
               </div>
             </div>
 
-            <!-- Attachment Image Display -->
-            <div v-if="isTicketAttachmentLoading" class="rounded-xl border border-[#F1F5F9] bg-[#F8FAFC] p-4 text-xs text-[#64748B]">
+            <!-- Attachment Display -->
+            <div v-if="isTicketAttachmentLoading" class="text-xs text-[#94A3B8] py-2">
               Memuat lampiran tiket...
             </div>
-            <div v-else-if="selectedTicket.attachment" class="space-y-2">
-              <h3 class="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] flex items-center gap-1">
-                <span class="material-symbols-outlined text-[16px] text-[#2563EB]">attach_file</span> Lampiran Gambar
+            <div v-else-if="selectedTicket.attachment" class="pt-4 border-t border-[#F1F5F9] space-y-2">
+              <h3 class="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8] flex items-center gap-1">
+                <span class="material-symbols-outlined text-[15px]">attach_file</span> Lampiran Gambar
               </h3>
               <div class="overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2">
                 <img :src="selectedTicket.attachment" alt="Attachment Kendala" class="max-h-64 w-full object-contain rounded-lg" />
               </div>
             </div>
 
-            <!-- Dedicated CASP Rating Section -->
-            <div class="border-t border-[#F1F5F9] pt-5 space-y-3">
-              <div class="flex items-center justify-between">
-                <div>
-                  <h3 class="text-xs font-bold text-[#0F172A] uppercase tracking-wider">CASP Assessment</h3>
-                  <p class="text-[11px] text-[#64748B]">Evaluasi kualitas penanganan ticket</p>
-                </div>
-              </div>
-
+            <!-- Dedicated CASP Section -->
+            <div class="pt-4 border-t border-[#F1F5F9]">
               <TicketCaspRating
                 :ticket="selectedTicket"
                 :ticket-id="selectedTicket.id"
@@ -1765,38 +1738,36 @@ function toast(message, type = 'success') {
 
           <!-- TAB 2: ACTIVITY TIMELINE -->
           <div v-else-if="activeDetailTab === 'history'" class="space-y-4">
-            <div v-if="isHistoryLoading" class="flex flex-col items-center justify-center py-12 gap-2 text-[#94A3B8]">
+            <div v-if="isHistoryLoading" class="flex flex-col items-center justify-center py-10 gap-2 text-[#94A3B8]">
               <span class="material-symbols-outlined text-[24px] animate-spin text-[#2563EB]">progress_activity</span>
               <span class="text-xs font-medium">Memuat riwayat aktivitas...</span>
             </div>
 
-            <div v-else-if="ticketHistory.length === 0" class="rounded-xl border border-[#F1F5F9] bg-[#F8FAFC] p-8 text-center text-xs text-[#64748B]">
+            <div v-else-if="ticketHistory.length === 0" class="py-8 text-center text-xs text-[#94A3B8]">
               Belum ada riwayat aktivitas pada ticket ini.
             </div>
 
             <!-- Activity Timeline -->
-            <div v-else class="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#E2E8F0]">
+            <div v-else class="relative pl-5 space-y-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-px before:bg-[#E2E8F0]">
               <div
                 v-for="log in ticketHistory"
                 :key="log.id"
                 class="relative flex flex-col gap-1 text-xs"
               >
                 <!-- Dot on Timeline -->
-                <div class="absolute -left-6 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white border border-[#E2E8F0]">
-                  <span class="h-2 w-2 rounded-full bg-[#2563EB]"></span>
-                </div>
+                <div class="absolute -left-5 top-1 h-2 w-2 rounded-full bg-[#2563EB]"></div>
 
                 <!-- Event Header & Actor -->
                 <div class="flex items-center justify-between gap-2">
-                  <div class="flex items-center gap-2">
-                    <span class="font-bold text-[#0F172A]">{{ log.aksi }}</span>
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-semibold text-[#0F172A]">{{ log.aksi }}</span>
                     <span class="text-[11px] text-[#64748B]">oleh <strong>{{ log.oleh_pengguna || 'Sistem' }}</strong></span>
                   </div>
                   <span class="text-[11px] text-[#94A3B8]">{{ formatDateTime(log.dibuat_pada) }}</span>
                 </div>
 
                 <!-- Details / Diffs -->
-                <div class="text-[11.5px] text-[#475569] bg-[#F8FAFC] p-2.5 rounded-lg border border-[#F1F5F9] mt-0.5">
+                <div v-if="log.perubahan" class="text-[11.5px] text-[#475569] bg-[#F8FAFC] p-2.5 rounded-lg border border-[#F1F5F9] mt-0.5">
                   {{ log.perubahan }}
                 </div>
               </div>
@@ -1805,27 +1776,27 @@ function toast(message, type = 'success') {
 
           <!-- TAB 3: DISCUSSION THREAD -->
           <div v-else-if="activeDetailTab === 'comments'" class="flex flex-col gap-4">
-            <!-- Messages Container -->
-            <div ref="chatContainer" class="flex flex-col gap-3 min-h-[220px] max-h-[360px] overflow-y-auto pr-1">
+            <!-- Messages Container (No nested scrollbar, natural main scroll) -->
+            <div class="flex flex-col gap-3 min-h-[160px]">
               <div v-if="isCommentsLoading" class="flex flex-col items-center justify-center py-10 gap-2 text-[#94A3B8]">
                 <span class="material-symbols-outlined text-[24px] animate-spin text-[#2563EB]">progress_activity</span>
                 <span class="text-xs font-medium">Memuat percakapan...</span>
               </div>
 
               <div v-else-if="ticketComments.length === 0" class="flex flex-col items-center justify-center py-10 gap-2 text-center text-[#94A3B8]">
-                <span class="material-symbols-outlined text-[32px]">chat_bubble_outline</span>
-                <p class="text-xs font-bold text-[#334155]">Belum ada diskusi pada ticket ini.</p>
-                <p class="text-[11px]">Berikan catatan atau instruksi melalui form di bawah.</p>
+                <span class="material-symbols-outlined text-[28px]">chat_bubble_outline</span>
+                <p class="text-xs font-semibold text-[#334155]">Belum ada diskusi pada ticket ini.</p>
+                <p class="text-[11px]">Tulis komentar melalui form di bawah.</p>
               </div>
 
-              <!-- Message Bubbles -->
+              <!-- Conversation Bubbles -->
               <div
                 v-for="c in ticketComments"
                 :key="c.id"
                 class="flex flex-col gap-1 max-w-[85%]"
                 :class="c.nama_pengguna === user?.nama ? 'self-end items-end' : 'self-start items-start'"
               >
-                <div class="flex items-center gap-2 text-[10.5px] text-[#94A3B8]">
+                <div class="flex items-center gap-1.5 text-[10.5px] text-[#94A3B8]">
                   <span class="font-bold text-[#334155]">{{ c.nama_pengguna }}</span>
                   <span class="capitalize">({{ c.role_pengguna || 'user' }})</span>
                   <span>·</span>
@@ -1835,8 +1806,8 @@ function toast(message, type = 'success') {
                 <div
                   class="rounded-2xl px-4 py-2.5 text-xs leading-relaxed"
                   :class="c.nama_pengguna === user?.nama
-                    ? 'bg-[#2563EB] text-white rounded-tr-xs'
-                    : 'bg-[#F8FAFC] text-[#0F172A] border border-[#E2E8F0] rounded-tl-xs'"
+                    ? 'bg-[#EFF6FF] border border-[#DBEAFE] text-[#1E3A8A] rounded-br-xs'
+                    : 'bg-[#F8FAFC] text-[#0F172A] border border-[#E2E8F0] rounded-bl-xs'"
                 >
                   <p class="whitespace-pre-wrap">{{ c.pesan }}</p>
 
@@ -1844,7 +1815,7 @@ function toast(message, type = 'success') {
                     v-if="c.has_attachment && !c.attachment"
                     type="button"
                     :disabled="c.is_attachment_loading"
-                    class="mt-2 flex items-center gap-1 rounded-lg border border-current/20 px-2 py-1 text-[10px] font-bold disabled:opacity-60"
+                    class="mt-2 flex items-center gap-1 rounded-lg border border-current/20 px-2 py-1 text-[10px] font-bold disabled:opacity-60 cursor-pointer"
                     @click="loadCommentAttachment(c)"
                   >
                     <span class="material-symbols-outlined text-[14px]">image</span>
@@ -1858,10 +1829,10 @@ function toast(message, type = 'success') {
               </div>
             </div>
 
-            <!-- Comment Composer -->
-            <div v-if="['Resolved', 'Closed', 'Cancelled'].includes(selectedTicket.status_tiket)" class="flex items-center justify-center gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs font-medium text-[#64748B]">
-              <span class="material-symbols-outlined text-[16px]">lock</span>
-              <span>Diskusi ditutup karena status ticket sudah {{ selectedTicket.status_tiket }}.</span>
+            <!-- Comment Composer or Locked Notice -->
+            <div v-if="['Resolved', 'Closed', 'Cancelled'].includes(selectedTicket.status_tiket)" class="flex items-center gap-2 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] p-3 text-xs font-medium text-[#64748B]">
+              <span class="material-symbols-outlined text-[16px] text-[#94A3B8]">lock</span>
+              <span>Discussion ditutup karena status ticket sudah {{ selectedTicket.status_tiket }}.</span>
             </div>
 
             <div v-else class="flex flex-col gap-2 rounded-xl border border-[#E2E8F0] bg-white p-3">
@@ -1902,10 +1873,9 @@ function toast(message, type = 'success') {
 
         </div>
 
-        <!-- STICKY FOOTER ACTION AREA -->
-        <div class="sticky bottom-0 z-20 flex items-center justify-between gap-4 border-t border-[#F1F5F9] bg-white px-6 py-3.5">
-          <!-- Admin Status Control & Claim Actions -->
-          <div v-if="isAdmin || isSuperAdmin" class="flex items-center gap-2">
+        <!-- FOOTER ACTION BAR (Admin Status Selector & Claim Actions) -->
+        <div v-if="isAdmin || isSuperAdmin" class="flex items-center justify-between gap-4 border-t border-[#F1F5F9] pt-4 mt-6">
+          <div class="flex items-center gap-2">
             <!-- Compact Status Selector -->
             <select
               v-if="!['Closed','Resolved','Cancelled'].includes(selectedTicket.status_tiket)"
@@ -1921,7 +1891,7 @@ function toast(message, type = 'success') {
               <option value="Closed">● Closed</option>
             </select>
 
-            <!-- Claim Button if Unassigned -->
+            <!-- Claim Button -->
             <button
               v-if="!selectedTicket.assigned_to_user_id && !['Closed','Resolved','Cancelled'].includes(selectedTicket.status_tiket)"
               type="button"
