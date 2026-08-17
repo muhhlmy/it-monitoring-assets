@@ -335,8 +335,13 @@ async function deleteEmployee() {
 
   try {
     const targetId = selectedEmployee.value?.id_karyawan || selectedEmployee.value?.id
-    await del(`/api/karyawan/${targetId}`)
-    toast('Data karyawan berhasil diubah statusnya menjadi Resigned.')
+    const res = await del(`/api/karyawan/${targetId}`)
+    const count = res?.affectedAssetsCount || 0
+    if (count > 0) {
+      toast(`Data karyawan diubah ke Resigned. ${count} unit aset otomatis dialihkan menjadi Stock.`)
+    } else {
+      toast('Data karyawan berhasil diubah statusnya menjadi Resigned.')
+    }
     closeModal()
     await fetchData()
   } catch (err) {
@@ -834,13 +839,15 @@ onMounted(() => {
 
         <div
           v-if="parseInt(selectedEmployee?.jumlah_aset || 0) > 0"
-          class="rounded-xl bg-amber-50 p-3 text-[12px] font-semibold text-amber-700 flex items-center gap-2"
+          class="rounded-xl bg-amber-50 p-3 text-[12px] font-semibold text-amber-700 flex items-start gap-2"
         >
-          <span class="material-symbols-outlined text-[18px]">warning</span>
-          <span
-            >Karyawan ini masih memiliki {{ selectedEmployee?.jumlah_aset }} unit aset
-            ter-assign!</span
-          >
+          <span class="material-symbols-outlined text-[18px] mt-0.5">warning</span>
+          <div>
+            <p>Karyawan ini masih memiliki {{ selectedEmployee?.jumlah_aset }} unit aset ter-assign.</p>
+            <p class="font-normal text-[11px] text-amber-800 mt-0.5">
+              Aset milik karyawan ini akan <strong>otomatis dialihkan menjadi Stock</strong> saat karyawan di-delete / resigned.
+            </p>
+          </div>
         </div>
 
         <div class="flex items-center justify-end gap-2 pt-4 border-t border-[#E5EAEF]">

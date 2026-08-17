@@ -231,6 +231,60 @@ export async function storeEmployee(req, res) {
   }
 }
 
+function getAuditActor(req) {
+  const actorId = Number(req.user?.id);
+  const actorName = typeof req.user?.nama === "string" ? req.user.nama.trim() : "";
+  if (!Number.isSafeInteger(actorId) || actorId <= 0 || !actorName) {
+    return req.user?.username || req.user?.email || "Super Administrator";
+  }
+  return actorName;
+}
+
+async function convertEmployeeAssetsToStock(client, nik, employeeName, auditActor) {
+  if (!nik) return 0;
+
+  const assetsRes = await client.query(
+    `SELECT id, hostname, serial_number, status FROM aset_ti WHERE nik_pemegang_asset = $1 AND deleted_at IS NULL`,
+    [nik]
+  );
+
+  if (assetsRes.rowCount === 0) return 0;
+
+  await client.query(
+    `UPDATE aset_ti
+     SET status = 'Stock',
+         nik_pemegang_asset = NULL,
+         nama_karyawan_pemegang_asset = NULL,
+         departemen_pemegang_asset = NULL,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE nik_pemegang_asset = $1 AND deleted_at IS NULL`,
+    [nik]
+  );
+
+  for (const asset of assetsRes.rows) {
+    await client.query(
+      `UPDATE riwayat_pemakaian_aset
+       SET tanggal_selesai = CURRENT_TIMESTAMP
+       WHERE id_aset = $1 AND tanggal_selesai IS NULL`,
+      [asset.id]
+    );
+
+    const prevStatus = asset.status || '-';
+    await client.query(
+      `INSERT INTO log_riwayat_aset (id_aset, label_aset, aksi, perubahan, oleh_pengguna, dibuat_pada)
+       VALUES ($1, $2, 'UBAH', $3, $4, CURRENT_TIMESTAMP)`,
+      [
+        asset.id,
+        asset.hostname || `Aset #${asset.id}`,
+        `Status aset diubah menjadi Stock (sebelumnya: ${prevStatus}) karena pemegang (${employeeName} / NIK: ${nik}) dihapus / status menjadi Resigned.`,
+        auditActor
+      ]
+    );
+  }
+
+  return assetsRes.rowCount;
+}
+
 export async function updateEmployee(req, res) {
   try {
     const id = Number(req.params.id);
@@ -272,45 +326,74 @@ export async function updateEmployee(req, res) {
     if (!directorate) return res.status(400).json({ error: "Direktorat wajib diisi." });
     if (!tanggal_mulai_bekerja) return res.status(400).json({ error: "Tanggal mulai bekerja wajib diisi." });
 
-    const result = await pool.query(
-      `UPDATE karyawan
-        SET nik = $1,
-            nama_karyawan = $2,
-            email_kantor = $3,
-            lokasi_kerja = $4,
-            status = $5,
-            title = $6,
-            job_level = $7,
-            departemen = $8,
-            directorate = $9,
-            tanggal_mulai_bekerja = $10,
-            employeement_status = $11,
-            nik_atasan_langsung = $12,
-            updated_at = CURRENT_TIMESTAMP
-      WHERE id = $13
-      RETURNING *`,
-      [
-        nik,
-        nama_karyawan,
-        email_kantor,
-        lokasi_kerja,
-        status,
-        title,
-        jobLevel,
-        departemen,
-        directorate,
-        tanggal_mulai_bekerja,
-        employeementStatus,
-        nik_atasan_langsung,
-        id,
-      ],
-    );
+    const auditActor = getAuditActor(req);
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Karyawan tidak ditemukan." });
-    }
+    const updatedEmployee = await withTransaction(async (client) => {
+      const empRes = await client.query(
+        `SELECT id, nik, nama_karyawan, status FROM karyawan WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      if (empRes.rowCount === 0) {
+        throw createHttpError(404, "Karyawan tidak ditemukan.");
+      }
+      const oldEmp = empRes.rows[0];
 
-    res.json(result.rows[0]);
+      const result = await client.query(
+        `UPDATE karyawan
+          SET nik = $1,
+              nama_karyawan = $2,
+              email_kantor = $3,
+              lokasi_kerja = $4,
+              status = $5,
+              title = $6,
+              job_level = $7,
+              departemen = $8,
+              directorate = $9,
+              tanggal_mulai_bekerja = $10,
+              employeement_status = $11,
+              nik_atasan_langsung = $12,
+              updated_at = CURRENT_TIMESTAMP
+        WHERE id = $13
+        RETURNING *`,
+        [
+          nik,
+          nama_karyawan,
+          email_kantor,
+          lokasi_kerja,
+          status,
+          title,
+          jobLevel,
+          departemen,
+          directorate,
+          tanggal_mulai_bekerja,
+          employeementStatus,
+          nik_atasan_langsung,
+          id,
+        ],
+      );
+
+      if (status === "Resigned" && oldEmp.status !== "Resigned") {
+        await convertEmployeeAssetsToStock(
+          client,
+          oldEmp.nik,
+          oldEmp.nama_karyawan,
+          auditActor
+        );
+      } else if (oldEmp.nik !== nik && status !== "Resigned") {
+        await client.query(
+          `UPDATE aset_ti
+           SET nik_pemegang_asset = $1,
+               nama_karyawan_pemegang_asset = $2,
+               departemen_pemegang_asset = $3
+           WHERE nik_pemegang_asset = $4 AND deleted_at IS NULL`,
+          [nik, nama_karyawan, departemen, oldEmp.nik]
+        );
+      }
+
+      return result.rows[0];
+    });
+
+    res.json(updatedEmployee);
   } catch (error) {
     if (error.code === '23505') {
       if (error.detail?.includes('email_kantor')) {
@@ -335,13 +418,42 @@ export async function deleteEmployee(req, res) {
       return res.status(400).json({ error: "ID karyawan tidak valid." });
     }
 
-    const result = await pool.query(`UPDATE karyawan SET status = 'Resigned' WHERE id = $1 RETURNING *`, [id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Karyawan tidak ditemukan." });
-    }
+    const auditActor = getAuditActor(req);
 
-    res.json({ message: "Data karyawan telah diubah statusnya menjadi Resigned." });
+    const { employee, affectedAssetsCount } = await withTransaction(async (client) => {
+      const empRes = await client.query(
+        `SELECT id, nik, nama_karyawan, status FROM karyawan WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      if (empRes.rowCount === 0) {
+        throw createHttpError(404, "Karyawan tidak ditemukan.");
+      }
+      const existingEmp = empRes.rows[0];
+
+      const updateRes = await client.query(
+        `UPDATE karyawan SET status = 'Resigned', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
+        [id]
+      );
+
+      const count = await convertEmployeeAssetsToStock(
+        client,
+        existingEmp.nik,
+        existingEmp.nama_karyawan,
+        auditActor
+      );
+
+      return { employee: updateRes.rows[0], affectedAssetsCount: count };
+    });
+
+    res.json({
+      message: "Data karyawan telah diubah statusnya menjadi Resigned.",
+      affectedAssetsCount,
+      employee,
+    });
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
     console.error("Error deleting employee:", error);
     res.status(500).json({ error: "Gagal menghapus data karyawan." });
   }
