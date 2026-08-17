@@ -37,15 +37,16 @@ export function normalizeLoginCredentials(body) {
 export async function login(req, res) {
   try {
     const credentials = normalizeLoginCredentials(req.body)
-    
+
     if (!credentials) {
       return res.status(400).json({ message: 'Format email atau password tidak valid.' })
     }
-    
-    const { email, password } = credentials;
 
-    // Cari user berdasarkan email beserta NIK & Jabatan dari tabel karyawan (jika terhubung)
-    const result = await pool.query(`
+    const { email, password } = credentials
+
+    // Cari user berdasarkan email beserta data karyawan dari tabel karyawan (jika terhubung)
+    const result = await pool.query(
+      `
       SELECT 
         u.id,
         u.nama,
@@ -54,101 +55,198 @@ export async function login(req, res) {
         u.role,
         u.permissions,
         u.is_active,
-        COALESCE(k.nik, '') AS nik,
-        COALESCE(k.title, u.role) AS jabatan
+        k.id AS employee_id,
+        k.nik AS nik,
+        k.nama_karyawan AS employee_nama,
+        k.title AS title,
+        k.departemen AS departemen,
+        k.directorate AS directorate,
+        k.status AS employee_status,
+        k.lokasi_kerja AS lokasi_kerja,
+        k.tanggal_mulai_bekerja AS tanggal_mulai_bekerja,
+        k.employeement_status AS employeement_status,
+        k.email_kantor AS email_kantor
       FROM users u
       LEFT JOIN karyawan k ON LOWER(TRIM(u.email)) = LOWER(TRIM(k.email_kantor))
       WHERE u.email = $1
         AND u.deleted_at IS NULL
-    `, [email]);
-    
+    `,
+      [email],
+    )
+
     if (result.rowCount === 0) {
-      return res.status(401).json({ message: 'Email atau password salah.' });
+      return res.status(401).json({ message: 'Email atau password salah.' })
     }
 
-    const user = result.rows[0];
-    
+    const userRow = result.rows[0]
+
     // Cek apakah akun aktif
-    if (!user.is_active) {
-      return res.status(403).json({ message: 'Akun Anda telah dinonaktifkan.' });
+    if (!userRow.is_active) {
+      return res.status(403).json({ message: 'Akun Anda telah dinonaktifkan.' })
     }
 
-    const isPasswordValid = await verifyPassword(password, user.password_hash);
-    
+    const isPasswordValid = await verifyPassword(password, userRow.password_hash)
+
     if (!isPasswordValid) {
       await pool.query(
         'INSERT INTO log_audit_login (user_id, email, login_time, ip_address, user_agent) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4)',
-        [user.id, user.email, req.ip, req.headers['user-agent']]
-      );
-      return res.status(401).json({ message: 'Email atau password salah.' });
+        [userRow.id, userRow.email, req.ip, req.headers['user-agent']],
+      )
+      return res.status(401).json({ message: 'Email atau password salah.' })
     }
 
-    const userRole = (user.role || '').trim().toLowerCase()
+    const userRole = (userRow.role || '').trim().toLowerCase()
     const isSuper = userRole === 'superadmin' || userRole === 'super admin'
     const permissions = isSuper
       ? { ...SUPERADMIN_PERMISSIONS }
-      : normalizePermissions(user.permissions, { defaults: DEFAULT_USER_PERMISSIONS })
+      : normalizePermissions(userRow.permissions, { defaults: DEFAULT_USER_PERMISSIONS })
 
-    // Buat JWT Token dengan NIK & Jabatan
+    const hasEmployee = Boolean(userRow.nik)
+    const employee = hasEmployee
+      ? {
+          id: userRow.employee_id,
+          nik: userRow.nik,
+          nama_karyawan: userRow.employee_nama || userRow.nama,
+          title: userRow.title || userRow.role,
+          jabatan: userRow.title || userRow.role,
+          departemen: userRow.departemen || '',
+          directorate: userRow.directorate || '',
+          status: userRow.employee_status || 'Active',
+          lokasi_kerja: userRow.lokasi_kerja || '',
+          tanggal_mulai_bekerja: userRow.tanggal_mulai_bekerja || null,
+          employeement_status: userRow.employeement_status || '',
+          email_kantor: userRow.email_kantor || userRow.email,
+        }
+      : null
+
     const payload = {
-      id: user.id,
-      nama: user.nama,
-      email: user.email,
-      role: user.role,
-      nik: user.nik || '',
-      jabatan: user.jabatan || user.role,
-      permissions
-    };
+      id: userRow.id,
+      nama: userRow.employee_nama || userRow.nama,
+      email: userRow.email,
+      role: userRow.role,
+      is_active: userRow.is_active,
+      permissions,
+      nik: userRow.nik || '',
+      title: userRow.title || userRow.role,
+      jabatan: userRow.title || userRow.role,
+      departemen: userRow.departemen || '',
+      directorate: userRow.directorate || '',
+      lokasi_kerja: userRow.lokasi_kerja || '',
+      employee,
+    }
 
-    const token = jwt.sign(payload, env.jwt.secret, { expiresIn: '12h' });
+    const token = jwt.sign(
+      {
+        id: userRow.id,
+        nama: userRow.employee_nama || userRow.nama,
+        email: userRow.email,
+        role: userRow.role,
+        nik: userRow.nik || '',
+        jabatan: userRow.title || userRow.role,
+        permissions,
+      },
+      env.jwt.secret,
+      { expiresIn: '12h' },
+    )
 
     // Catat log sukses
     await pool.query(
       'INSERT INTO log_audit_login (user_id, email, login_time, ip_address, user_agent) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4)',
-      [user.id, user.email, req.ip, req.headers['user-agent']]
-    );
+      [userRow.id, userRow.email, req.ip, req.headers['user-agent']],
+    )
 
     res.json({
       message: 'Login berhasil.',
       token,
-      user: payload
-    });
-    
+      user: payload,
+    })
   } catch (error) {
-    console.error('Error login:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan pada server.' });
+    console.error('Error login:', error)
+    res.status(500).json({ message: 'Terjadi kesalahan pada server.' })
   }
 }
 
 export async function getMe(req, res) {
   try {
-    // req.user disisipkan oleh middleware authenticateToken
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       SELECT 
-        u.id, u.nama, u.email, u.role, u.permissions, u.is_active, u.created_at,
-        COALESCE(k.nik, '') AS nik,
-        COALESCE(k.jabatan, u.role) AS jabatan
+        u.id,
+        u.nama,
+        u.email,
+        u.role,
+        u.permissions,
+        u.is_active,
+        u.created_at,
+        k.id AS employee_id,
+        k.nik AS nik,
+        k.nama_karyawan AS employee_nama,
+        k.title AS title,
+        k.departemen AS departemen,
+        k.directorate AS directorate,
+        k.status AS employee_status,
+        k.lokasi_kerja AS lokasi_kerja,
+        k.tanggal_mulai_bekerja AS tanggal_mulai_bekerja,
+        k.employeement_status AS employeement_status,
+        k.email_kantor AS email_kantor
       FROM users u
       LEFT JOIN karyawan k ON LOWER(TRIM(u.email)) = LOWER(TRIM(k.email_kantor))
       WHERE u.id = $1
         AND u.deleted_at IS NULL
-    `, [req.user.id]);
-    
+    `,
+      [req.user.id],
+    )
+
     if (result.rowCount === 0) {
-      return res.status(404).json({ message: 'User tidak ditemukan.' });
+      return res.status(404).json({ message: 'User tidak ditemukan.' })
     }
 
-    const user = result.rows[0];
-    const userRole = (user.role || '').trim().toLowerCase()
+    const userRow = result.rows[0]
+    const userRole = (userRow.role || '').trim().toLowerCase()
     const isSuper = userRole === 'superadmin' || userRole === 'super admin'
-    user.permissions = isSuper
+    const permissions = isSuper
       ? { ...SUPERADMIN_PERMISSIONS }
-      : normalizePermissions(user.permissions, { defaults: DEFAULT_USER_PERMISSIONS })
+      : normalizePermissions(userRow.permissions, { defaults: DEFAULT_USER_PERMISSIONS })
 
-    res.json(user);
+    const hasEmployee = Boolean(userRow.nik)
+    const employee = hasEmployee
+      ? {
+          id: userRow.employee_id,
+          nik: userRow.nik,
+          nama_karyawan: userRow.employee_nama || userRow.nama,
+          title: userRow.title || userRow.role,
+          jabatan: userRow.title || userRow.role,
+          departemen: userRow.departemen || '',
+          directorate: userRow.directorate || '',
+          status: userRow.employee_status || 'Active',
+          lokasi_kerja: userRow.lokasi_kerja || '',
+          tanggal_mulai_bekerja: userRow.tanggal_mulai_bekerja || null,
+          employeement_status: userRow.employeement_status || '',
+          email_kantor: userRow.email_kantor || userRow.email,
+        }
+      : null
+
+    const userData = {
+      id: userRow.id,
+      nama: userRow.employee_nama || userRow.nama,
+      email: userRow.email,
+      role: userRow.role,
+      is_active: userRow.is_active,
+      created_at: userRow.created_at,
+      permissions,
+      nik: userRow.nik || '',
+      title: userRow.title || userRow.role,
+      jabatan: userRow.title || userRow.role,
+      departemen: userRow.departemen || '',
+      directorate: userRow.directorate || '',
+      lokasi_kerja: userRow.lokasi_kerja || '',
+      employee,
+    }
+
+    res.json(userData)
   } catch (error) {
-    console.error('Error getMe:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan pada server.' });
+    console.error('Error getMe:', error)
+    res.status(500).json({ message: 'Terjadi kesalahan pada server.' })
   }
 }
 

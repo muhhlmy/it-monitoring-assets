@@ -8,7 +8,7 @@ import AppBadge from '../components/ui/AppBadge.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
 
 const { get } = useApi()
-const { isAdmin, isSuperAdmin, user } = useAuth()
+const { isAdmin, isSuperAdmin, user, refreshUser } = useAuth()
 
 // ── State Level Navigasi (1 = Listing Karyawan, 2 = Detail Karyawan, 3 = Detail & Audit History Aset) ──
 const currentLevel = ref(isAdmin.value ? 1 : 2)
@@ -22,9 +22,7 @@ const filterDepartemen = ref('')
 const filterLokasi = ref('')
 
 // State Karyawan & Aset Terpilih
-const selectedEmployee = ref(
-  !isAdmin.value ? { nama_karyawan: user.value?.nama || 'Saya', nik: user.value?.nik || '' } : null,
-)
+const selectedEmployee = ref(null)
 const selectedAsset = ref(null)
 
 const myAssets = ref([])
@@ -395,8 +393,41 @@ async function loadMyOwnAssets() {
   isLoadingAssets.value = true
   assetError.value = ''
   try {
-    const assetData = await get('/api/assets/my')
-    myAssets.value = Array.isArray(assetData) ? assetData.map(normalizeAsset) : []
+    const freshUser = await refreshUser()
+    const currentUser = freshUser || user.value
+    const empData = currentUser?.employee || (currentUser?.nik ? currentUser : null)
+
+    if (empData && empData.nik) {
+      selectedEmployee.value = {
+        id_karyawan: empData.id || empData.id_karyawan,
+        nik: empData.nik,
+        nama_karyawan: empData.nama_karyawan || currentUser?.nama || 'Saya',
+        title: empData.title || empData.jabatan || currentUser?.title || currentUser?.jabatan || 'Staff',
+        jabatan: empData.jabatan || empData.title || currentUser?.jabatan || currentUser?.title || 'Staff',
+        departemen: empData.departemen || currentUser?.departemen || '',
+        directorate: empData.directorate || currentUser?.directorate || '',
+        lokasi_kerja: empData.lokasi_kerja || currentUser?.lokasi_kerja || '',
+        status_karyawan: empData.status || 'Active',
+        email_kantor: empData.email_kantor || currentUser?.email || '',
+        hasEmployeeRecord: true,
+      }
+      currentLevel.value = 2
+      const assetData = await get(`/api/assets/my?nik=${encodeURIComponent(empData.nik)}`)
+      myAssets.value = Array.isArray(assetData) ? assetData.map(normalizeAsset) : []
+    } else {
+      selectedEmployee.value = {
+        nik: '',
+        nama_karyawan: currentUser?.nama || 'Pengguna',
+        title: currentUser?.role || 'User',
+        jabatan: currentUser?.role || 'User',
+        departemen: '—',
+        lokasi_kerja: '—',
+        email_kantor: currentUser?.email || '',
+        hasEmployeeRecord: false,
+      }
+      currentLevel.value = 2
+      myAssets.value = []
+    }
   } catch (err) {
     assetError.value = err.message || 'Gagal memuat data aset Anda.'
   } finally {
@@ -933,7 +964,19 @@ onMounted(() => {
           </button>
         </div>
 
-        <!-- Empty State -->
+        <!-- Empty State: Unlinked Employee -->
+        <div
+          v-else-if="selectedEmployee.hasEmployeeRecord === false"
+          class="flex flex-col items-center justify-center gap-2 py-12 px-4 text-center rounded-xl border border-[#FEF3C7] bg-[#FFFBEB]"
+        >
+          <span class="material-symbols-outlined text-[32px] text-[#D97706]">account_box_off</span>
+          <h4 class="text-sm font-bold text-[#92400E]">Akun Belum Terhubung dengan Data Karyawan</h4>
+          <p class="max-w-md text-xs text-[#B45309]">
+            Akun Anda (<strong>{{ selectedEmployee.email_kantor }}</strong>) belum terhubung ke Master Data Karyawan. Silakan hubungi Administrator IT untuk mendaftarkan email Anda.
+          </p>
+        </div>
+
+        <!-- Empty State: No Assets -->
         <div
           v-else-if="myAssets.length === 0"
           class="flex flex-col items-center justify-center gap-2 py-12 px-4 text-center rounded-xl border border-[#E2E8F0] bg-white"

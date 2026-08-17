@@ -74,6 +74,23 @@ export function useAuth() {
     return false
   }
 
+  const refreshUser = async () => {
+    if (!token.value) return null
+    try {
+      const freshUser = await api.get('/api/auth/me')
+      user.value = freshUser
+      storeAuthSession({
+        token: token.value,
+        user: freshUser,
+        remember: initialSession.persistent,
+      })
+      return freshUser
+    } catch (err) {
+      console.error('Failed to refresh user profile:', err)
+      return user.value
+    }
+  }
+
   return {
     user,
     token,
@@ -86,5 +103,6 @@ export function useAuth() {
     login,
     logout,
     getProfile,
+    refreshUser,
   }
 }
