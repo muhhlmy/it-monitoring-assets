@@ -431,10 +431,30 @@ async function executeExport() {
   isExporting.value = true
   try {
     const data = await get('/api/assets')
+    const q = searchQuery.value.trim().toLowerCase()
     const filteredData = data.filter((asset) => {
+      const text = [
+        asset.id_aset,
+        asset.hostname,
+        asset.label_aset,
+        asset.serial_number,
+        asset.nomor_seri,
+        asset.nama_karyawan,
+        asset.nik,
+        asset.departemen,
+        asset.lokasi_kerja,
+        asset.lokasi_aset,
+        asset.tipe_perangkat,
+        asset.merek,
+        asset.model,
+      ]
+        .join(' ')
+        .toLowerCase()
+
       return (
         (!exportStatus.value || asset.status_aset === exportStatus.value) &&
-        (!exportTipe.value || asset.tipe_perangkat === exportTipe.value)
+        (!exportTipe.value || asset.tipe_perangkat === exportTipe.value) &&
+        (!q || text.includes(q))
       )
     })
 

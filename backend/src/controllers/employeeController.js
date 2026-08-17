@@ -62,7 +62,9 @@ export async function listEmployeesWithAssets(req, res) {
          k.employeement_status,
          k.employeement_status AS status_kepegawaian,
          k.nik_atasan_langsung,
-         COUNT(a.id) AS jumlah_aset
+         COUNT(a.id) AS jumlah_aset,
+         MAX(a.created_at) AS last_assignment_date,
+         ARRAY_REMOVE(ARRAY_AGG(DISTINCT a.tipe_perangkat), NULL) AS asset_types
        FROM karyawan AS k
        LEFT JOIN aset_ti AS a ON a.nik_pemegang_asset = k.nik AND a.deleted_at IS NULL
        GROUP BY k.id, k.nik, k.nama_karyawan, k.email_kantor, k.departemen,

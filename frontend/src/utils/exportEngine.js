@@ -1,7 +1,4 @@
-/**
- * exportEngine.js
- * Utilitas serbaguna untuk mengekspor data ke format CSV, JSON, Excel (.xls), dan PDF Laporan.
- */
+import * as XLSX from 'xlsx'
 import { escapeHtml, printHtmlDocument } from './printDocument.js'
 
 function formatDateStamp(date = new Date()) {
@@ -79,7 +76,7 @@ export function exportToJson(data, filenamePrefix = 'Export_Data') {
 }
 
 /**
- * Ekspor Data ke Excel Spreadsheet (.xls - HTML XML Table)
+ * Ekspor Data ke Excel Spreadsheet Native (.xlsx via SheetJS)
  */
 export function exportToExcel(
   data,
@@ -92,65 +89,34 @@ export function exportToExcel(
   const colKeys = columns.length > 0 ? columns.map((c) => c.name) : Object.keys(data[0])
   const colLabels = columns.length > 0 ? columns.map((c) => c.label) : colKeys
 
-  const headerHtml = colLabels
-    .map(
-      (l) =>
-        `<th style="background-color: #0252B3; color: #ffffff; font-weight: bold; padding: 10px; border: 1px solid #dcdcdc;">${escapeHtml(neutralizeSpreadsheetFormula(l))}</th>`,
-    )
-    .join('')
-
-  const rowsHtml = data
-    .map((row) => {
-      const cells = colKeys
-        .map((key) => {
-          const value = neutralizeSpreadsheetFormula(row[key])
-          return `<td style="padding: 8px; border: 1px solid #e2e8f0; vertical-align: top;">${escapeHtml(value)}</td>`
-        })
-        .join('')
-      return `<tr>${cells}</tr>`
+  // Map rows into plain objects using user-facing column labels as object keys
+  const mappedData = data.map((row) => {
+    const obj = {}
+    colKeys.forEach((key, idx) => {
+      const label = colLabels[idx] || key
+      obj[label] = neutralizeSpreadsheetFormula(row[key])
     })
-    .join('')
+    return obj
+  })
 
-  const safeTableName = escapeHtml(tableName)
-  const excelHtml = `
-    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-    <head>
-      <meta charset="utf-8">
-      <!--[if gte mso 9]>
-      <xml>
-        <x:ExcelWorkbook>
-          <x:ExcelWorksheets>
-            <x:ExcelWorksheet>
-              <x:Name>${safeTableName}</x:Name>
-              <x:WorksheetOptions>
-                <x:DisplayGridlines/>
-              </x:WorksheetOptions>
-            </x:ExcelWorksheet>
-          </x:ExcelWorksheets>
-        </x:ExcelWorkbook>
-      </xml>
-      <![endif]-->
-      <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; }
-        table { border-collapse: collapse; width: 100%; }
-      </style>
-    </head>
-    <body>
-      <h2 style="color: #0252B3; font-family: Arial, sans-serif;">Laporan Data: ${safeTableName}</h2>
-      <p style="color: #64748b; font-size: 11px;">Tanggal Ekspor: ${new Date().toLocaleString('id-ID')}</p>
-      <table>
-        <thead><tr>${headerHtml}</tr></thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-    </body>
-    </html>
-  `
+  try {
+    const worksheet = XLSX.utils.json_to_sheet(mappedData)
+    const workbook = XLSX.utils.book_new()
+    const sheetName = (tableName || 'Data').replace(/[:\\/?*\[\]]/g, '').slice(0, 30)
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName || 'Data')
 
-  const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' })
-  const filename = `${filenamePrefix}_${formatDateStamp()}.xls`
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([excelBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const filename = `${filenamePrefix}_${formatDateStamp()}.xlsx`
 
-  triggerDownload(blob, filename)
-  return true
+    triggerDownload(blob, filename)
+    return true
+  } catch (error) {
+    console.error('Error generating Excel file via SheetJS:', error)
+    return false
+  }
 }
 
 /**

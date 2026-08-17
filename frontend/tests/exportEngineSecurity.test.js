@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
@@ -81,7 +82,7 @@ test('CSV export neutralizes spreadsheet formula prefixes', async (t) => {
   assert.ok(content.includes('"ordinary text"'))
 })
 
-test('Excel export escapes HTML and neutralizes spreadsheet formulas', async (t) => {
+test('Excel export generates native xlsx binary spreadsheet with formula neutralization', async (t) => {
   const download = installDownloadHarness(t)
   const maliciousMarkup = '<img src=x onerror="globalThis.compromised=true">'
 
@@ -96,12 +97,18 @@ test('Excel export escapes HTML and neutralizes spreadsheet formulas', async (t)
   )
 
   assert.equal(exported, true)
-  const content = await download.blob.text()
-  assert.equal(content.includes(maliciousMarkup), false)
-  assert.equal(content.includes('<script>header()</script>'), false)
-  assert.equal(content.includes('<svg onload="tableNameAttack()">'), false)
-  assert.ok(content.includes('&lt;img src=x onerror=&quot;globalThis.compromised=true&quot;&gt;'))
-  assert.ok(content.includes('&#39;=2+2'))
+  assert.ok(download.blob)
+  assert.equal(
+    download.blob.type,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  assert.match(download.filename, /\.xlsx$/)
+
+  const buffer = await download.blob.arrayBuffer()
+  const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' })
+  assert.ok(wb.SheetNames.length > 0)
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  assert.equal(ws['B2']?.v, "'=2+2")
 })
 
 test('PDF print document escapes cells, labels, titles, and filters', (t) => {

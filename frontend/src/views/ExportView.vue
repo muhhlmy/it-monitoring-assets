@@ -199,9 +199,16 @@ async function handleExecuteCustomExport() {
     }
 
     if (exportSuccess) {
-      showToast(
-        `Berhasil mengekspor ${res.data.length} baris data ke format ${exportFormat.value.toUpperCase()}!`,
-      )
+      if (res.isTruncated) {
+        showToast(
+          `Ekspor berhasil (${res.data.length} dari total ${res.totalDbRows} baris data). Hasil dipotong batas limit.`,
+          'warning',
+        )
+      } else {
+        showToast(
+          `Berhasil mengekspor ${res.data.length} baris data ke format ${exportFormat.value.toUpperCase()}!`,
+        )
+      }
     }
   } catch (error) {
     showToast(error.message || 'Gagal mengekspor data.', 'error')

@@ -77,6 +77,7 @@ export const TABLE_SCHEMAS = {
     dateField: 'created_at',
     statusField: 'status',
     orderField: 'id',
+    softDeleteField: 'deleted_at',
     columns: [
       { name: 'id', label: 'ID Aset', type: 'number', defaultSelected: true },
       { name: 'hostname', label: 'Hostname', type: 'string', defaultSelected: true },
@@ -426,6 +427,13 @@ export async function exportTableData(req, res) {
     const queryParams = []
     let paramIndex = 1
 
+    if (schema.softDeleteField) {
+      const softDeleteExpr = schema.softDeleteField.includes('.')
+        ? schema.softDeleteField
+        : `${quoteAllowedIdentifier(schema.tableName)}.${quoteAllowedIdentifier(schema.softDeleteField)}`
+      whereConditions.push(`${softDeleteExpr} IS NULL`)
+    }
+
     if (schema.dateField) {
       const dateExpr = schema.dateField.includes('.')
         ? schema.dateField
@@ -461,9 +469,19 @@ export async function exportTableData(req, res) {
         const statusExpr = schema.statusField.includes('.')
           ? schema.statusField
           : `${quoteAllowedIdentifier(schema.tableName)}.${quoteAllowedIdentifier(schema.statusField)}`
-        whereConditions.push(`${statusExpr}::text ILIKE $${paramIndex}`)
-        queryParams.push(status)
-        paramIndex++
+
+        const colMeta = schema.columns.find((c) => c.name === schema.statusField)
+        if (colMeta && colMeta.type === 'boolean') {
+          const sLower = status.toLowerCase()
+          const boolVal = ['true', '1', 'active', 'aktif', 'ya'].includes(sLower)
+          whereConditions.push(`${statusExpr} = $${paramIndex}`)
+          queryParams.push(boolVal)
+          paramIndex++
+        } else {
+          whereConditions.push(`${statusExpr}::text ILIKE $${paramIndex}`)
+          queryParams.push(status)
+          paramIndex++
+        }
       }
     }
 
@@ -479,6 +497,26 @@ export async function exportTableData(req, res) {
 
     const result = await pool.query(sql, queryParams)
 
+    // Calculate total un-truncated DB count for this query
+    let totalDbRows = result.rows.length
+    try {
+      let countSql = `SELECT COUNT(*)::int AS count FROM ${fromClause}`
+      if (whereConditions.length > 0) {
+        countSql += ` WHERE ${whereConditions.join(' AND ')}`
+        // Exclude the limit parameter from count query
+        const countParams = queryParams.slice(0, queryParams.length - 1)
+        const countRes = await pool.query(countSql, countParams)
+        totalDbRows = countRes.rows[0]?.count ?? result.rows.length
+      } else {
+        const countRes = await pool.query(`SELECT COUNT(*)::int AS count FROM ${fromClause}`)
+        totalDbRows = countRes.rows[0]?.count ?? result.rows.length
+      }
+    } catch (err) {
+      console.error('[Export Count Error]', err.message)
+    }
+
+    const isTruncated = totalDbRows > result.rows.length
+
     const exportedColumnsMeta = selectedCols.map((colName) => {
       const colMeta = schema.columns.find((c) => c.name === colName)
       return {
@@ -493,11 +531,30 @@ export async function exportTableData(req, res) {
       Object.fromEntries(selectedCols.map((column) => [column, row[column]]))
     )
 
+    // Audit Logging
+    try {
+      const auditActor = req.user?.nama || req.user?.email || 'Super Administrator'
+      await pool.query(
+        `INSERT INTO log_riwayat_aset (id_aset, label_aset, aksi, perubahan, oleh_pengguna, dibuat_pada)
+         VALUES (NULL, $1, $2, $3, $4, CURRENT_TIMESTAMP)`,
+        [
+          `Export ${schema.label}`,
+          'UBAH',
+          `Mengekspor ${projectedRows.length} baris data (tabel: ${schema.tableName})`,
+          auditActor
+        ]
+      )
+    } catch (logErr) {
+      console.error('[Export Audit Log Error]', logErr.message)
+    }
+
     res.json({
       success: true,
       tableName: schema.tableName,
       label: schema.label,
       totalRows: projectedRows.length,
+      totalDbRows,
+      isTruncated,
       columns: exportedColumnsMeta,
       data: projectedRows
     })
