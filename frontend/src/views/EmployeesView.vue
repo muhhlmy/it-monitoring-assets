@@ -60,6 +60,8 @@ const jobLevelOptions = [
   'LS1',
   'LS2',
   'LS3',
+  'Freelance',
+  'Intern'
 ]
 
 const departemenOptions = [
@@ -768,6 +770,8 @@ onMounted(() => {
             >
               <option value="Permanent">Permanent</option>
               <option value="Contract">Contract</option>
+              <option value="Freelance">Freelance</option>
+              <option value="Intern">Intern</option>
             </select>
           </div>
 

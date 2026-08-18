@@ -3,10 +3,10 @@ import { hashPassword } from "../security/passwordService.js";
 
 // Validasi ENUM status karyawan & Job Level sesuai spesifikasi
 const VALID_KARYAWAN_STATUSES = ["Active", "Outsource", "Resigned"];
-const VALID_EMPLOYEEMENT_STATUSES = ["Permanent", "Contract"];
+const VALID_EMPLOYEEMENT_STATUSES = ["Permanent", "Contract", "Freelance", "Intern"];
 const VALID_JOB_LEVELS = [
   "C-Level", "L1", "L1a", "L2", "L2b", "L3", "L3b",
-  "L4", "L4c", "L5", "L6", "LS1", "LS2", "LS3"
+  "L4", "L4c", "L5", "L6", "LS1", "LS2", "LS3", "Freelance", "Intern"
 ];
 
 function createHttpError(statusCode, message) {

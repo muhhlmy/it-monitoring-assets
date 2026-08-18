@@ -79,7 +79,9 @@ function downloadTemplate() {
       'Job Level': 'L3',
       Departemen: 'Technology',
       Directorate: 'Technology',
+      'Tanggal Mulai Bekerja': '2024-01-15',
       'Employeement Status': 'Permanent',
+      'NIK Atasan Langsung': '',
       'Email Kantor': 'budi.santoso@esb.co.id',
       'Lokasi Kerja': 'JKT',
     },
@@ -91,7 +93,9 @@ function downloadTemplate() {
       'Job Level': 'L2',
       Departemen: 'Account Management',
       Directorate: 'Operations',
-      'Employeement Status': 'Permanent',
+      'Tanggal Mulai Bekerja': '2024-03-01',
+      'Employeement Status': 'Contract',
+      'NIK Atasan Langsung': '2026001',
       'Email Kantor': 'siti.rahma@esb.co.id',
       'Lokasi Kerja': 'BDG',
     },
@@ -172,7 +176,7 @@ function processFile(file) {
   reader.onload = (e) => {
     try {
       const data = new Uint8Array(e.target.result)
-      const workbook = XLSX.read(data, { type: 'array' })
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true })
 
       let karyawanData = []
       let assetData = []
@@ -426,7 +430,9 @@ async function submitImport() {
                   <th class="p-2 font-bold text-[#7C8BAC]">Nama Karyawan</th>
                   <th class="p-2 font-bold text-[#7C8BAC]">Email</th>
                   <th class="p-2 font-bold text-[#7C8BAC]">Jabatan</th>
+                  <th class="p-2 font-bold text-[#7C8BAC]">Job Level</th>
                   <th class="p-2 font-bold text-[#7C8BAC]">Departemen</th>
+                  <th class="p-2 font-bold text-[#7C8BAC]">Status Kepegawaian</th>
                   <th class="p-2 font-bold text-[#7C8BAC]">Lokasi</th>
                 </tr>
               </thead>
@@ -445,8 +451,10 @@ async function submitImport() {
                   <td class="p-2 text-[#7C8BAC]">
                     {{ row['Email Kantor'] || row.email_kantor || '—' }}
                   </td>
-                  <td class="p-2 text-[#2A3547]">{{ row.Title || row.jabatan || '—' }}</td>
+                  <td class="p-2 text-[#2A3547]">{{ row.Title || row.title || row.jabatan || '—' }}</td>
+                  <td class="p-2 text-[#2A3547]">{{ row['Job Level'] || row.job_level || '—' }}</td>
                   <td class="p-2 text-[#2A3547]">{{ row.Departemen || row.departemen || '—' }}</td>
+                  <td class="p-2 text-[#2A3547]">{{ row['Employeement Status'] || row.employeement_status || row['Status Kepegawaian'] || '—' }}</td>
                   <td class="p-2 text-[#2A3547]">{{ row['Lokasi Kerja'] || row.lokasi || '—' }}</td>
                 </tr>
               </tbody>

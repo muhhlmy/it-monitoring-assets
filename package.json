@@ -1,0 +1,19 @@
+{
+  "name": "it-monitoring-assets-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Root workspace and E2E test runner for IT Monitoring Assets",
+  "type": "module",
+  "scripts": {
+    "test:backend": "npm --prefix backend test",
+    "test:frontend": "npm --prefix frontend test",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:smoke": "playwright test --grep @smoke",
+    "test:e2e:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.1"
+  }
+}

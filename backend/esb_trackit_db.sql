@@ -44,7 +44,7 @@ CREATE TABLE karyawan (
 
     -- Constraint: Employeement Status
     CONSTRAINT chk_karyawan_employeement_status
-        CHECK (employeement_status IN ('Permanent', 'Contract')),
+        CHECK (employeement_status IN ('Permanent', 'Contract', 'Freelance', 'Intern')),
 
     -- Self reference: NIK Atasan Langsung merujuk ke NIK karyawan lain
     CONSTRAINT fk_karyawan_atasan
