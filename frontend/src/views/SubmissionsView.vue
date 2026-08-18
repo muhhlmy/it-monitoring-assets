@@ -36,8 +36,47 @@ async function fetchData() {
   pageError.value = ''
   try {
     const [employeeData, assetData] = await Promise.all([get('/api/karyawan'), get('/api/assets')])
-    employees.value = employeeData
-    assets.value = assetData
+    employees.value = Array.isArray(employeeData) ? employeeData : []
+    assets.value = (Array.isArray(assetData) ? assetData : []).map((a) => {
+      const hostname = a.hostname || a.label_aset || ''
+      const serial_number = a.serial_number || a.nomor_seri || ''
+      const brand = a.brand_merek || a.merek || ''
+      const nik = a.nik_pemegang_asset || a.nik || ''
+      const nama = a.nama_karyawan_pemegang_asset || a.nama_karyawan || ''
+      const dept = a.departemen_pemegang_asset || a.departemen || ''
+      const lokasi = a.lokasi_asset || a.lokasi_aset || a.lokasi_kerja || a.lokasi || ''
+      const status = a.status || a.status_aset || 'In Use'
+      const kondisi = a.kondisi || a.kondisi_aset || 'Normal'
+      const note = a.note_asset || a.catatan_aset || ''
+
+      return {
+        ...a,
+        id_aset: a.id_aset || a.id,
+        id: a.id || a.id_aset,
+        hostname,
+        label_aset: hostname,
+        serial_number,
+        nomor_seri: serial_number,
+        brand_merek: brand,
+        merek: brand,
+        nik_pemegang_asset: nik,
+        nik,
+        nama_karyawan_pemegang_asset: nama,
+        nama_karyawan: nama,
+        departemen_pemegang_asset: dept,
+        departemen: dept,
+        lokasi_asset: lokasi,
+        lokasi_aset: lokasi,
+        lokasi_kerja: lokasi,
+        lokasi,
+        status,
+        status_aset: status,
+        kondisi,
+        kondisi_aset: kondisi,
+        note_asset: note,
+        catatan_aset: note,
+      }
+    })
   } catch (error) {
     pageError.value = error.message || 'Gagal memuat data referensi.'
   } finally {
@@ -86,14 +125,28 @@ watch(
   },
 )
 
+// Helper to format full asset identity summary: Merek / Model / Spesifikasi / S/N / Hostname
+function formatAssetSpecificationSummary(asset) {
+  if (!asset) return ''
+  const parts = [
+    asset.merek || asset.brand_merek,
+    asset.model,
+    asset.spesifikasi,
+    asset.nomor_seri || asset.serial_number,
+    asset.hostname || asset.label_aset,
+  ]
+    .map((item) => (item && typeof item === 'string' ? item.trim() : item))
+    .filter(Boolean)
+
+  return parts.join(' / ')
+}
+
 // Autofill Asset Baru row details when selected
 function onAssetBaruSelect(index, id_aset) {
   const asset = assets.value.find((a) => a.id_aset === id_aset)
   if (asset) {
     asetBaruList.value[index].tipe = asset.tipe_perangkat || ''
-    asetBaruList.value[index].spesifikasi =
-      [asset.merek, asset.model].filter(Boolean).join(' ') +
-      (asset.nomor_seri ? ` (S/N: ${asset.nomor_seri})` : '')
+    asetBaruList.value[index].spesifikasi = formatAssetSpecificationSummary(asset)
   } else {
     asetBaruList.value[index].tipe = ''
     asetBaruList.value[index].spesifikasi = ''
@@ -105,9 +158,7 @@ function onAssetLamaSelect(index, id_aset) {
   const asset = assets.value.find((a) => a.id_aset === id_aset)
   if (asset) {
     asetLamaList.value[index].tipe = asset.tipe_perangkat || ''
-    asetLamaList.value[index].spesifikasi =
-      [asset.merek, asset.model].filter(Boolean).join(' ') +
-      (asset.nomor_seri ? ` (S/N: ${asset.nomor_seri})` : '')
+    asetLamaList.value[index].spesifikasi = formatAssetSpecificationSummary(asset)
   } else {
     asetLamaList.value[index].tipe = ''
     asetLamaList.value[index].spesifikasi = ''
@@ -778,8 +829,12 @@ onMounted(fetchData)
                 <span class="material-symbols-outlined text-[16px]">close</span>
               </button>
 
-              <label class="flex flex-col gap-1.5 pr-8">
-                <span class="text-[10px] font-bold uppercase text-[#475569]">Aset IT *</span>
+              <label class="flex flex-col gap-1.5">
+                <span
+                  class="text-[10px] font-bold uppercase text-[#475569]"
+                  :class="{ 'pr-8': asetBaruList.length > 1 }"
+                  >Aset IT *</span
+                >
                 <SearchableSelect
                   v-model="row.id_aset"
                   :options="assets"
@@ -863,8 +918,10 @@ onMounted(fetchData)
                 <span class="material-symbols-outlined text-[16px]">close</span>
               </button>
 
-              <label class="flex flex-col gap-1.5 pr-8">
-                <span class="text-[10px] font-bold uppercase text-[#475569]"
+              <label class="flex flex-col gap-1.5">
+                <span
+                  class="text-[10px] font-bold uppercase text-[#475569]"
+                  :class="{ 'pr-8': asetLamaList.length > 1 }"
                   >Aset Lama (Opsional)</span
                 >
                 <SearchableSelect

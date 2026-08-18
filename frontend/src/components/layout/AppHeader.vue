@@ -470,18 +470,8 @@ function performLogout() {
   logout()
 }
 
-const pageTitle = computed(() => {
-  const titles = {
-    '/': { title: 'Dashboard', subtitle: 'Overview & analytics' },
-    '/assets': { title: 'Manajemen Aset IT', subtitle: 'Inventaris & status perangkat' },
-    '/my-assets': { title: 'Aset Karyawan', subtitle: 'Daftar perangkat milik Anda' },
-    '/tickets': { title: 'Tiket Helpdesk', subtitle: 'Pengajuan & riwayat tiket' },
-    '/submissions': { title: 'Pengajuan & Handover', subtitle: 'Formulir serah terima aset' },
-    '/users': { title: 'Manajemen Pengguna', subtitle: 'Hak akses & akun pengguna' },
-    '/logs': { title: 'Audit Log & Activity', subtitle: 'Catatan riwayat sistem' },
-  }
-  return titles[route.path] || { title: 'Modernize', subtitle: 'IT Asset System' }
-})
+const pageTitle = computed(() => route.meta?.title || 'Karyawan')
+const pageSubtitle = computed(() => route.meta?.subtitle || 'Kelola data karyawan')
 
 watch(
   () => [route.path, route.query.q, route.query.search],
@@ -611,10 +601,10 @@ onBeforeUnmount(() => {
 
       <div class="min-w-0 hidden sm:block">
         <h1 class="truncate text-[14px] font-extrabold tracking-tight text-[#2A3547] leading-tight">
-          {{ pageTitle.title }}
+          {{ pageTitle }}
         </h1>
         <p class="truncate text-[10px] font-medium text-[#7C8BAC] leading-none">
-          {{ pageTitle.subtitle }}
+          {{ pageSubtitle }}
         </p>
       </div>
     </div>

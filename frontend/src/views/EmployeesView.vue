@@ -395,7 +395,7 @@ onMounted(() => {
       <!-- Row 1: Page Title & Primary CTA -->
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">Master Data Karyawan</h2>
+          <h2 class="text-lg font-bold text-[#0F172A] tracking-tight">Data Karyawan</h2>
           <p class="text-xs text-[#64748B] mt-0.5 leading-normal">
             Pengelolaan dan integrasi data karyawan perusahaan
           </p>
