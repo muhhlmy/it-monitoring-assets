@@ -37,11 +37,11 @@ const { chartColors } = useChartTheme()
 const isEmpty = computed(() => !props.data || props.data.length === 0)
 
 const chartData = computed(() => ({
-  labels: props.data.map((d) => d.label || d.period),
+  labels: props.data.map((d) => d.label || d.month || d.period || ''),
   datasets: [
     {
       label: 'Penambahan Aset IT',
-      data: props.data.map((d) => d.added || 0),
+      data: props.data.map((d) => (d.added !== undefined ? d.added : d.count || 0)),
       borderColor: chartColors.primary,
       backgroundColor: chartColors.primaryLight,
       borderWidth: 3,

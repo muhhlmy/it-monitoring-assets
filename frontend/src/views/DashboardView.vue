@@ -172,7 +172,24 @@ function getStatusBadgeType(status) {
 
 // Helper untuk Status Asset card
 function getSortedByStatus() {
-  if (!Array.isArray(stats.value?.byStatus)) return []
+  const combined = {
+    'digunakan': { status: 'Digunakan', rawStatus: 'In Use', count: 0 },
+    'stok': { status: 'Stok', rawStatus: 'Stock', count: 0 },
+    'dalam perawatan': { status: 'Dalam Perawatan', rawStatus: 'In Service', count: 0 },
+    'rusak': { status: 'Rusak', rawStatus: 'Damaged', count: 0 },
+  }
+
+  if (Array.isArray(stats.value?.byStatus)) {
+    stats.value.byStatus.forEach((item) => {
+      const rawStatus = (item?.status || '').trim()
+      const label = getAssetStatusLabel(rawStatus)
+      const key = label.toLowerCase()
+      if (!combined[key]) {
+        combined[key] = { status: label, rawStatus, count: 0 }
+      }
+      combined[key].count += Number(item?.count || 0)
+    })
+  }
 
   const statusOrder = [
     'digunakan',
@@ -186,17 +203,6 @@ function getSortedByStatus() {
     'damaged',
     'disposal',
   ]
-
-  const combined = {}
-  stats.value.byStatus.forEach((item) => {
-    const rawStatus = (item?.status || '').trim()
-    const label = getAssetStatusLabel(rawStatus)
-    const key = label.toLowerCase()
-    if (!combined[key]) {
-      combined[key] = { status: label, rawStatus, count: 0 }
-    }
-    combined[key].count += Number(item?.count || 0)
-  })
 
   const sorted = Object.values(combined).sort((a, b) => {
     const aIdx = statusOrder.indexOf(a.rawStatus.toLowerCase())
@@ -214,18 +220,20 @@ function getStatusColorClass(status) {
   const s = (status || '').toLowerCase()
   // Map to Tailwind color classes matching stat cards
   if (['digunakan', 'in use'].includes(s)) return 'bg-[#13DEB9]'
-  if (['tersedia', 'stock'].includes(s)) return 'bg-[#49BEFF]'
+  if (['stok', 'tersedia', 'stock'].includes(s)) return 'bg-[#49BEFF]'
+  if (['dalam perawatan', 'maintenance', 'in service'].includes(s)) return 'bg-[#FFAE1F]'
   if (['rusak', 'damaged'].includes(s)) return 'bg-[#FA896B]'
-  if (['maintenance', 'in service'].includes(s)) return 'bg-[#FFAE1F]'
   if (['disposal'].includes(s)) return 'bg-[#8B5CF6]'
   return 'bg-[#94A3B8]'
 }
 
 function getStatusPercentage(status) {
-  if (!stats.value?.totalAssets || stats.value.totalAssets === 0) return 0
-  const item = getSortedByStatus().find((i) => i.status.toLowerCase() === status.toLowerCase())
+  const sorted = getSortedByStatus()
+  const total = sorted.reduce((acc, curr) => acc + curr.count, 0) || stats.value?.totalAssets || 0
+  if (total === 0) return 0
+  const item = sorted.find((i) => i.status.toLowerCase() === status.toLowerCase())
   if (!item) return 0
-  return Math.round((item.count / stats.value.totalAssets) * 100)
+  return Math.min(Math.round((item.count / total) * 100), 100)
 }
 
 function getTicketStatusBadgeType(status) {

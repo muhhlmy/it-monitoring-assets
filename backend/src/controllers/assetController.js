@@ -414,18 +414,33 @@ export async function showAssetStats(req, res) {
     `);
     const recentAssets = recentResult.rows;
 
-    // 7. Monthly Trend (6 bulan terakhir)
+    // 7. Monthly Trend (12 bulan terakhir)
     const trendResult = await pool.query(`
+      WITH months AS (
+        SELECT generate_series(
+          DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '11 months',
+          DATE_TRUNC('month', CURRENT_DATE),
+          INTERVAL '1 month'
+        )::date AS month_date
+      )
       SELECT 
-        TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YYYY') AS month,
-        COUNT(*)::int AS count
-      FROM aset_ti
-      WHERE deleted_at IS NULL
-      GROUP BY DATE_TRUNC('month', created_at)
-      ORDER BY DATE_TRUNC('month', created_at) ASC
-      LIMIT 6
+        TO_CHAR(m.month_date, 'Mon YYYY') AS month,
+        TO_CHAR(m.month_date, 'Mon') AS label,
+        COUNT(a.id)::int AS count
+      FROM months m
+      LEFT JOIN aset_ti a 
+        ON DATE_TRUNC('month', a.created_at) = m.month_date 
+        AND a.deleted_at IS NULL
+      GROUP BY m.month_date
+      ORDER BY m.month_date ASC
     `);
-    const monthlyTrend = trendResult.rows;
+    const monthlyTrend = trendResult.rows.map((r) => ({
+      month: r.month,
+      label: r.label,
+      period: r.month,
+      count: r.count,
+      added: r.count,
+    }));
 
     res.json({
       totalAssets,
