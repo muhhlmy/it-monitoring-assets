@@ -799,10 +799,10 @@ onMounted(async () => {
           v-for="asset in paginatedAssets"
           :key="asset.id_aset"
           @click="openDetails(asset)"
-          class="group relative flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-[#E2E8F0]/80 bg-white p-4 shadow-2xs hover:border-[#2563EB]/40 hover:shadow-sm transition-all duration-200 cursor-pointer select-none"
+          class="asset-row-grid group relative gap-4 rounded-xl border border-[#E2E8F0]/80 bg-white p-4 shadow-2xs hover:border-[#2563EB]/40 hover:shadow-sm transition-all duration-200 cursor-pointer select-none"
         >
           <!-- 1. Asset Identity (Code & SN + Device Icon) -->
-          <div class="flex items-center gap-3.5 min-w-[210px]">
+          <div class="flex items-center gap-3.5 min-w-0 overflow-hidden">
             <div
               class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB] group-hover:scale-105 transition-transform"
             >
@@ -810,14 +810,16 @@ onMounted(async () => {
                 getDeviceIcon(asset.tipe_perangkat)
               }}</span>
             </div>
-            <div class="flex flex-col min-w-0">
+            <div class="flex flex-col min-w-0 overflow-hidden">
               <span
-                class="text-[14px] font-bold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate"
+                class="text-[14px] font-bold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate block w-full"
+                :title="asset.hostname || asset.label_aset || '—'"
               >
                 {{ asset.hostname || asset.label_aset || '—' }}
               </span>
               <span
-                class="font-mono text-[11px] font-normal text-[#64748B] mt-0.5 tracking-tight truncate"
+                class="font-mono text-[11px] font-normal text-[#64748B] mt-0.5 tracking-tight truncate block w-full"
+                :title="asset.serial_number || asset.nomor_seri || '—'"
               >
                 {{ asset.serial_number || asset.nomor_seri || '—' }}
               </span>
@@ -825,82 +827,91 @@ onMounted(async () => {
           </div>
 
           <!-- 2. Perangkat & Model -->
-          <div class="flex flex-col min-w-[150px]">
+          <div class="flex flex-col min-w-0 overflow-hidden">
             <span class="text-[10px] font-semibold uppercase text-[#94A3B8] tracking-wider"
               >Perangkat</span
             >
-            <span class="text-[12.5px] font-semibold text-[#1E293B] mt-0.5 truncate">
+            <span
+              class="text-[12.5px] font-semibold text-[#1E293B] mt-0.5 truncate block w-full"
+              :title="asset.tipe_perangkat || '—'"
+            >
               {{ asset.tipe_perangkat || '—' }}
             </span>
-            <span class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate">
+            <span
+              class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate block w-full"
+              :title="[asset.merek || asset.brand_merek, asset.model].filter(Boolean).join(' ') || '—'"
+            >
               {{ [asset.merek || asset.brand_merek, asset.model].filter(Boolean).join(' ') || '—' }}
             </span>
           </div>
 
           <!-- 3. Penanggung Jawab -->
-          <div class="flex flex-col min-w-[160px]">
+          <div class="flex flex-col min-w-0 overflow-hidden">
             <span class="text-[10px] font-semibold uppercase text-[#94A3B8] tracking-wider"
               >Penanggung Jawab</span
             >
             <span
-              class="text-[12.5px] mt-0.5 truncate"
+              class="text-[12.5px] mt-0.5 truncate block w-full"
               :class="
                 asset.nama_karyawan
                   ? 'font-semibold text-[#1E293B]'
                   : 'text-[#94A3B8] italic font-normal'
               "
+              :title="asset.nama_karyawan || 'Belum ditetapkan'"
             >
               {{ asset.nama_karyawan || 'Belum ditetapkan' }}
             </span>
             <span
               v-if="asset.nama_karyawan && asset.nik"
-              class="font-mono text-[11px] text-[#64748B] mt-0.5 truncate"
+              class="font-mono text-[11px] text-[#64748B] mt-0.5 truncate block w-full"
+              :title="'NIK: ' + asset.nik"
             >
               NIK: {{ asset.nik }}
             </span>
           </div>
 
           <!-- 4. Lokasi -->
-          <div class="flex flex-col min-w-[120px]">
+          <div class="flex flex-col min-w-0 overflow-hidden">
             <span class="text-[10px] font-semibold uppercase text-[#94A3B8] tracking-wider"
               >Lokasi</span
             >
-            <span class="text-[12.5px] font-normal text-[#1E293B] mt-0.5 truncate">
+            <span
+              class="text-[12.5px] font-normal text-[#1E293B] mt-0.5 truncate block w-full"
+              :title="asset.lokasi_kerja || asset.lokasi_aset || '—'"
+            >
               {{ asset.lokasi_kerja || asset.lokasi_aset || '—' }}
             </span>
           </div>
 
-          <!-- 5. Unified Status & Kondisi Component Block + Action Menu -->
-          <div class="flex items-center justify-between md:justify-end gap-4 min-w-[150px]">
-            <div class="flex flex-col items-start min-w-[125px] select-none">
-              <!-- Primary Status Line -->
-              <div
-                class="flex items-center gap-1.5 text-[12.5px] font-semibold"
-                :class="formatStatusPill(asset.status_aset).text"
-              >
-                <span
-                  class="h-1.5 w-1.5 rounded-full shrink-0"
-                  :class="formatStatusPill(asset.status_aset).dot"
-                ></span>
-                <span>{{ formatStatusPill(asset.status_aset).label }}</span>
-              </div>
-              <!-- Secondary Condition Line (Tight vertical spacing directly underneath) -->
-              <div
-                class="flex items-center gap-1 text-[11px] mt-0.5"
-                :class="formatKondisiStyle(asset.kondisi_aset)"
-              >
-                <span
-                  class="h-1 w-1 rounded-full shrink-0 opacity-60"
-                  :class="formatKondisiDot(asset.kondisi_aset)"
-                ></span>
-                <span>{{ formatKondisiText(asset.kondisi_aset) }}</span>
-              </div>
+          <!-- 5. Unified Status & Kondisi Component Block -->
+          <div class="flex flex-col items-start min-w-0 overflow-hidden select-none">
+            <!-- Primary Status Line -->
+            <div
+              class="flex items-center gap-1.5 text-[12.5px] font-semibold truncate max-w-full"
+              :class="formatStatusPill(asset.status_aset).text"
+            >
+              <span
+                class="h-1.5 w-1.5 rounded-full shrink-0"
+                :class="formatStatusPill(asset.status_aset).dot"
+              ></span>
+              <span class="truncate">{{ formatStatusPill(asset.status_aset).label }}</span>
             </div>
+            <!-- Secondary Condition Line -->
+            <div
+              class="flex items-center gap-1 text-[11px] mt-0.5 truncate max-w-full"
+              :class="formatKondisiStyle(asset.kondisi_aset)"
+            >
+              <span
+                class="h-1 w-1 rounded-full shrink-0 opacity-60"
+                :class="formatKondisiDot(asset.kondisi_aset)"
+              ></span>
+              <span class="truncate">{{ formatKondisiText(asset.kondisi_aset) }}</span>
+            </div>
+          </div>
 
-            <!-- Action Menu -->
-            <div @click.stop class="pl-1">
-              <AppRowActions :actions="getAssetActions(asset)" />
-            </div>
+          <!-- 6. Action Menu -->
+          <div @click.stop class="flex items-center justify-end w-8 shrink-0 justify-self-end">
+            <AppRowActions :actions="getAssetActions(asset)" />
           </div>
         </div>
       </div>
@@ -1707,6 +1718,19 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.asset-row-grid {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .asset-row-grid {
+    display: grid;
+    grid-template-columns: minmax(230px, 2.2fr) minmax(140px, 1.2fr) minmax(170px, 1.5fr) minmax(120px, 1fr) minmax(130px, 1fr) 32px;
+    align-items: center;
+  }
+}
+
 .form-control {
   height: 2.625rem;
   border: 1px solid #dce3ec;
