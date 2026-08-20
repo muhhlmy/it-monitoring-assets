@@ -14,9 +14,9 @@ import AssetTypeBarChart from '../components/charts/AssetTypeBarChart.vue'
 import AssetConditionPieChart from '../components/charts/AssetConditionPieChart.vue'
 import CsatDashboardSection from '../components/charts/CsatDashboardSection.vue'
 import { getAssetStatusLabel } from '../utils/assetStatus.js'
+import BaseSkeleton from '../components/ui/skeleton/BaseSkeleton.vue'
 import SkeletonCard from '../components/ui/skeleton/SkeletonCard.vue'
 import SkeletonChart from '../components/ui/skeleton/SkeletonChart.vue'
-import SkeletonTable from '../components/ui/skeleton/SkeletonTable.vue'
 
 const { get } = useApi()
 const { hasPermission, hasWritePermission } = useAuth()
@@ -356,13 +356,66 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Row 4: Recent Tables Skeleton -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        <div class="lg:col-span-6">
-          <SkeletonTable :rows="4" :cols="4" />
+      <!-- Row 4: Recent Tables Skeletons (Exact match to Dashboard tables) -->
+      <div class="space-y-3.5">
+        <!-- Aset Terbaru Skeleton Table -->
+        <div class="shadow-sm rounded-xl border border-[#E2E8F0] bg-white overflow-hidden p-4">
+          <div class="mb-3 flex items-center justify-between">
+            <BaseSkeleton width="120px" height="16px" radius="md" />
+            <BaseSkeleton width="80px" height="24px" radius="full" />
+          </div>
+          <table class="w-full text-left">
+            <thead>
+              <tr class="border-b border-[#F1F5F9]">
+                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Perangkat</th>
+                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Merek &amp; Tipe</th>
+                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Serial</th>
+                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Kondisi</th>
+                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Status</th>
+                <th class="py-3 px-4 text-right text-xs font-semibold text-[#64748B] uppercase">Ditambahkan</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[#F8FAFC]">
+              <tr v-for="r in 3" :key="'recent-asset-skel-' + r">
+                <td class="py-3.5 px-4"><BaseSkeleton width="130px" height="14px" radius="md" /></td>
+                <td class="py-3.5 px-4"><BaseSkeleton width="100px" height="14px" radius="sm" /></td>
+                <td class="py-3.5 px-4"><BaseSkeleton width="90px" height="12px" radius="sm" /></td>
+                <td class="py-3.5 px-4"><BaseSkeleton width="70px" height="14px" radius="sm" /></td>
+                <td class="py-3.5 px-4"><BaseSkeleton width="65px" height="20px" radius="full" /></td>
+                <td class="py-3.5 px-4 text-right"><BaseSkeleton width="80px" height="12px" radius="sm" class="ml-auto" /></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <div class="lg:col-span-6">
-          <SkeletonTable :rows="4" :cols="4" />
+
+        <!-- Tiket Terbaru Skeleton Table -->
+        <div class="shadow-sm rounded-xl border border-[#E2E8F0] bg-white overflow-hidden p-4">
+          <div class="mb-3 flex items-center justify-between">
+            <BaseSkeleton width="120px" height="16px" radius="md" />
+            <BaseSkeleton width="80px" height="24px" radius="full" />
+          </div>
+          <table class="w-full text-left">
+            <thead>
+              <tr class="border-b border-[#F1F5F9]">
+                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">No. Tiket</th>
+                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Judul</th>
+                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Assigned To</th>
+                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Prioritas</th>
+                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Status</th>
+                <th class="py-3 px-4 text-right text-xs font-semibold text-[#64748B] uppercase">Tanggal</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[#F8FAFC]">
+              <tr v-for="r in 3" :key="'recent-ticket-skel-' + r">
+                <td class="py-3.5 px-4"><BaseSkeleton width="100px" height="14px" radius="md" /></td>
+                <td class="py-3.5 px-4"><BaseSkeleton width="180px" height="14px" radius="md" /></td>
+                <td class="py-3.5 px-4"><BaseSkeleton width="110px" height="14px" radius="sm" /></td>
+                <td class="py-3.5 px-4"><BaseSkeleton width="65px" height="20px" radius="full" /></td>
+                <td class="py-3.5 px-4"><BaseSkeleton width="65px" height="20px" radius="full" /></td>
+                <td class="py-3.5 px-4 text-right"><BaseSkeleton width="80px" height="12px" radius="sm" class="ml-auto" /></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

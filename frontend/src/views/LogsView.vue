@@ -318,7 +318,7 @@ function parsePerubahan(perubahan, aksi) {
     <div class="shadow-card overflow-hidden rounded-[20px] border border-[#E8EDF3] bg-white">
       <!-- Loading State -->
       <div v-if="isLoading" aria-busy="true">
-        <SkeletonTable :rows="6" :cols="5" />
+        <SkeletonTable preset="logs" :rows="6" />
       </div>
 
       <!-- ── TAB 1: Asset History Log ──────────────────────────── -->

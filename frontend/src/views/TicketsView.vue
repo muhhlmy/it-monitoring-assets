@@ -9,7 +9,7 @@ import AppModal from '../components/ui/AppModal.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
 import TicketCaspRating from '../components/tickets/TicketCaspRating.vue'
-import SkeletonTable from '../components/ui/skeleton/SkeletonTable.vue'
+import BaseSkeleton from '../components/ui/skeleton/BaseSkeleton.vue'
 import SkeletonList from '../components/ui/skeleton/SkeletonList.vue'
 
 const route = useRoute()
@@ -1117,9 +1117,44 @@ function toast(message, type = 'success') {
 
     <!-- ── 3. Ticket Inbox / Issue List Surface ───────────── -->
     <div class="rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs overflow-hidden">
-      <!-- Loading Skeleton -->
-      <div v-if="isLoading" aria-busy="true">
-        <SkeletonTable :rows="6" :cols="5" />
+      <!-- Loading Skeleton (Matches real ticket row layout 100%) -->
+      <div v-if="isLoading" aria-busy="true" class="divide-y divide-[#F1F5F9]">
+        <div
+          v-for="r in 5"
+          :key="'tck-skel-' + r"
+          class="flex items-center justify-between gap-4 px-6 py-4 min-h-[76px] select-none"
+        >
+          <!-- Left Zone: Ticket Identity & Metadata Stack -->
+          <div class="flex flex-col gap-1.5 min-w-0 flex-1">
+            <!-- Title -->
+            <BaseSkeleton :width="r % 2 === 0 ? '60%' : '75%'" height="16px" radius="md" />
+
+            <!-- Description Snippet -->
+            <BaseSkeleton :width="r % 2 === 0 ? '80%' : '65%'" height="13.5px" radius="sm" />
+
+            <!-- Sub-metadata Line -->
+            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+              <BaseSkeleton width="110px" height="12px" radius="sm" />
+              <span class="text-[#CBD5E1]">·</span>
+              <BaseSkeleton width="80px" height="12px" radius="sm" />
+              <span class="text-[#CBD5E1]">·</span>
+              <BaseSkeleton width="60px" height="12px" radius="sm" />
+              <span class="text-[#CBD5E1]">·</span>
+              <BaseSkeleton width="50px" height="12px" radius="sm" />
+              <span class="text-[#CBD5E1]">·</span>
+              <BaseSkeleton width="70px" height="12px" radius="sm" />
+            </div>
+          </div>
+
+          <!-- Right Zone: Status Indicator & Chevron -->
+          <div class="flex items-center gap-3 shrink-0">
+            <div class="flex items-center gap-1.5 min-w-[95px] justify-end">
+              <BaseSkeleton width="8px" height="8px" radius="full" />
+              <BaseSkeleton width="55px" height="14px" radius="md" />
+            </div>
+            <BaseSkeleton width="18px" height="18px" radius="md" />
+          </div>
+        </div>
       </div>
 
       <!-- Error State -->

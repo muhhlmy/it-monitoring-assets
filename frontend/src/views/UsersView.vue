@@ -591,7 +591,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
     <div class="rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs overflow-hidden">
       <!-- Loading -->
       <div v-if="isLoading" role="status" aria-busy="true">
-        <SkeletonTable :rows="5" :cols="5" />
+        <SkeletonTable preset="users" :rows="5" />
       </div>
 
       <!-- Error -->

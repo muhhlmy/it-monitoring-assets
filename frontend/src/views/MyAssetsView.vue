@@ -665,7 +665,7 @@ onMounted(() => {
       <div class="rounded-xl border border-[#E2E8F0] bg-white shadow-2xs overflow-hidden">
         <!-- Loading State -->
         <div v-if="isLoadingEmployees" aria-busy="true">
-          <SkeletonTable :rows="5" :cols="5" />
+          <SkeletonTable preset="employees" :rows="5" />
         </div>
 
         <!-- Error State -->

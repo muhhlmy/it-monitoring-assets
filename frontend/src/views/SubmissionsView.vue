@@ -2,7 +2,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import SearchableSelect from '../components/ui/SearchableSelect.vue'
-import SkeletonDetail from '../components/ui/skeleton/SkeletonDetail.vue'
+import BaseSkeleton from '../components/ui/skeleton/BaseSkeleton.vue'
 import { escapeHtml, printHtmlDocument } from '../utils/printDocument.js'
 
 const { get } = useApi()
@@ -590,13 +590,80 @@ onMounted(fetchData)
 
 <template>
   <div class="flex min-w-0 flex-col gap-5">
-    <div
-      v-if="isLoading"
-      role="status"
-      aria-busy="true"
-      class="shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-6"
-    >
-      <SkeletonDetail />
+    <!-- Loading Form Skeleton (Matches Serah Terima Form layout 100%) -->
+    <div v-if="isLoading" role="status" aria-busy="true" class="flex flex-col gap-6 select-none">
+      <!-- Section 1 Skeleton: Profil Pihak Terkait -->
+      <div class="shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5 sm:p-6">
+        <div class="mb-4 flex items-center gap-2">
+          <BaseSkeleton width="18px" height="18px" radius="sm" />
+          <BaseSkeleton width="180px" height="16px" radius="md" />
+        </div>
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <!-- Pihak Pemberi Box -->
+          <div class="flex flex-col gap-4 rounded-2xl border border-[#F1F5F9] bg-[#FAFCFF] p-4">
+            <BaseSkeleton width="150px" height="14px" radius="md" />
+            <div class="flex flex-col gap-1.5">
+              <BaseSkeleton width="100px" height="12px" radius="sm" />
+              <BaseSkeleton width="100%" height="42px" radius="xl" />
+            </div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div class="flex flex-col gap-1.5">
+                <BaseSkeleton width="110px" height="12px" radius="sm" />
+                <BaseSkeleton width="100%" height="42px" radius="xl" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <BaseSkeleton width="90px" height="12px" radius="sm" />
+                <BaseSkeleton width="100%" height="42px" radius="xl" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Pihak Penerima Box -->
+          <div class="flex flex-col gap-4 rounded-2xl border border-[#F1F5F9] bg-[#FAFCFF] p-4">
+            <BaseSkeleton width="150px" height="14px" radius="md" />
+            <div class="flex flex-col gap-1.5">
+              <BaseSkeleton width="100px" height="12px" radius="sm" />
+              <BaseSkeleton width="100%" height="42px" radius="xl" />
+            </div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div class="flex flex-col gap-1.5">
+                <BaseSkeleton width="110px" height="12px" radius="sm" />
+                <BaseSkeleton width="100%" height="42px" radius="xl" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <BaseSkeleton width="90px" height="12px" radius="sm" />
+                <BaseSkeleton width="100%" height="42px" radius="xl" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2 Skeleton: Tujuan Serah Terima Aset -->
+      <div class="shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5 sm:p-6">
+        <div class="mb-4 flex items-center gap-2">
+          <BaseSkeleton width="18px" height="18px" radius="sm" />
+          <BaseSkeleton width="210px" height="16px" radius="md" />
+        </div>
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+          <div v-for="i in 5" :key="'tujuan-skel-' + i" class="flex items-center gap-2.5 rounded-xl border border-[#F1F5F9] bg-[#FAFCFF] p-3">
+            <BaseSkeleton width="18px" height="18px" radius="sm" />
+            <BaseSkeleton width="80px" height="13px" radius="sm" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3 Skeleton: Daftar Data Serah Terima Aset -->
+      <div class="shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5 sm:p-6">
+        <div class="mb-4 flex items-center gap-2">
+          <BaseSkeleton width="18px" height="18px" radius="sm" />
+          <BaseSkeleton width="240px" height="16px" radius="md" />
+        </div>
+        <div class="flex flex-col gap-3">
+          <BaseSkeleton width="100%" height="48px" radius="xl" />
+          <BaseSkeleton width="100%" height="48px" radius="xl" />
+        </div>
+      </div>
     </div>
 
     <div

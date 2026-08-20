@@ -12,6 +12,8 @@ import SearchableSelect from '../components/ui/SearchableSelect.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
 import AppImportModal from '../components/ui/AppImportModal.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
+import BaseSkeleton from '../components/ui/skeleton/BaseSkeleton.vue'
+import SkeletonAvatar from '../components/ui/skeleton/SkeletonAvatar.vue'
 import SkeletonTable from '../components/ui/skeleton/SkeletonTable.vue'
 
 const { get, post, put, del } = useApi()
@@ -744,8 +746,46 @@ onMounted(async () => {
     <!-- ─── MODERN ENTERPRISE SAAS DATA MANAGEMENT CONTAINER ──────────────── -->
     <div>
       <!-- Loading State Skeleton -->
-      <div v-if="isLoading" aria-busy="true">
-        <SkeletonTable :rows="6" :cols="5" />
+      <div v-if="isLoading" aria-busy="true" class="space-y-2.5">
+        <div
+          v-for="r in 6"
+          :key="'asset-skel-' + r"
+          class="asset-row-grid gap-4 rounded-xl border border-[#E2E8F0]/80 bg-white p-4 shadow-2xs select-none"
+        >
+          <!-- 1. Asset Identity -->
+          <div class="flex items-center gap-3.5 min-w-0">
+            <SkeletonAvatar size="40px" shape="rounded" class="shrink-0" />
+            <div class="flex flex-col gap-1.5 min-w-0">
+              <BaseSkeleton width="130px" height="15px" radius="md" />
+              <BaseSkeleton width="90px" height="12px" radius="sm" />
+            </div>
+          </div>
+          <!-- 2. Perangkat -->
+          <div class="flex flex-col gap-1 min-w-0">
+            <BaseSkeleton width="50px" height="10px" radius="sm" />
+            <BaseSkeleton width="100px" height="13px" radius="md" />
+            <BaseSkeleton width="80px" height="11px" radius="sm" />
+          </div>
+          <!-- 3. Penanggung Jawab -->
+          <div class="flex flex-col gap-1 min-w-0">
+            <BaseSkeleton width="85px" height="10px" radius="sm" />
+            <BaseSkeleton width="120px" height="13px" radius="md" />
+            <BaseSkeleton width="70px" height="11px" radius="sm" />
+          </div>
+          <!-- 4. Lokasi -->
+          <div class="flex flex-col gap-1 min-w-0">
+            <BaseSkeleton width="45px" height="10px" radius="sm" />
+            <BaseSkeleton width="80px" height="13px" radius="md" />
+          </div>
+          <!-- 5. Status -->
+          <div class="flex items-center">
+            <BaseSkeleton width="75px" height="22px" radius="full" />
+          </div>
+          <!-- 6. Action -->
+          <div class="flex justify-end">
+            <BaseSkeleton width="18px" height="18px" radius="md" />
+          </div>
+        </div>
       </div>
 
       <!-- Error State -->

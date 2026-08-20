@@ -475,7 +475,7 @@ onMounted(() => {
     <!-- Table Section -->
     <div class="rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs overflow-hidden">
       <div v-if="isLoading" aria-busy="true">
-        <SkeletonTable :rows="6" :cols="5" />
+        <SkeletonTable preset="employees" :rows="6" />
       </div>
 
       <div v-else-if="pageError" class="p-6 text-center text-rose-600">
