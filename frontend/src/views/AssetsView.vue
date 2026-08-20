@@ -12,6 +12,7 @@ import SearchableSelect from '../components/ui/SearchableSelect.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
 import AppImportModal from '../components/ui/AppImportModal.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
+import SkeletonTable from '../components/ui/skeleton/SkeletonTable.vue'
 
 const { get, post, put, del } = useApi()
 const { isAdmin, isSuperAdmin, hasWritePermission } = useAuth()
@@ -740,16 +741,11 @@ onMounted(async () => {
         </button>
       </div>
     </div>
-
     <!-- ─── MODERN ENTERPRISE SAAS DATA MANAGEMENT CONTAINER ──────────────── -->
     <div>
       <!-- Loading State Skeleton -->
-      <div v-if="isLoading" class="p-5 space-y-3 bg-white rounded-2xl border border-[#E2E8F0]/80">
-        <div
-          v-for="n in 5"
-          :key="n"
-          class="h-12 w-full animate-pulse rounded-xl bg-[#F8FAFC]"
-        ></div>
+      <div v-if="isLoading" aria-busy="true">
+        <SkeletonTable :rows="6" :cols="5" />
       </div>
 
       <!-- Error State -->
@@ -1451,11 +1447,8 @@ onMounted(async () => {
         <!-- Tab 2: Log Perubahan -->
         <div v-if="detailsTab === 'logs'" class="space-y-3">
           <!-- Loading -->
-          <div v-if="isLoadingLogs" class="flex flex-col items-center justify-center py-12 gap-2">
-            <span class="material-symbols-outlined text-[28px] text-brand animate-spin"
-              >progress_activity</span
-            >
-            <p class="text-[11px] font-semibold text-[#6B7280]">Memuat log perubahan...</p>
+          <div v-if="isLoadingLogs" aria-busy="true">
+            <SkeletonTable :rows="4" :cols="3" :show-actions="false" />
           </div>
 
           <!-- Empty State -->

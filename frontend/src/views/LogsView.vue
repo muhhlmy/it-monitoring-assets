@@ -8,6 +8,7 @@ import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
+import SkeletonTable from '../components/ui/skeleton/SkeletonTable.vue'
 
 const { get } = useApi()
 const { isSuperAdmin } = useAuth()
@@ -316,11 +317,8 @@ function parsePerubahan(perubahan, aksi) {
     <!-- Content Container -->
     <div class="shadow-card overflow-hidden rounded-[20px] border border-[#E8EDF3] bg-white">
       <!-- Loading State -->
-      <div v-if="isLoading" class="flex flex-col items-center justify-center py-24 gap-3">
-        <span class="material-symbols-outlined text-[36px] text-brand animate-spin"
-          >progress_activity</span
-        >
-        <p class="text-[12px] font-semibold text-[#6B7280]">Memuat data log aktivitas...</p>
+      <div v-if="isLoading" aria-busy="true">
+        <SkeletonTable :rows="6" :cols="5" />
       </div>
 
       <!-- ── TAB 1: Asset History Log ──────────────────────────── -->

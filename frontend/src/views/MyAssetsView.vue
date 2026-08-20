@@ -6,6 +6,7 @@ import { formatStatusPill } from '../utils/assetStatus.js'
 import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
+import SkeletonTable from '../components/ui/skeleton/SkeletonTable.vue'
 
 const { get } = useApi()
 const { isAdmin, isSuperAdmin, user, refreshUser } = useAuth()
@@ -134,10 +135,6 @@ const paginatedAssets = computed(() => {
   return filteredAssets.value.slice(start, start + itemsPerPage.value)
 })
 
-const availableTipeOptions = computed(() => [
-  ...new Set(myAssets.value.map((a) => a.tipe_perangkat).filter(Boolean)),
-])
-
 // ── Level 2 Summary Metrics ────────────────────────────────────────────────────
 const employeeAssignedSince = computed(() => {
   if (myAssets.value.length === 0) return '—'
@@ -149,18 +146,6 @@ const employeeAssignedSince = computed(() => {
   if (dates.length === 0) return '—'
   const minTimestamp = Math.min(...dates)
   return formatDate(new Date(minTimestamp).toISOString())
-})
-
-const employeeLastActivity = computed(() => {
-  if (myAssets.value.length === 0) return '—'
-  const dates = myAssets.value
-    .map((a) => a.updated_at || a.created_at || a.dibuat_pada)
-    .filter(Boolean)
-    .map((d) => new Date(d).getTime())
-    .filter((t) => !isNaN(t))
-  if (dates.length === 0) return '—'
-  const maxTimestamp = Math.max(...dates)
-  return formatDate(new Date(maxTimestamp).toISOString())
 })
 
 // ── Level 3: Audit & History Log Timeline ──────────────────────────────────────
@@ -679,12 +664,8 @@ onMounted(() => {
       <!-- Main Hybrid Employee Table/List -->
       <div class="rounded-xl border border-[#E2E8F0] bg-white shadow-2xs overflow-hidden">
         <!-- Loading State -->
-        <div v-if="isLoadingEmployees" class="p-6 space-y-3">
-          <div
-            v-for="n in 5"
-            :key="n"
-            class="h-12 w-full animate-pulse rounded-lg bg-[#F8FAFC]"
-          ></div>
+        <div v-if="isLoadingEmployees" aria-busy="true">
+          <SkeletonTable :rows="5" :cols="5" />
         </div>
 
         <!-- Error State -->

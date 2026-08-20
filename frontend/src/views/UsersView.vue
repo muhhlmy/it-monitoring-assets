@@ -13,6 +13,7 @@ import AppBadge from '../components/ui/AppBadge.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
 import SearchableSelect from '../components/ui/SearchableSelect.vue'
+import SkeletonTable from '../components/ui/skeleton/SkeletonTable.vue'
 
 const route = useRoute()
 const { get, post, put, del } = useApi()
@@ -589,12 +590,8 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
     <!-- ── Tabel Pengguna ─────────────────────────────────── -->
     <div class="rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs overflow-hidden">
       <!-- Loading -->
-      <div v-if="isLoading" role="status" class="p-5 space-y-3">
-        <div
-          v-for="n in 5"
-          :key="n"
-          class="h-12 w-full animate-pulse rounded-xl bg-[#F8FAFC]"
-        ></div>
+      <div v-if="isLoading" role="status" aria-busy="true">
+        <SkeletonTable :rows="5" :cols="5" />
       </div>
 
       <!-- Error -->

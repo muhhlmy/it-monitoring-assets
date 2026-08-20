@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useApi } from '@/composables/useApi'
 import { useTicketEvents } from '@/composables/useTicketEvents'
+import SkeletonList from '../ui/skeleton/SkeletonList.vue'
 
 defineProps({
   isMobileOpen: { type: Boolean, default: false },
@@ -1076,12 +1077,10 @@ onBeforeUnmount(() => {
             <div class="max-h-[380px] overflow-y-auto custom-scrollbar divide-y divide-[#F1F5F9]">
               <div
                 v-if="isFetchingNotif && latestNotifications.length === 0"
-                class="flex items-center justify-center gap-2 py-10 text-xs text-[#64748B]"
+                class="p-2"
+                aria-busy="true"
               >
-                <div
-                  class="w-4 h-4 border-2 border-[#E2E8F0] border-t-[#2563EB] rounded-full animate-spin"
-                ></div>
-                Memuat notifikasi...
+                <SkeletonList :items="4" :show-avatar="true" />
               </div>
 
               <!-- Polished Empty State -->

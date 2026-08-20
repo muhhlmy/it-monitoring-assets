@@ -14,6 +14,9 @@ import AssetTypeBarChart from '../components/charts/AssetTypeBarChart.vue'
 import AssetConditionPieChart from '../components/charts/AssetConditionPieChart.vue'
 import CsatDashboardSection from '../components/charts/CsatDashboardSection.vue'
 import { getAssetStatusLabel } from '../utils/assetStatus.js'
+import SkeletonCard from '../components/ui/skeleton/SkeletonCard.vue'
+import SkeletonChart from '../components/ui/skeleton/SkeletonChart.vue'
+import SkeletonTable from '../components/ui/skeleton/SkeletonTable.vue'
 
 const { get } = useApi()
 const { hasPermission, hasWritePermission } = useAuth()
@@ -323,15 +326,45 @@ onUnmounted(() => {
          ═══════════════════════════════════════════ -->
     <div
       v-if="isLoading"
-      class="flex items-center justify-center py-20"
+      class="space-y-4"
       role="status"
       aria-live="polite"
+      aria-busy="true"
     >
-      <div
-        class="w-10 h-10 border-4 border-[#E5EAEF] border-t-[#5D87FF] rounded-full animate-spin"
-        aria-hidden="true"
-      ></div>
-      <span class="sr-only">Memuat statistik dashboard…</span>
+      <!-- Row 1: 5 Stat Cards Skeleton -->
+      <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        <SkeletonCard v-for="i in 5" :key="i" variant="summary" />
+      </div>
+
+      <!-- Row 2: Monthly Trend (8 col) + Status Donut (4 col) Skeleton -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+        <div class="lg:col-span-8">
+          <SkeletonChart type="line" height="260px" />
+        </div>
+        <div class="lg:col-span-4">
+          <SkeletonChart type="donut" height="260px" />
+        </div>
+      </div>
+
+      <!-- Row 3: Asset Type (6 col) + Condition (6 col) Skeleton -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+        <div class="lg:col-span-6">
+          <SkeletonChart type="bar" height="240px" />
+        </div>
+        <div class="lg:col-span-6">
+          <SkeletonChart type="pie" height="240px" />
+        </div>
+      </div>
+
+      <!-- Row 4: Recent Tables Skeleton -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+        <div class="lg:col-span-6">
+          <SkeletonTable :rows="4" :cols="4" />
+        </div>
+        <div class="lg:col-span-6">
+          <SkeletonTable :rows="4" :cols="4" />
+        </div>
+      </div>
     </div>
 
     <!-- ═══════════════════════════════════════════

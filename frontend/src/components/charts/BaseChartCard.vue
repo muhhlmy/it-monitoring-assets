@@ -1,4 +1,6 @@
 <script setup>
+import SkeletonChart from '../ui/skeleton/SkeletonChart.vue'
+
 defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
@@ -22,11 +24,8 @@ defineProps({
 
     <div class="relative flex-1 min-h-[260px] flex items-center justify-center">
       <!-- Loading Skeleton -->
-      <div v-if="loading" class="flex flex-col items-center gap-2 text-[#7C8BAC]">
-        <div
-          class="h-8 w-8 animate-spin rounded-full border-3 border-[#E5EAEF] border-t-[#5D87FF]"
-        ></div>
-        <span class="text-[12px] font-medium">Memuat data grafik...</span>
+      <div v-if="loading" class="w-full h-full" aria-busy="true">
+        <SkeletonChart type="bar" height="240px" />
       </div>
 
       <!-- Error State -->

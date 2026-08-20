@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
+import SkeletonList from './skeleton/SkeletonList.vue'
 
 const props = defineProps({
   modelValue: { type: [String, Number], default: '' },
@@ -13,6 +14,7 @@ const props = defineProps({
   allowCustom: { type: Boolean, default: false },
   customLabelPrefix: { type: String, default: '+ Gunakan' },
   ariaLabel: { type: String, default: '' },
+  loading: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -283,39 +285,45 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
         role="listbox"
         :aria-label="ariaLabel || placeholder"
         class="max-h-48 overflow-y-auto p-1"
+        :aria-busy="loading"
       >
-        <li
-          v-for="(option, index) in filteredOptions"
-          :id="optionId(index)"
-          :key="option[valueKey]"
-          role="option"
-          :aria-selected="option[valueKey] === modelValue"
-          class="flex cursor-pointer flex-col rounded-md px-2.5 py-1.5 text-left transition-colors hover:bg-brand-light"
-          :class="{
-            'bg-brand-light font-bold text-brand': option[valueKey] === modelValue,
-            'ring-1 ring-inset ring-brand/40': activeIndex === index,
-          }"
-          @mouseenter="activeIndex = index"
-          @mousedown.prevent
-          @click.stop.prevent="selectOption(option)"
-        >
-          <span
-            class="text-[11px] text-[#172033]"
-            :class="{ 'font-bold text-brand': option[valueKey] === modelValue }"
+        <template v-if="loading">
+          <SkeletonList :items="3" :show-avatar="false" />
+        </template>
+        <template v-else>
+          <li
+            v-for="(option, index) in filteredOptions"
+            :id="optionId(index)"
+            :key="option[valueKey]"
+            role="option"
+            :aria-selected="option[valueKey] === modelValue"
+            class="flex cursor-pointer flex-col rounded-md px-2.5 py-1.5 text-left transition-colors hover:bg-brand-light"
+            :class="{
+              'bg-brand-light font-bold text-brand': option[valueKey] === modelValue,
+              'ring-1 ring-inset ring-brand/40': activeIndex === index,
+            }"
+            @mouseenter="activeIndex = index"
+            @mousedown.prevent
+            @click.stop.prevent="selectOption(option)"
           >
-            {{ option[labelKey] }}
-          </span>
-          <span v-if="secondaryLabelKey" class="mt-0.5 font-mono text-[9px] text-[#94A3B8]">
-            {{ option[secondaryLabelKey] }}
-          </span>
-        </li>
-        <li
-          v-if="filteredOptions.length === 0"
-          role="status"
-          class="px-3 py-4 text-center text-[11px] text-[#9CA3AF]"
-        >
-          Tidak ada hasil ditemukan.
-        </li>
+            <span
+              class="text-[11px] text-[#172033]"
+              :class="{ 'font-bold text-brand': option[valueKey] === modelValue }"
+            >
+              {{ option[labelKey] }}
+            </span>
+            <span v-if="secondaryLabelKey" class="mt-0.5 font-mono text-[9px] text-[#94A3B8]">
+              {{ option[secondaryLabelKey] }}
+            </span>
+          </li>
+          <li
+            v-if="filteredOptions.length === 0"
+            role="status"
+            class="px-3 py-4 text-center text-[11px] text-[#9CA3AF]"
+          >
+            Tidak ada hasil ditemukan.
+          </li>
+        </template>
       </ul>
     </div>
   </div>

@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import * as XLSX from 'xlsx'
 import AppModal from './AppModal.vue'
 import AppPagination from './AppPagination.vue'
+import SkeletonTable from './skeleton/SkeletonTable.vue'
 import { useApi } from '@/composables/useApi'
 
 const props = defineProps({
@@ -374,12 +375,14 @@ async function submitImport() {
       <!-- Parsed Data Preview -->
       <div
         v-if="isParsing"
-        class="flex items-center justify-center gap-2 py-8 text-[12px] text-[#7C8BAC]"
+        class="py-4 space-y-2"
+        aria-busy="true"
       >
-        <div
-          class="h-5 w-5 animate-spin rounded-full border-2 border-[#E5EAEF] border-t-[#5D87FF]"
-        ></div>
-        <span>Membaca dan memproses isi file Excel...</span>
+        <p class="text-[11px] font-semibold text-[#5D87FF] flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#5D87FF] animate-ping"></span>
+          Membaca dan memproses isi file Excel...
+        </p>
+        <SkeletonTable :rows="4" :cols="5" :show-actions="false" />
       </div>
 
       <div

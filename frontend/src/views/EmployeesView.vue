@@ -7,6 +7,7 @@ import AppBadge from '../components/ui/AppBadge.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
 import AppImportModal from '../components/ui/AppImportModal.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
+import SkeletonTable from '../components/ui/skeleton/SkeletonTable.vue'
 
 const { get, post, put, del } = useApi()
 const { isAdmin, isSuperAdmin, hasWritePermission } = useAuth()
@@ -473,12 +474,8 @@ onMounted(() => {
 
     <!-- Table Section -->
     <div class="rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs overflow-hidden">
-      <div v-if="isLoading" class="p-5 space-y-3">
-        <div
-          v-for="n in 5"
-          :key="n"
-          class="h-12 w-full animate-pulse rounded-xl bg-[#F8FAFC]"
-        ></div>
+      <div v-if="isLoading" aria-busy="true">
+        <SkeletonTable :rows="6" :cols="5" />
       </div>
 
       <div v-else-if="pageError" class="p-6 text-center text-rose-600">

@@ -9,6 +9,8 @@ import AppModal from '../components/ui/AppModal.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
 import TicketCaspRating from '../components/tickets/TicketCaspRating.vue'
+import SkeletonTable from '../components/ui/skeleton/SkeletonTable.vue'
+import SkeletonList from '../components/ui/skeleton/SkeletonList.vue'
 
 const route = useRoute()
 const { get, post, put, del } = useApi()
@@ -1116,12 +1118,8 @@ function toast(message, type = 'success') {
     <!-- ── 3. Ticket Inbox / Issue List Surface ───────────── -->
     <div class="rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs overflow-hidden">
       <!-- Loading Skeleton -->
-      <div v-if="isLoading" class="p-4 space-y-3">
-        <div
-          v-for="n in 5"
-          :key="n"
-          class="h-16 w-full animate-pulse rounded-xl bg-[#F8FAFC]"
-        ></div>
+      <div v-if="isLoading" aria-busy="true">
+        <SkeletonTable :rows="6" :cols="5" />
       </div>
 
       <!-- Error State -->
@@ -1797,12 +1795,10 @@ function toast(message, type = 'success') {
           <div v-else-if="activeDetailTab === 'history'" class="space-y-4">
             <div
               v-if="isHistoryLoading"
-              class="flex flex-col items-center justify-center py-10 gap-2 text-[#94A3B8]"
+              class="p-2"
+              aria-busy="true"
             >
-              <span class="material-symbols-outlined text-[24px] animate-spin text-[#2563EB]"
-                >progress_activity</span
-              >
-              <span class="text-xs font-medium">Memuat riwayat aktivitas...</span>
+              <SkeletonList :items="4" :show-avatar="true" />
             </div>
 
             <div

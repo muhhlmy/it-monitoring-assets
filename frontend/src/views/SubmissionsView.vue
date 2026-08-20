@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import SearchableSelect from '../components/ui/SearchableSelect.vue'
+import SkeletonDetail from '../components/ui/skeleton/SkeletonDetail.vue'
 import { escapeHtml, printHtmlDocument } from '../utils/printDocument.js'
 
 const { get } = useApi()
@@ -592,12 +593,10 @@ onMounted(fetchData)
     <div
       v-if="isLoading"
       role="status"
-      class="shadow-card flex items-center justify-center rounded-[20px] border border-[#E8EDF3] bg-white py-20 text-[13px] text-[#6B7280]"
+      aria-busy="true"
+      class="shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-6"
     >
-      <span
-        class="h-8 w-8 animate-spin rounded-full border-4 border-[#E5E7EB] border-t-brand"
-      ></span>
-      Memuat data referensi...
+      <SkeletonDetail />
     </div>
 
     <div

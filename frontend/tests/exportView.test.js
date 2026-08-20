@@ -38,7 +38,7 @@ describe('ExportView.vue & Export Engine Regression Tests', () => {
     assert.match(viewSource, /rowLimit/)
     // 14. Loading state
     assert.match(viewSource, /isLoading/)
-    assert.match(viewSource, /animate-pulse/)
+    assert.match(viewSource, /SkeletonCard|animate-pulse/)
     // 15. Error state handling
     assert.match(viewSource, /showToast.*error/)
     // 16. Empty-data state handling

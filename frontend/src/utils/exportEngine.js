@@ -102,7 +102,7 @@ export function exportToExcel(
   try {
     const worksheet = XLSX.utils.json_to_sheet(mappedData)
     const workbook = XLSX.utils.book_new()
-    const sheetName = (tableName || 'Data').replace(/[:\\/?*\[\]]/g, '').slice(0, 30)
+    const sheetName = (tableName || 'Data').replace(/[:\\/?*[\\]]/g, '').slice(0, 30)
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName || 'Data')
 
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
