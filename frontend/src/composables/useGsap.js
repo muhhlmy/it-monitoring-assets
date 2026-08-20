@@ -42,6 +42,10 @@ export function useGsapContext(scopeRef) {
  * Route / Page transition ENTER hook for Vue Router
  */
 export function animatePageEnter(el, done) {
+  if (!el) {
+    if (typeof done === 'function') done()
+    return
+  }
   if (isReducedMotion()) {
     gsap.set(el, { opacity: 1, y: 0 })
     if (typeof done === 'function') done()
@@ -68,6 +72,10 @@ export function animatePageEnter(el, done) {
  * Route / Page transition LEAVE hook for Vue Router
  */
 export function animatePageLeave(el, done) {
+  if (!el) {
+    if (typeof done === 'function') done()
+    return
+  }
   if (isReducedMotion()) {
     gsap.set(el, { opacity: 0 })
     if (typeof done === 'function') done()
@@ -90,15 +98,27 @@ export function animatePageLeave(el, done) {
  */
 export function animateStagger(targets, options = {}) {
   if (!targets) return
+
+  let els = []
+  if (typeof targets === 'string') {
+    els = Array.from(document.querySelectorAll(targets))
+  } else if (typeof Element !== 'undefined' && targets instanceof Element) {
+    els = [targets]
+  } else if (Array.isArray(targets) || targets instanceof NodeList || targets instanceof HTMLCollection) {
+    els = Array.from(targets)
+  }
+
+  if (!els || els.length === 0) return
+
   if (isReducedMotion()) {
-    gsap.set(targets, { opacity: 1, y: 0 })
+    gsap.set(els, { opacity: 1, y: 0 })
     return
   }
 
   const { y = 12, duration = 0.3, stagger = 0.04, ease = 'power2.out', delay = 0 } = options
 
   return gsap.fromTo(
-    targets,
+    els,
     { opacity: 0, y },
     {
       opacity: 1,
@@ -116,6 +136,10 @@ export function animateStagger(targets, options = {}) {
  * Modal Open Transition (Backdrop fade + Modal scale/slide)
  */
 export function animateModalEnter(el, done) {
+  if (!el) {
+    if (typeof done === 'function') done()
+    return
+  }
   if (isReducedMotion()) {
     gsap.set(el, { opacity: 1 })
     if (typeof done === 'function') done()
@@ -151,6 +175,10 @@ export function animateModalEnter(el, done) {
  * Modal Close Transition
  */
 export function animateModalLeave(el, done) {
+  if (!el) {
+    if (typeof done === 'function') done()
+    return
+  }
   if (isReducedMotion()) {
     if (typeof done === 'function') done()
     return
