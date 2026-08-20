@@ -1,6 +1,7 @@
 <script setup>
 // AppModal.vue — Modal pop-up yang dipakai di seluruh aplikasi
 import { nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
+import { animateModalEnter, animateModalLeave } from '../../composables/useGsap.js'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -100,7 +101,7 @@ onBeforeUnmount(() => {
 <template>
   <!-- Teleport ke body agar tidak tertutup overflow parent -->
   <Teleport to="body">
-    <Transition name="modal">
+    <Transition :css="false" @enter="animateModalEnter" @leave="animateModalLeave">
       <div
         v-if="isOpen"
         class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/40 backdrop-blur-xs"
@@ -113,7 +114,7 @@ onBeforeUnmount(() => {
           aria-modal="true"
           :aria-labelledby="titleId"
           tabindex="-1"
-          class="modal-panel flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-2xl outline-none"
+          class="modal-panel app-modal-panel flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-2xl outline-none"
           :class="{
             'max-w-sm': size === 'sm',
             'max-w-lg': size === 'md',

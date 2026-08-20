@@ -1,8 +1,9 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
+import { animateStagger } from '../composables/useGsap.js'
 import { downloadAssetsCsv } from '../utils/exportAssetsCsv.js'
 import { downloadAssetsPdf } from '../utils/exportAssetsPdf.js'
 import { ASSET_STATUSES, formatStatusPill, getAssetStatusLabel } from '../utils/assetStatus.js'
@@ -261,6 +262,8 @@ async function fetchData() {
     pageError.value = error.message || 'Gagal memuat data aset.'
   } finally {
     isLoading.value = false
+    await nextTick()
+    animateStagger('.asset-row-grid')
   }
 }
 

@@ -9,6 +9,7 @@ import AppModal from '../components/ui/AppModal.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
 import TicketCaspRating from '../components/tickets/TicketCaspRating.vue'
+import { animateStagger } from '../composables/useGsap.js'
 import BaseSkeleton from '../components/ui/skeleton/BaseSkeleton.vue'
 import SkeletonList from '../components/ui/skeleton/SkeletonList.vue'
 
@@ -359,6 +360,8 @@ async function fetchTickets(silent = false) {
     }
   } finally {
     isLoading.value = false
+    await nextTick()
+    animateStagger('.tck-list-item')
   }
 }
 
@@ -1170,7 +1173,7 @@ function toast(message, type = 'success') {
             v-for="ticket in paginatedTickets"
             :key="ticket.id"
             @click="openDetail(ticket)"
-            class="group flex items-center justify-between gap-4 px-6 py-4 hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none min-h-[76px]"
+            class="tck-list-item group flex items-center justify-between gap-4 px-6 py-4 hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none min-h-[76px]"
           >
             <!-- Left Zone: Ticket Identity & Metadata Stack -->
             <div class="flex flex-col gap-1 min-w-0 flex-1">
@@ -1237,7 +1240,7 @@ function toast(message, type = 'success') {
             v-for="ticket in paginatedTickets"
             :key="ticket.id"
             @click="openDetail(ticket)"
-            class="group flex items-center justify-between gap-4 px-6 py-4 hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none min-h-[76px]"
+            class="tck-list-item group flex items-center justify-between gap-4 px-6 py-4 hover:bg-[#F8FAFC] transition-colors duration-150 cursor-pointer select-none min-h-[76px]"
           >
             <!-- Left Zone: Ticket Identity & Metadata Stack -->
             <div class="flex flex-col gap-1 min-w-0 flex-1">

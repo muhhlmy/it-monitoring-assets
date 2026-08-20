@@ -3,10 +3,11 @@
 // UsersView.vue — Manajemen Pengguna Sistem, bergaya Fynix
 // Fitur: tampil, tambah, edit, hapus user dari tabel users
 // ============================================================
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
+import { animateStagger } from '../composables/useGsap.js'
 import { isSuperAdminRole as isRoleSuperAdmin } from '../utils/permissionAccess.js'
 import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
@@ -261,6 +262,8 @@ async function fetchUsers() {
     console.error(e)
   } finally {
     isLoading.value = false
+    await nextTick()
+    animateStagger('tbody tr')
   }
 }
 

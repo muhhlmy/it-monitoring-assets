@@ -1,8 +1,9 @@
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import SearchableSelect from '../components/ui/SearchableSelect.vue'
 import BaseSkeleton from '../components/ui/skeleton/BaseSkeleton.vue'
+import { animateStagger } from '../composables/useGsap.js'
 import { escapeHtml, printHtmlDocument } from '../utils/printDocument.js'
 
 const { get } = useApi()
@@ -82,6 +83,8 @@ async function fetchData() {
     pageError.value = error.message || 'Gagal memuat data referensi.'
   } finally {
     isLoading.value = false
+    await nextTick()
+    animateStagger('.submission-section')
   }
 }
 
@@ -680,7 +683,7 @@ onMounted(fetchData)
 
     <form v-else class="flex flex-col gap-6" @submit.prevent="generatePdf">
       <!-- Section 1: Profil Pihak Terkait -->
-      <div class="shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5 sm:p-6">
+      <div class="submission-section shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5 sm:p-6">
         <h3 class="mb-4 text-[14px] font-extrabold text-[#172033] flex items-center gap-2">
           <span class="material-symbols-outlined text-brand">assignment_ind</span>
           I. Profil Pihak Terkait
@@ -811,7 +814,7 @@ onMounted(fetchData)
       </div>
 
       <!-- Section 2: Tujuan Serah Terima -->
-      <div class="shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5 sm:p-6">
+      <div class="submission-section shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5 sm:p-6">
         <h3 class="mb-4 text-[14px] font-extrabold text-[#172033] flex items-center gap-2">
           <span class="material-symbols-outlined text-brand">checklist</span>
           II. Tujuan Serah Terima Aset

@@ -4,6 +4,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from './components/layout/AppSidebar.vue'
 import AppHeader from './components/layout/AppHeader.vue'
+import { animatePageEnter, animatePageLeave } from './composables/useGsap.js'
 import { getAuthToken } from './utils/authStorage.js'
 import { initTicketRealtime, stopTicketRealtime } from './composables/useTicketRealtime.js'
 
@@ -98,7 +99,16 @@ watch(isLoginPage, (loginPage) => {
           class="app-main flex-1 overflow-y-auto p-3.5 outline-none sm:p-4 lg:p-5"
         >
           <div class="mx-auto w-full max-w-[1560px]">
-            <RouterView />
+            <RouterView v-slot="{ Component }">
+              <Transition
+                :css="false"
+                @enter="animatePageEnter"
+                @leave="animatePageLeave"
+                mode="out-in"
+              >
+                <component :is="Component" :key="route.fullPath" />
+              </Transition>
+            </RouterView>
           </div>
         </main>
       </div>

@@ -3,9 +3,10 @@
 // LogsView.vue — Menampilkan Log Riwayat Aset & Audit Log Login
 // Fitur: Dua tab navigasi, pencarian, filter aksi, gaya glassmorphism
 // ============================================================
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
+import { animateStagger } from '../composables/useGsap.js'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
 import SkeletonTable from '../components/ui/skeleton/SkeletonTable.vue'
@@ -47,6 +48,8 @@ async function fetchLogs() {
     console.error(error)
   } finally {
     isLoading.value = false
+    await nextTick()
+    animateStagger('tbody tr')
   }
 }
 

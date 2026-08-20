@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
+import { animateStagger } from '../composables/useGsap.js'
 import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
@@ -218,6 +219,8 @@ async function fetchData() {
     pageError.value = err.message || 'Gagal memuat data karyawan.'
   } finally {
     isLoading.value = false
+    await nextTick()
+    animateStagger('tbody tr')
   }
 }
 

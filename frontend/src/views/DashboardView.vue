@@ -3,7 +3,7 @@
 // DashboardView.vue — Dashboard monitoring bergaya Fynix
 // Data real dari endpoint /api/assets/stats
 // ============================================================
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
@@ -14,6 +14,7 @@ import AssetTypeBarChart from '../components/charts/AssetTypeBarChart.vue'
 import AssetConditionPieChart from '../components/charts/AssetConditionPieChart.vue'
 import CsatDashboardSection from '../components/charts/CsatDashboardSection.vue'
 import { getAssetStatusLabel } from '../utils/assetStatus.js'
+import { animateStagger } from '../composables/useGsap.js'
 import BaseSkeleton from '../components/ui/skeleton/BaseSkeleton.vue'
 import SkeletonCard from '../components/ui/skeleton/SkeletonCard.vue'
 import SkeletonChart from '../components/ui/skeleton/SkeletonChart.vue'
@@ -153,6 +154,8 @@ async function fetchStats() {
     console.error(e)
   } finally {
     isLoading.value = false
+    await nextTick()
+    animateStagger('.dash-stat-card', { y: 12, duration: 0.3, stagger: 0.05 })
   }
 }
 
@@ -449,7 +452,7 @@ onUnmounted(() => {
       <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <!-- 1. Total Asset (ESB Primary Orange Hero Card) -->
         <div
-          class="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#FC841B] to-[#E26F10] p-3.5 text-white shadow-md shadow-orange-500/10 border border-white/10 flex flex-col justify-between transition-transform hover:scale-[1.01]"
+          class="dash-stat-card relative overflow-hidden rounded-xl bg-gradient-to-br from-[#FC841B] to-[#E26F10] p-3.5 text-white shadow-md shadow-orange-500/10 border border-white/10 flex flex-col justify-between transition-transform hover:scale-[1.01]"
         >
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-wider text-white/90"
@@ -479,7 +482,7 @@ onUnmounted(() => {
 
         <!-- 2. In Use -->
         <div
-          class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B7E8DD] bg-gradient-to-br from-[#EDFBF7] to-white p-3.5"
+          class="dash-stat-card shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B7E8DD] bg-gradient-to-br from-[#EDFBF7] to-white p-3.5"
         >
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-wide text-[#13DEB9]"
@@ -511,7 +514,7 @@ onUnmounted(() => {
 
         <!-- 3. Stock -->
         <div
-          class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B2E2FF] bg-gradient-to-br from-[#E8F7FF] to-white p-3.5"
+          class="dash-stat-card shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B2E2FF] bg-gradient-to-br from-[#E8F7FF] to-white p-3.5"
         >
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-wide text-[#49BEFF]">Stok</span>
@@ -541,7 +544,7 @@ onUnmounted(() => {
 
         <!-- 4. Damaged -->
         <div
-          class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FCD5CE] bg-gradient-to-br from-[#FDEDE8] to-white p-3.5"
+          class="dash-stat-card shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FCD5CE] bg-gradient-to-br from-[#FDEDE8] to-white p-3.5"
         >
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-wide text-[#FA896B]">Rusak</span>
@@ -571,7 +574,7 @@ onUnmounted(() => {
 
         <!-- 5. In Service -->
         <div
-          class="shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FAD0AB] bg-gradient-to-br from-[#FEF5E5] to-white p-3.5"
+          class="dash-stat-card shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FAD0AB] bg-gradient-to-br from-[#FEF5E5] to-white p-3.5"
         >
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-bold uppercase tracking-wide text-[#FFAE1F]"
