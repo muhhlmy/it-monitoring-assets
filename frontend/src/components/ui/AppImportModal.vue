@@ -311,8 +311,8 @@ async function submitImport() {
           <span>{{ successResult }}</span>
         </div>
         <p class="text-[11px] font-normal text-emerald-800">
-          Setiap karyawan baru otomatis dibuatkan akun pengguna default (role: User, password:
-          <code>Password123!</code>).
+          Setiap karyawan baru otomatis dibuatkan akun pengguna default (role: User) dengan
+          password acak yang aman. Pengguna wajib mengganti password saat login pertama.
         </p>
       </div>
 

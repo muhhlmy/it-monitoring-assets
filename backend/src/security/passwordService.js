@@ -35,5 +35,10 @@ export async function verifyPassword(
   }
 
   if (legacyMode !== 'verify-plaintext') return false
+  console.warn(
+    '[SECURITY WARNING] PASSWORD_LEGACY_MODE is active (verify-plaintext). ' +
+    'Plaintext password comparison is being used. All user passwords should be migrated to bcrypt. ' +
+    'Disable PASSWORD_LEGACY_MODE after migration is complete.',
+  )
   return verifyLegacyPlaintextPassword(submittedPassword, storedPassword)
 }

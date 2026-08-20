@@ -13,7 +13,7 @@ export const TEST_USERS = {
   },
   user: {
     email: process.env.E2E_USER_EMAIL || 'user@user.com',
-    password: process.env.E2E_USER_PASSWORD || 'user123',
+    password: process.env.E2E_USER_PASSWORD || 'user12345',
     role: 'user',
     name: 'User Karyawan',
   },

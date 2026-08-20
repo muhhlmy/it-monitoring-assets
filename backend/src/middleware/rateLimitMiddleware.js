@@ -93,7 +93,7 @@ export function createBoundedRateLimiter({
 
 export const apiRateLimiter = createBoundedRateLimiter({
   windowMs: 60_000,
-  max: 600,
+  max: 120,
   keyGenerator: (req) => `api:ip:${getClientIp(req)}`,
 })
 
