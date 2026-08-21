@@ -8,6 +8,7 @@ import {
   hasWritePermissionLevel,
   normalizePermissions,
 } from '../services/permissionService.js';
+import { isValidUuid, verifySession } from '../services/sessionService.js';
 
 const BEARER_TOKEN_PATTERN =
   /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i;
@@ -15,7 +16,7 @@ const MAX_BEARER_TOKEN_LENGTH = 4096;
 
 function rejectAuthentication(res) {
   return res.status(401).json({
-    message: 'Sesi tidak valid atau sudah berakhir. Silakan login kembali.',
+    message: 'Sesi tidak valid atau telah berakhir.',
   });
 }
 
@@ -47,18 +48,27 @@ export async function authenticateToken(req, res, next) {
     return rejectAuthentication(res);
   }
 
-  const userId = Number(claims?.id);
+  const userId = Number(claims?.id || claims?.sub);
+  const sessionId = claims?.sid;
+
   if (
     !claims ||
     typeof claims !== 'object' ||
     !Number.isSafeInteger(userId) ||
     userId <= 0 ||
-    !Number.isFinite(claims.exp)
+    !Number.isFinite(claims.exp) ||
+    !isValidUuid(sessionId)
   ) {
     return rejectAuthentication(res);
   }
 
   try {
+    // Check server-side session validity in PostgreSQL
+    const session = await verifySession(sessionId, userId);
+    if (!session) {
+      return rejectAuthentication(res);
+    }
+
     const result = await pool.query(
       `/* canonical-auth-user */
        SELECT
@@ -91,6 +101,7 @@ export async function authenticateToken(req, res, next) {
 
     req.user = {
       id: userId,
+      sid: sessionId,
       nama: typeof user.nama === 'string' ? user.nama : '',
       email: typeof user.email === 'string' ? user.email : '',
       role,

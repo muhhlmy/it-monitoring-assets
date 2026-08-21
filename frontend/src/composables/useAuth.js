@@ -43,11 +43,17 @@ export function useAuth() {
     return response
   }
 
-  const logout = () => {
-    token.value = null
-    user.value = null
-    clearAuthSession()
-    router.push('/login')
+  const logout = async () => {
+    try {
+      if (token.value) {
+        await api.post('/api/auth/logout').catch(() => {})
+      }
+    } finally {
+      token.value = null
+      user.value = null
+      clearAuthSession()
+      router.push('/login')
+    }
   }
 
   const getProfile = () => {

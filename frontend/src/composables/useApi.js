@@ -65,10 +65,11 @@ export function useApi() {
     const payload = await parseResponse(response)
 
     if (response.status === 401) {
-      // Token kedaluwarsa, tidak valid, ATAU kredensial login salah
-      clearAuthSession()
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
+      if (endpoint !== '/api/auth/login') {
+        clearAuthSession()
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
       }
 
       const message = payload?.message || 'Sesi telah berakhir, silakan login kembali.'

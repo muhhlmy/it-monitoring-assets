@@ -1,10 +1,11 @@
 import express from 'express';
-import { login, getMe, changePassword } from '../controllers/authController.js';
+import { login, logout, getMe, changePassword } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 router.post('/login', login);
+router.post('/logout', authenticateToken, logout);
 router.get('/me', authenticateToken, getMe);
 router.post('/change-password', authenticateToken, changePassword);
 

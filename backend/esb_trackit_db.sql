@@ -5,6 +5,7 @@
 
 -- Drop existing tables/views (reverse dependency order)
 DROP VIEW IF EXISTS daftar_aset_ti_lengkap CASCADE;
+DROP TABLE IF EXISTS user_sessions CASCADE;
 DROP TABLE IF EXISTS log_audit_login CASCADE;
 DROP TABLE IF EXISTS riwayat_pemakaian_aset CASCADE;
 DROP TABLE IF EXISTS log_riwayat_tiket CASCADE;
@@ -96,6 +97,29 @@ VALUES (
     '{"dashboard":"full","assets":"full","tickets":"full"}'::jsonb,
     true
 );
+
+-- =====================================================================
+-- TABEL 2B: User Sessions (Server-Side Session Store for JWT Revocation)
+-- =====================================================================
+CREATE TABLE user_sessions (
+    id                          SERIAL          PRIMARY KEY,
+    session_id                  UUID            NOT NULL UNIQUE,
+    user_id                     INTEGER         NOT NULL,
+    issued_at                   TIMESTAMP       NOT NULL,
+    expires_at                  TIMESTAMP       NOT NULL,
+    revoked_at                  TIMESTAMP       NULL,
+    last_seen_at                TIMESTAMP       NULL,
+    created_at                  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_user_sessions_user
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX idx_user_sessions_sid ON user_sessions(session_id);
+CREATE INDEX idx_user_sessions_user ON user_sessions(user_id);
+CREATE INDEX idx_user_sessions_expires ON user_sessions(expires_at);
+CREATE INDEX idx_user_sessions_revoked ON user_sessions(revoked_at);
 
 -- =====================================================================
 -- TABEL 3: Asset (Master Data Aset IT)

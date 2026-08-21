@@ -8,6 +8,11 @@ import {
 } from '../services/permissionService.js';
 import { verifyPassword, hashPassword } from '../security/passwordService.js';
 import { parseRequiredEmail } from '../security/requestValidation.js';
+import {
+  createSession,
+  revokeSession,
+  revokeAllUserSessions,
+} from '../services/sessionService.js';
 
 const MAX_LOGIN_EMAIL_LENGTH = 150
 const MAX_LOGIN_PASSWORD_LENGTH = 255
@@ -135,18 +140,26 @@ export async function login(req, res) {
       employee,
     }
 
+    // Server-side session creation (UUID v4)
+    const session = await createSession(userRow.id, { ttlHours: 12 })
+    const iatInSec = Math.floor(new Date(session.issuedAt).getTime() / 1000)
+    const expInSec = Math.floor(new Date(session.expiresAt).getTime() / 1000)
+
     const token = jwt.sign(
       {
+        sub: String(userRow.id),
         id: userRow.id,
+        sid: session.sessionId,
         nama: userRow.employee_nama || userRow.nama,
         email: userRow.email,
         role: userRow.role,
         nik: userRow.nik || '',
         jabatan: userRow.title || userRow.role,
         permissions,
+        iat: iatInSec,
+        exp: expInSec,
       },
       env.jwt.secret,
-      { expiresIn: '12h' },
     )
 
     // Catat log sukses
@@ -162,6 +175,29 @@ export async function login(req, res) {
     })
   } catch (error) {
     console.error('Error login:', error)
+    res.status(500).json({ message: 'Terjadi kesalahan pada server.' })
+  }
+}
+
+export async function logout(req, res) {
+  try {
+    const sessionId = req.user?.sid
+    const userId = req.user?.id
+
+    if (sessionId) {
+      await revokeSession(sessionId)
+    }
+
+    if (userId) {
+      await pool.query(
+        'INSERT INTO log_audit_login (user_id, email, login_time, ip_address, user_agent) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4)',
+        [userId, req.user?.email || '', req.ip, req.headers['user-agent']],
+      ).catch(() => {})
+    }
+
+    res.json({ message: 'Logout berhasil.' })
+  } catch (error) {
+    console.error('Error logout:', error)
     res.status(500).json({ message: 'Terjadi kesalahan pada server.' })
   }
 }
@@ -286,6 +322,9 @@ export async function changePassword(req, res) {
       `UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
       [newHashedPassword, userId],
     );
+
+    // Revoke all active sessions on password change for security
+    await revokeAllUserSessions(userId);
 
     await pool.query(
       `INSERT INTO log_audit_login (user_id, email, login_time, ip_address, user_agent) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4)`,
