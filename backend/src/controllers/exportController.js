@@ -98,6 +98,53 @@ export const TABLE_SCHEMAS = {
       { name: 'updated_at', label: 'Diperbarui Pada', type: 'date', defaultSelected: false }
     ]
   },
+  aset_ga: {
+    tableName: 'aset_ga',
+    label: 'Aset GA (General Affair)',
+    description: 'Inventaris aset GA, fasilitas kantor, quantity, dan lokasi detail',
+    icon: 'domain',
+    dateField: 'created_at',
+    orderField: 'id',
+    softDeleteField: 'deleted_at',
+    columns: [
+      { name: 'id', label: 'ID Aset GA', type: 'number', defaultSelected: true },
+      { name: 'hostname', label: 'Hostname', type: 'string', defaultSelected: true },
+      { name: 'quantity', label: 'Quantity', type: 'number', defaultSelected: true },
+      { name: 'tipe_fasilitas', label: 'Tipe Fasilitas', type: 'string', defaultSelected: true },
+      { name: 'nama_asset', label: 'Nama Asset', type: 'string', defaultSelected: true },
+      { name: 'ukuran', label: 'Ukuran', type: 'string', defaultSelected: true },
+      { name: 'detail', label: 'Detail', type: 'string', defaultSelected: true },
+      { name: 'lokasi', label: 'Lokasi', type: 'string', defaultSelected: true },
+      { name: 'lokasi_detail', label: 'Lokasi Detail', type: 'string', defaultSelected: true },
+      { name: 'kondisi', label: 'Kondisi Asset', type: 'string', defaultSelected: true },
+      { name: 'created_at', label: 'Dibuat Pada', type: 'date', defaultSelected: true },
+      { name: 'updated_at', label: 'Diperbarui Pada', type: 'date', defaultSelected: false }
+    ]
+  },
+  aset_ops: {
+    tableName: 'aset_ops',
+    label: 'Aset OPS (Operasional)',
+    description: 'Inventaris aset operasional, Kategori, PIC, Tanggal Beli, dan Amount',
+    icon: 'precision_manufacturing',
+    dateField: 'created_at',
+    statusField: 'status',
+    orderField: 'id',
+    softDeleteField: 'deleted_at',
+    columns: [
+      { name: 'id', label: 'ID Aset OPS', type: 'number', defaultSelected: true },
+      { name: 'hostname', label: 'Hostname', type: 'string', defaultSelected: true },
+      { name: 'nama_asset', label: 'Nama Asset', type: 'string', defaultSelected: true },
+      { name: 'kategori', label: 'Kategori', type: 'string', defaultSelected: true },
+      { name: 'lokasi', label: 'Lokasi', type: 'string', defaultSelected: true },
+      { name: 'pic', label: 'PIC', type: 'string', defaultSelected: true },
+      { name: 'tanggal_beli', label: 'Tanggal Beli', type: 'date', defaultSelected: true },
+      { name: 'total_asset_amount', label: 'Total Asset Amount', type: 'number', defaultSelected: true },
+      { name: 'kondisi', label: 'Kondisi Asset', type: 'string', defaultSelected: true },
+      { name: 'status', label: 'Status Asset', type: 'string', defaultSelected: true },
+      { name: 'created_at', label: 'Dibuat Pada', type: 'date', defaultSelected: true },
+      { name: 'updated_at', label: 'Diperbarui Pada', type: 'date', defaultSelected: false }
+    ]
+  },
   karyawan: {
     tableName: 'karyawan',
     label: 'Data Karyawan',

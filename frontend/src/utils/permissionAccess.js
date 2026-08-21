@@ -67,11 +67,15 @@ export function canAccessFrontendFeature(user, featureKey) {
   if (featureKey === 'tickets') return ticketEligibility.canRead
   if (ticketEligibility.role === TICKET_ROLES.SUPERADMIN) return true
 
-  const permissions =
+  const perms =
     user?.permissions && typeof user.permissions === 'object' && !Array.isArray(user.permissions)
       ? user.permissions
       : {}
-  return canReadPermission(permissions[featureKey])
+  const permValue =
+    perms[featureKey] !== undefined
+      ? perms[featureKey]
+      : (featureKey === 'assets_ga' || featureKey === 'assets_ops' ? perms.assets : undefined)
+  return canReadPermission(permValue)
 }
 
 export function findFirstAllowedRoute(user, routeMap) {

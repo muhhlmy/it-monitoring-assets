@@ -274,15 +274,13 @@ const menuGroups = computed(() => {
               to: '/assets-ga',
               label: 'Aset GA',
               icon: 'domain',
-              permission: 'assets',
-              badge: 'Soon',
+              permission: 'assets_ga',
             },
             {
               to: '/assets-ops',
               label: 'Aset Ops',
               icon: 'precision_manufacturing',
-              permission: 'assets',
-              badge: 'Soon',
+              permission: 'assets_ops',
             },
             {
               to: '/my-assets',

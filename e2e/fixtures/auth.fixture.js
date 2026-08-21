@@ -8,7 +8,7 @@ async function ensureAuthenticated(page, userCred, baseURL) {
   await page.waitForTimeout(200)
   if (page.url().includes('/login')) {
     await page.getByLabel(/email/i).fill(userCred.email)
-    await page.getByLabel(/kata sandi/i).fill(userCred.password)
+    await page.locator('input[type="password"]').first().fill(userCred.password)
     await page.getByRole('button', { name: /masuk/i }).click()
     await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 10000 }).catch(() => {})
   }

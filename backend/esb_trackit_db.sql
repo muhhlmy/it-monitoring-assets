@@ -13,6 +13,8 @@ DROP TABLE IF EXISTS ticket_casp_ratings CASCADE;
 DROP TABLE IF EXISTS komentar_tiket CASCADE;
 DROP TABLE IF EXISTS tickets CASCADE;
 DROP TABLE IF EXISTS ticket_queues CASCADE;
+DROP TABLE IF EXISTS aset_ops CASCADE;
+DROP TABLE IF EXISTS aset_ga CASCADE;
 DROP TABLE IF EXISTS aset_ti CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS karyawan CASCADE;
@@ -135,6 +137,69 @@ CREATE INDEX idx_aset_serial_number ON aset_ti(serial_number);
 CREATE INDEX idx_aset_status ON aset_ti(status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_aset_kondisi ON aset_ti(kondisi);
 CREATE INDEX idx_aset_nik_pemegang ON aset_ti(nik_pemegang_asset);
+
+-- =====================================================================
+-- TABEL 3B: Asset GA (General Affair Assets)
+-- =====================================================================
+CREATE TABLE aset_ga (
+    id                          SERIAL          PRIMARY KEY,
+    hostname                    VARCHAR(50)     NOT NULL UNIQUE,
+    quantity                    INTEGER         NOT NULL DEFAULT 1,
+    tipe_fasilitas              VARCHAR(50)     NOT NULL,
+    nama_asset                  VARCHAR(150)    NOT NULL,
+    ukuran                      VARCHAR(100),
+    detail                      TEXT,
+    lokasi                      VARCHAR(100)    NOT NULL,
+    lokasi_detail               VARCHAR(150),
+    kondisi                     VARCHAR(20)     NOT NULL DEFAULT 'Baik',
+    deleted_at                  TIMESTAMP,
+    created_at                  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_aset_ga_quantity CHECK (quantity > 0),
+    CONSTRAINT chk_aset_ga_kondisi CHECK (kondisi IN ('Baik', 'Rusak Ringan', 'Rusak Sedang', 'Rusak Berat'))
+);
+
+CREATE INDEX idx_aset_ga_hostname ON aset_ga(hostname);
+CREATE INDEX idx_aset_ga_lokasi ON aset_ga(lokasi);
+CREATE INDEX idx_aset_ga_kondisi ON aset_ga(kondisi);
+
+-- Seed Data Aset GA
+INSERT INTO aset_ga (hostname, quantity, tipe_fasilitas, nama_asset, ukuran, detail, lokasi, lokasi_detail, kondisi) VALUES
+    ('GA-PL-001', 10, 'Meja', 'Meja Kerja', '100x100x75 cm', 'Warna Cream, Kayu Jati', 'Pluit', 'Ruang Bubur Ayam', 'Baik'),
+    ('GA-GS-002', 5, 'AC', 'AC Split 2 PK', '2 PK', 'Daikin Inverter', 'Gading Serpong', 'Lantai 2', 'Baik');
+
+-- =====================================================================
+-- TABEL 3C: Asset OPS (Operational Assets)
+-- =====================================================================
+CREATE TABLE aset_ops (
+    id                          SERIAL          PRIMARY KEY,
+    hostname                    VARCHAR(50)     NOT NULL UNIQUE,
+    nama_asset                  VARCHAR(150)    NOT NULL,
+    kategori                    VARCHAR(50)     NOT NULL,
+    lokasi                      VARCHAR(100)    NOT NULL,
+    pic                         VARCHAR(150),
+    tanggal_beli                DATE,
+    total_asset_amount          NUMERIC(15,2)   DEFAULT 0,
+    kondisi                     VARCHAR(20)     NOT NULL DEFAULT 'Baik',
+    status                      VARCHAR(20)     NOT NULL DEFAULT 'Aktif',
+    deleted_at                  TIMESTAMP,
+    created_at                  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_aset_ops_amount CHECK (total_asset_amount >= 0),
+    CONSTRAINT chk_aset_ops_kondisi CHECK (kondisi IN ('Baik', 'Rusak Ringan', 'Rusak Sedang', 'Rusak Berat')),
+    CONSTRAINT chk_aset_ops_status CHECK (status IN ('Aktif', 'Tidak Aktif', 'Maintenance', 'Rusak', 'Disposed'))
+);
+
+CREATE INDEX idx_aset_ops_hostname ON aset_ops(hostname);
+CREATE INDEX idx_aset_ops_lokasi ON aset_ops(lokasi);
+CREATE INDEX idx_aset_ops_status ON aset_ops(status) WHERE deleted_at IS NULL;
+
+-- Seed Data Aset OPS
+INSERT INTO aset_ops (hostname, nama_asset, kategori, lokasi, pic, tanggal_beli, total_asset_amount, kondisi, status) VALUES
+    ('OPS-PL-001', 'KIOSK', 'Self Service', 'Pluit', 'Store Manager', '2026-08-01', 15000000.00, 'Baik', 'Aktif'),
+    ('OPS-GS-002', 'POS Terminal', 'Point of Sales', 'Gading Serpong', 'Supervisor', '2026-06-15', 8500000.00, 'Baik', 'Aktif');
 
 -- =====================================================================
 -- TABEL 4: Ticket Queue (Helpdesk Categories/Teams)

@@ -1,6 +1,8 @@
 export const FEATURE_PERMISSION_KEYS = Object.freeze([
   'dashboard',
   'assets',
+  'assets_ga',
+  'assets_ops',
   'my_assets',
   'tickets',
   'submissions',
@@ -13,6 +15,8 @@ export const FEATURE_PERMISSION_KEYS = Object.freeze([
 export const DEFAULT_USER_PERMISSIONS = Object.freeze({
   dashboard: 'none',
   assets: 'none',
+  assets_ga: 'none',
+  assets_ops: 'none',
   my_assets: 'read_only',
   tickets: 'read_only',
   submissions: 'none',
