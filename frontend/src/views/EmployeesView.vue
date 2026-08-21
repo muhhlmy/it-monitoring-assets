@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
 import { animateStagger } from '../composables/useGsap.js'
+import { normalizeLocation } from '../utils/locationNormalizer.js'
 import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
@@ -143,8 +144,9 @@ const availableDepartemenOptions = computed(() => {
 })
 
 const availableLokasiOptions = computed(() => {
-  const custom = employees.value.map((e) => e.lokasi_kerja).filter(Boolean)
-  return [...new Set([...locationCodeOptions, ...custom])].sort()
+  const custom = employees.value.map((e) => normalizeLocation(e.lokasi_kerja)).filter(Boolean)
+  const mappedDefaults = locationCodeOptions.map(normalizeLocation)
+  return [...new Set([...mappedDefaults, ...custom])].sort()
 })
 
 const filteredEmployees = computed(() => {
@@ -212,6 +214,7 @@ async function fetchData() {
       tingkat_jabatan: e.tingkat_jabatan || e.job_level || 'L3',
       directorate: e.directorate || e.direktorat || '',
       direktorat: e.direktorat || e.directorate || '',
+      lokasi_kerja: normalizeLocation(e.lokasi_kerja || e.work_location || ''),
       employeement_status: e.employeement_status || e.status_kepegawaian || 'Permanent',
       status_kepegawaian: e.status_kepegawaian || e.employeement_status || 'Permanent',
     }))
@@ -601,7 +604,7 @@ onMounted(() => {
                 />
               </td>
               <td class="py-4 px-4 text-[12.5px] font-normal text-[#1E293B] min-w-[130px]">
-                {{ emp.lokasi_kerja || emp.work_location || '—' }}
+                {{ normalizeLocation(emp.lokasi_kerja || emp.work_location) || '—' }}
               </td>
               <td v-if="canWriteKaryawan" class="py-4 pr-5 pl-4 text-right" @click.stop>
                 <AppRowActions :actions="getEmployeeActions(emp)" />

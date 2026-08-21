@@ -5,6 +5,7 @@ import SearchableSelect from '../components/ui/SearchableSelect.vue'
 import BaseSkeleton from '../components/ui/skeleton/BaseSkeleton.vue'
 import { animateStagger } from '../composables/useGsap.js'
 import { escapeHtml, printHtmlDocument } from '../utils/printDocument.js'
+import { normalizeLocation } from '../utils/locationNormalizer.js'
 
 const { get } = useApi()
 
@@ -46,7 +47,8 @@ async function fetchData() {
       const nik = a.nik_pemegang_asset || a.nik || ''
       const nama = a.nama_karyawan_pemegang_asset || a.nama_karyawan || ''
       const dept = a.departemen_pemegang_asset || a.departemen || ''
-      const lokasi = a.lokasi_asset || a.lokasi_aset || a.lokasi_kerja || a.lokasi || ''
+      const rawLokasi = a.lokasi_asset || a.lokasi_aset || a.lokasi_kerja || a.lokasi || ''
+      const lokasi = normalizeLocation(rawLokasi)
       const status = a.status || a.status_aset || 'In Use'
       const kondisi = a.kondisi || a.kondisi_aset || 'Normal'
       const note = a.note_asset || a.catatan_aset || ''

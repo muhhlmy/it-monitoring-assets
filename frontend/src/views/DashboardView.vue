@@ -14,6 +14,7 @@ import AssetTypeBarChart from '../components/charts/AssetTypeBarChart.vue'
 import AssetConditionPieChart from '../components/charts/AssetConditionPieChart.vue'
 import CsatDashboardSection from '../components/charts/CsatDashboardSection.vue'
 import { getAssetStatusLabel } from '../utils/assetStatus.js'
+import { normalizeLocation } from '../utils/locationNormalizer.js'
 import { animateStagger } from '../composables/useGsap.js'
 import BaseSkeleton from '../components/ui/skeleton/BaseSkeleton.vue'
 import SkeletonCard from '../components/ui/skeleton/SkeletonCard.vue'
@@ -120,17 +121,29 @@ const pctRusak = computed(() => percentage(countRusak.value, statusChartTotal.va
 const locationBreakdown = computed(() => {
   if (!Array.isArray(stats.value?.byLocation)) return []
 
-  return stats.value.byLocation.map((row) => ({
-    label: row?.location || 'Belum ditentukan',
-    count: toCount(row?.count),
-    pct: percentage(toCount(row?.count)),
+  const locMap = new Map()
+  for (const row of stats.value.byLocation) {
+    const raw = row?.location
+    const norm = raw && String(raw).trim() ? normalizeLocation(raw) : 'Belum ditentukan'
+    const cnt = toCount(row?.count)
+    locMap.set(norm, (locMap.get(norm) || 0) + cnt)
+  }
+
+  return Array.from(locMap.entries()).map(([label, count]) => ({
+    label,
+    count,
+    pct: percentage(count),
   }))
 })
 
 // ── Computed: 5 aset terbaru ─────────────────────────────────
-const recentAssets = computed(() =>
-  Array.isArray(stats.value?.recentAssets) ? stats.value.recentAssets : [],
-)
+const recentAssets = computed(() => {
+  if (!Array.isArray(stats.value?.recentAssets)) return []
+  return stats.value.recentAssets.map((asset) => ({
+    ...asset,
+    lokasi_kerja: normalizeLocation(asset.lokasi_kerja) || asset.lokasi_kerja || '—',
+  }))
+})
 
 // ── Fetch data ───────────────────────────────────────────────
 async function fetchStats() {

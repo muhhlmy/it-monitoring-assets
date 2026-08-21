@@ -1,4 +1,5 @@
 import { pool } from '../config/database.js'
+import { normalizeLocation } from '../utils/locationNormalizer.js'
 
 const MAX_EXPORT_ROWS = 1000
 const MAX_SEARCH_LENGTH = 200
@@ -528,7 +529,15 @@ export async function exportTableData(req, res) {
 
     // Proyeksikan ulang agar properti tak terduga dari driver/mock tidak ikut terkirim.
     const projectedRows = result.rows.map((row) =>
-      Object.fromEntries(selectedCols.map((column) => [column, row[column]]))
+      Object.fromEntries(
+        selectedCols.map((column) => {
+          let val = row[column]
+          if ((column === 'lokasi_asset' || column === 'lokasi_kerja') && val) {
+            val = normalizeLocation(val)
+          }
+          return [column, val]
+        })
+      )
     )
 
     // Audit Logging

@@ -2,6 +2,7 @@
 // The actual implementation is in assetController.js main file - this ensures exports work
 
 import { pool, withTransaction } from "../config/database.js";
+import { normalizeLocation } from "../utils/locationNormalizer.js";
 
 function createHttpError(statusCode, message) {
   const error = new Error(message);
@@ -393,12 +394,19 @@ export async function showAssetStats(req, res) {
 
     // 5. By Location
     const locationResult = await pool.query(`
-      SELECT COALESCE(lokasi_asset, 'Belum ditentukan') AS location, COUNT(*)::int AS count
+      SELECT lokasi_asset, COUNT(*)::int AS count
       FROM aset_ti
       WHERE deleted_at IS NULL
       GROUP BY lokasi_asset
     `);
-    const byLocation = locationResult.rows.map((r) => ({ location: r.location, count: r.count }));
+    const locationMap = new Map();
+    for (const r of locationResult.rows) {
+      const rawLoc = r.lokasi_asset;
+      const normalizedLoc = rawLoc && rawLoc.trim() ? normalizeLocation(rawLoc) : 'Belum ditentukan';
+      const count = parseInt(r.count, 10) || 0;
+      locationMap.set(normalizedLoc, (locationMap.get(normalizedLoc) || 0) + count);
+    }
+    const byLocation = Array.from(locationMap.entries()).map(([location, count]) => ({ location, count }));
 
     // 6. Recent Assets (5 terbaru)
     const recentResult = await pool.query(`
@@ -412,7 +420,10 @@ export async function showAssetStats(req, res) {
       ORDER BY created_at DESC
       LIMIT 5
     `);
-    const recentAssets = recentResult.rows;
+    const recentAssets = recentResult.rows.map((row) => ({
+      ...row,
+      lokasi_kerja: normalizeLocation(row.lokasi_kerja) || row.lokasi_kerja || '—',
+    }));
 
     // 7. Monthly Trend (12 bulan terakhir)
     const trendResult = await pool.query(`

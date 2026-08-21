@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useApi } from '../composables/useApi.js'
 import { useAuth } from '../composables/useAuth.js'
 import { formatStatusPill } from '../utils/assetStatus.js'
+import { normalizeLocation } from '../utils/locationNormalizer.js'
 import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
@@ -71,7 +72,7 @@ const departemenOptions = computed(() => {
 })
 
 const lokasiOptions = computed(() => {
-  const locs = [...new Set(employeesWithAssets.value.map((e) => e.lokasi_kerja).filter(Boolean))]
+  const locs = [...new Set(employeesWithAssets.value.map((e) => normalizeLocation(e.lokasi_kerja)).filter(Boolean))]
   return locs.sort()
 })
 
@@ -265,7 +266,8 @@ function normalizeAsset(a) {
   const nik = a.nik_pemegang_asset || a.nik || ''
   const nama = a.nama_karyawan_pemegang_asset || a.nama_karyawan || ''
   const dept = a.departemen_pemegang_asset || a.departemen || ''
-  const lokasi = a.lokasi_asset || a.lokasi_aset || a.lokasi_kerja || a.lokasi || ''
+  const rawLokasi = a.lokasi_asset || a.lokasi_aset || a.lokasi_kerja || a.lokasi || ''
+  const lokasi = normalizeLocation(rawLokasi)
   const status = a.status || a.status_aset || 'In Use'
   const kondisi = a.kondisi || a.kondisi_aset || 'Normal'
   const note = a.note_asset || a.catatan_aset || ''
@@ -393,7 +395,7 @@ async function loadMyOwnAssets() {
           empData.jabatan || empData.title || currentUser?.jabatan || currentUser?.title || 'Staff',
         departemen: empData.departemen || currentUser?.departemen || '',
         directorate: empData.directorate || currentUser?.directorate || '',
-        lokasi_kerja: empData.lokasi_kerja || currentUser?.lokasi_kerja || '',
+        lokasi_kerja: normalizeLocation(empData.lokasi_kerja || currentUser?.lokasi_kerja || ''),
         status_karyawan: empData.status || 'Active',
         email_kantor: empData.email_kantor || currentUser?.email || '',
         hasEmployeeRecord: true,
@@ -749,7 +751,7 @@ onMounted(() => {
                       <span class="material-symbols-outlined text-[13px] text-[#94A3B8]"
                         >location_on</span
                       >
-                      {{ employee.lokasi_kerja || '—' }}
+                      {{ normalizeLocation(employee.lokasi_kerja) || '—' }}
                     </span>
                   </div>
                 </td>

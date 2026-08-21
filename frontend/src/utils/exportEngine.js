@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
 import { escapeHtml, printHtmlDocument } from './printDocument.js'
+import { normalizeLocation } from './locationNormalizer.js'
 
 function formatDateStamp(date = new Date()) {
   const yyyy = date.getFullYear()
@@ -35,6 +36,13 @@ function neutralizeSpreadsheetFormula(value) {
   return /^\s*[=+\-@]/u.test(text) ? `'${text}` : text
 }
 
+function getNormalizedExportValue(key, value) {
+  if ((key === 'lokasi_asset' || key === 'lokasi_kerja' || key === 'lokasi_aset' || key === 'lokasi') && value) {
+    return normalizeLocation(value)
+  }
+  return value
+}
+
 /**
  * Ekspor Data ke CSV (UTF-8 BOM untuk MS Excel)
  */
@@ -51,7 +59,7 @@ export function exportToCsv(data, columns = [], filenamePrefix = 'Export_Data') 
   }
 
   const headerRow = colLabels.map(escapeCsv).join(',')
-  const dataRows = data.map((row) => colKeys.map((key) => escapeCsv(row[key])).join(','))
+  const dataRows = data.map((row) => colKeys.map((key) => escapeCsv(getNormalizedExportValue(key, row[key]))).join(','))
 
   const csvContent = '\uFEFF' + [headerRow, ...dataRows].join('\r\n')
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -94,7 +102,7 @@ export function exportToExcel(
     const obj = {}
     colKeys.forEach((key, idx) => {
       const label = colLabels[idx] || key
-      obj[label] = neutralizeSpreadsheetFormula(row[key])
+      obj[label] = neutralizeSpreadsheetFormula(getNormalizedExportValue(key, row[key]))
     })
     return obj
   })
@@ -140,7 +148,7 @@ export function exportToPdf(
     .map((row, idx) => {
       const cells = colKeys
         .map((key) => {
-          let val = row[key]
+          let val = getNormalizedExportValue(key, row[key])
           if (val === null || val === undefined) val = '—'
           if (typeof val === 'boolean') val = val ? 'Aktif' : 'Non-Aktif'
           return `<td>${escapeHtml(val)}</td>`

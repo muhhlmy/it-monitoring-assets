@@ -7,6 +7,7 @@ import { animateStagger } from '../composables/useGsap.js'
 import { downloadAssetsCsv } from '../utils/exportAssetsCsv.js'
 import { downloadAssetsPdf } from '../utils/exportAssetsPdf.js'
 import { ASSET_STATUSES, formatStatusPill, getAssetStatusLabel } from '../utils/assetStatus.js'
+import { normalizeLocation } from '../utils/locationNormalizer.js'
 import AppModal from '../components/ui/AppModal.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 import SearchableSelect from '../components/ui/SearchableSelect.vue'
@@ -140,10 +141,13 @@ const brandSelectOptions = computed(() =>
   })),
 )
 const locationOptions = computed(() =>
-  mergeOptions(defaultLocations, [
-    ...assets.value.map((a) => a.lokasi_asset || a.lokasi_aset || a.lokasi_kerja),
-    form.value.lokasi_asset || form.value.lokasi_aset,
-  ]).map((loc) => ({ value: loc, label: loc })),
+  mergeOptions(
+    defaultLocations.map(normalizeLocation),
+    [
+      ...assets.value.map((a) => a.lokasi_asset || a.lokasi_aset || a.lokasi_kerja),
+      form.value.lokasi_asset || form.value.lokasi_aset,
+    ].map(normalizeLocation),
+  ).map((loc) => ({ value: loc, label: loc })),
 )
 
 const filteredAssets = computed(() => {
@@ -222,7 +226,8 @@ async function fetchData() {
       const nik = a.nik_pemegang_asset || a.nik || ''
       const nama = a.nama_karyawan_pemegang_asset || a.nama_karyawan || ''
       const dept = a.departemen_pemegang_asset || a.departemen || ''
-      const lokasi = a.lokasi_asset || a.lokasi_aset || a.lokasi_kerja || a.lokasi || ''
+      const rawLokasi = a.lokasi_asset || a.lokasi_aset || a.lokasi_kerja || a.lokasi || ''
+      const lokasi = normalizeLocation(rawLokasi)
       const status = a.status || a.status_aset || 'In Use'
       const kondisi = a.kondisi || a.kondisi_aset || 'Normal'
       const note = a.note_asset || a.catatan_aset || ''

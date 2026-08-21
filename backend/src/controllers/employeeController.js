@@ -1,5 +1,6 @@
 import { pool, withTransaction } from "../config/database.js";
 import { hashPassword } from "../security/passwordService.js";
+import { normalizeLocation } from "../utils/locationNormalizer.js";
 
 // Validasi ENUM status karyawan & Job Level sesuai spesifikasi
 const VALID_KARYAWAN_STATUSES = ["Active", "Outsource", "Resigned"];
@@ -87,7 +88,9 @@ export async function listLocations(req, res) {
        WHERE lokasi_kerja IS NOT NULL AND lokasi_kerja <> ''
        ORDER BY lokasi_kerja`,
     );
-    res.json(result.rows.map((row) => row.lokasi_kerja));
+    const rawLocs = result.rows.map((row) => row.lokasi_kerja);
+    const normalizedLocations = [...new Set(rawLocs.map(normalizeLocation).filter(Boolean))].sort();
+    res.json(normalizedLocations);
   } catch (error) {
     console.error("Error listing locations:", error);
     res.status(500).json({ error: "Failed to list locations" });
