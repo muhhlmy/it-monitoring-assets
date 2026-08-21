@@ -99,14 +99,16 @@ watch(isLoginPage, (loginPage) => {
           class="app-main flex-1 overflow-y-auto p-3.5 outline-none sm:p-4 lg:p-5"
         >
           <div class="mx-auto w-full max-w-[1560px]">
-            <RouterView v-slot="{ Component }">
+            <RouterView v-slot="{ Component, route: currentRoute }">
               <Transition
                 :css="false"
                 @enter="animatePageEnter"
                 @leave="animatePageLeave"
                 mode="out-in"
               >
-                <component :is="Component" :key="route.fullPath" />
+                <div :key="currentRoute.fullPath" class="page-transition-wrapper w-full">
+                  <component :is="Component" />
+                </div>
               </Transition>
             </RouterView>
           </div>

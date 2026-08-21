@@ -169,4 +169,8 @@ router.afterEach((to) => {
     : 'IT Assets Monitoring'
 })
 
+router.onError((error) => {
+  console.error('[Vue Router] Navigation error handled gracefully:', error)
+})
+
 export default router
