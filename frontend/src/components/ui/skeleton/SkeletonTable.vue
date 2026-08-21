@@ -31,16 +31,45 @@ defineProps({
   <!-- ═══════════════════════════════════════════════════════════════════════
        PRESET: USERS TABLE (Exact match to UsersView.vue actual table headers & columns)
        ═══════════════════════════════════════════════════════════════════════ -->
-  <div v-if="preset === 'users'" class="w-full overflow-x-auto rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs">
+  <div
+    v-if="preset === 'users'"
+    class="w-full overflow-x-auto rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs"
+  >
     <table class="w-full text-left border-collapse">
-      <thead class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none">
+      <thead
+        class="sticky top-0 z-10 border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 backdrop-blur-xs select-none"
+      >
         <tr>
-          <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[200px]">Pengguna</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[110px]">Role Akses</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[160px]">Sub Role / Unit Ditangani</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[140px]">Hak Akses Fitur</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[110px]">Status</th>
-          <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
+          <th
+            class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[200px]"
+          >
+            Pengguna
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[110px]"
+          >
+            Role Akses
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[160px]"
+          >
+            Sub Role / Unit Ditangani
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[140px]"
+          >
+            Hak Akses Fitur
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[110px]"
+          >
+            Status
+          </th>
+          <th
+            class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]"
+          >
+            Aksi
+          </th>
         </tr>
       </thead>
       <tbody class="divide-y divide-[#F1F5F9]">
@@ -86,16 +115,43 @@ defineProps({
   <!-- ═══════════════════════════════════════════════════════════════════════
        PRESET: EMPLOYEES TABLE (Exact match to EmployeesView.vue actual table)
        ═══════════════════════════════════════════════════════════════════════ -->
-  <div v-else-if="preset === 'employees'" class="w-full overflow-x-auto rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs">
+  <div
+    v-else-if="preset === 'employees'"
+    class="w-full overflow-x-auto rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs"
+  >
     <table class="w-full text-left border-collapse">
       <thead class="border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 select-none">
         <tr>
-          <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[210px]">Karyawan</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[170px]">Email &amp; No. HP</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[160px]">Departemen &amp; Jabatan</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[130px]">Lokasi Kerja</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[120px]">Status &amp; Role</th>
-          <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
+          <th
+            class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[210px]"
+          >
+            Karyawan
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[170px]"
+          >
+            Email &amp; No. HP
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[160px]"
+          >
+            Departemen &amp; Jabatan
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[130px]"
+          >
+            Lokasi Kerja
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[120px]"
+          >
+            Status &amp; Role
+          </th>
+          <th
+            class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]"
+          >
+            Aksi
+          </th>
         </tr>
       </thead>
       <tbody class="divide-y divide-[#F1F5F9]">
@@ -147,15 +203,38 @@ defineProps({
   <!-- ═══════════════════════════════════════════════════════════════════════
        PRESET: LOGS TABLE (Exact match to LogsView.vue audit/asset history)
        ═══════════════════════════════════════════════════════════════════════ -->
-  <div v-else-if="preset === 'logs'" class="w-full overflow-x-auto rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs">
+  <div
+    v-else-if="preset === 'logs'"
+    class="w-full overflow-x-auto rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs"
+  >
     <table class="w-full text-left border-collapse">
       <thead class="border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 select-none">
         <tr>
-          <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[140px]">Waktu</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[180px]">Pelaku</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[110px]">Aksi</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[240px]">Detail Aktivitas</th>
-          <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">IP / Perangkat</th>
+          <th
+            class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[140px]"
+          >
+            Waktu
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[180px]"
+          >
+            Pelaku
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[110px]"
+          >
+            Aksi
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[240px]"
+          >
+            Detail Aktivitas
+          </th>
+          <th
+            class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]"
+          >
+            IP / Perangkat
+          </th>
         </tr>
       </thead>
       <tbody class="divide-y divide-[#F1F5F9]">
@@ -186,16 +265,43 @@ defineProps({
   <!-- ═══════════════════════════════════════════════════════════════════════
        PRESET: TICKETS TABLE (Exact match to TicketsView.vue inbox table)
        ═══════════════════════════════════════════════════════════════════════ -->
-  <div v-else-if="preset === 'tickets'" class="w-full overflow-x-auto rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs">
+  <div
+    v-else-if="preset === 'tickets'"
+    class="w-full overflow-x-auto rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs"
+  >
     <table class="w-full text-left border-collapse">
       <thead class="border-b border-[#E2E8F0]/80 bg-[#F8FAFC]/80 select-none">
         <tr>
-          <th class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[240px]">Tiket &amp; Subjek</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[150px]">Pemohon</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[110px]">Unit</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[110px]">Status</th>
-          <th class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[100px]">Prioritas</th>
-          <th class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]">Aksi</th>
+          <th
+            class="py-3 pl-5 pr-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[240px]"
+          >
+            Tiket &amp; Subjek
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[150px]"
+          >
+            Pemohon
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[110px]"
+          >
+            Unit
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[110px]"
+          >
+            Status
+          </th>
+          <th
+            class="py-3 px-4 text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B] min-w-[100px]"
+          >
+            Prioritas
+          </th>
+          <th
+            class="py-3 pr-5 pl-4 text-right text-[10.5px] font-semibold uppercase tracking-wider text-[#64748B]"
+          >
+            Aksi
+          </th>
         </tr>
       </thead>
       <tbody class="divide-y divide-[#F1F5F9]">
@@ -235,7 +341,10 @@ defineProps({
   <!-- ═══════════════════════════════════════════════════════════════════════
        DEFAULT GENERIC TABLE (Used for general fallback tables)
        ═══════════════════════════════════════════════════════════════════════ -->
-  <div v-else class="w-full overflow-x-auto rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs">
+  <div
+    v-else
+    class="w-full overflow-x-auto rounded-2xl border border-[#E2E8F0]/80 bg-white shadow-2xs"
+  >
     <table class="w-full text-left border-collapse">
       <thead>
         <tr class="bg-[#F8FAFC] border-b border-[#E2E8F0]">

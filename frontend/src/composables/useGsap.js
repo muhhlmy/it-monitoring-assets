@@ -104,7 +104,11 @@ export function animateStagger(targets, options = {}) {
     els = Array.from(document.querySelectorAll(targets))
   } else if (typeof Element !== 'undefined' && targets instanceof Element) {
     els = [targets]
-  } else if (Array.isArray(targets) || targets instanceof NodeList || targets instanceof HTMLCollection) {
+  } else if (
+    Array.isArray(targets) ||
+    targets instanceof NodeList ||
+    targets instanceof HTMLCollection
+  ) {
     els = Array.from(targets)
   }
 
@@ -148,11 +152,7 @@ export function animateModalEnter(el, done) {
 
   const panel = el.querySelector('.app-modal-panel') || el
 
-  gsap.fromTo(
-    el,
-    { opacity: 0 },
-    { opacity: 1, duration: 0.2, ease: 'power2.out' },
-  )
+  gsap.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.2, ease: 'power2.out' })
 
   gsap.fromTo(
     panel,

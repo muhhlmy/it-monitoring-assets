@@ -1831,11 +1831,7 @@ function toast(message, type = 'success') {
 
           <!-- TAB 2: ACTIVITY TIMELINE -->
           <div v-else-if="activeDetailTab === 'history'" class="space-y-4">
-            <div
-              v-if="isHistoryLoading"
-              class="p-2"
-              aria-busy="true"
-            >
+            <div v-if="isHistoryLoading" class="p-2" aria-busy="true">
               <SkeletonList :items="4" :show-avatar="true" />
             </div>
 

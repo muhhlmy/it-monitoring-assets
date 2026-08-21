@@ -63,7 +63,7 @@ const jobLevelOptions = [
   'LS2',
   'LS3',
   'Freelance',
-  'Intern'
+  'Intern',
 ]
 
 const departemenOptions = [
@@ -344,7 +344,9 @@ async function deleteEmployee() {
     const res = await del(`/api/karyawan/${targetId}`)
     const count = res?.affectedAssetsCount || 0
     if (count > 0) {
-      toast(`Data karyawan diubah ke Resigned. ${count} unit aset otomatis dialihkan menjadi Stock.`)
+      toast(
+        `Data karyawan diubah ke Resigned. ${count} unit aset otomatis dialihkan menjadi Stock.`,
+      )
     } else {
       toast('Data karyawan berhasil diubah statusnya menjadi Resigned.')
     }
@@ -847,9 +849,12 @@ onMounted(() => {
         >
           <span class="material-symbols-outlined text-[18px] mt-0.5">warning</span>
           <div>
-            <p>Karyawan ini masih memiliki {{ selectedEmployee?.jumlah_aset }} unit aset ter-assign.</p>
+            <p>
+              Karyawan ini masih memiliki {{ selectedEmployee?.jumlah_aset }} unit aset ter-assign.
+            </p>
             <p class="font-normal text-[11px] text-amber-800 mt-0.5">
-              Aset milik karyawan ini akan <strong>otomatis dialihkan menjadi Stock</strong> saat karyawan di-delete / resigned.
+              Aset milik karyawan ini akan <strong>otomatis dialihkan menjadi Stock</strong> saat
+              karyawan di-delete / resigned.
             </p>
           </div>
         </div>

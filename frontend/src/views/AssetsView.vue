@@ -878,7 +878,9 @@ onMounted(async () => {
             </span>
             <span
               class="text-[11.5px] font-normal text-[#64748B] mt-0.5 truncate block w-full"
-              :title="[asset.merek || asset.brand_merek, asset.model].filter(Boolean).join(' ') || '—'"
+              :title="
+                [asset.merek || asset.brand_merek, asset.model].filter(Boolean).join(' ') || '—'
+              "
             >
               {{ [asset.merek || asset.brand_merek, asset.model].filter(Boolean).join(' ') || '—' }}
             </span>
@@ -1762,7 +1764,10 @@ onMounted(async () => {
 @media (min-width: 768px) {
   .asset-row-grid {
     display: grid;
-    grid-template-columns: minmax(230px, 2.2fr) minmax(140px, 1.2fr) minmax(170px, 1.5fr) minmax(120px, 1fr) minmax(130px, 1fr) 32px;
+    grid-template-columns: minmax(230px, 2.2fr) minmax(140px, 1.2fr) minmax(170px, 1.5fr) minmax(
+        120px,
+        1fr
+      ) minmax(130px, 1fr) 32px;
     align-items: center;
   }
 }

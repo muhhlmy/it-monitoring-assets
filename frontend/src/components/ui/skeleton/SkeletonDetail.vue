@@ -31,7 +31,11 @@ defineProps({
 
     <!-- Metadata Grid Skeleton -->
     <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-      <div v-for="i in 6" :key="i" class="p-3 bg-[#F8FAFC] rounded-lg border border-[#E5EAEF] space-y-1.5">
+      <div
+        v-for="i in 6"
+        :key="i"
+        class="p-3 bg-[#F8FAFC] rounded-lg border border-[#E5EAEF] space-y-1.5"
+      >
         <BaseSkeleton width="60%" height="10px" radius="sm" />
         <BaseSkeleton width="85%" height="14px" radius="md" />
       </div>

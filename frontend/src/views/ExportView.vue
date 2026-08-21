@@ -416,7 +416,11 @@ onMounted(() => {
 
     <!-- TAB 1: EKSPOR CEPAT PER TABEL -->
     <div v-if="activeTab === 'quick'" class="space-y-4">
-      <div v-if="isLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-busy="true">
+      <div
+        v-if="isLoading"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        aria-busy="true"
+      >
         <SkeletonCard v-for="i in 8" :key="i" variant="simple" />
       </div>
 

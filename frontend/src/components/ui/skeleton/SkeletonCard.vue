@@ -43,10 +43,7 @@ defineProps({
   </div>
 
   <!-- Simple Card Variant -->
-  <div
-    v-else
-    class="rounded-xl border border-[#E5EAEF] bg-white p-4 shadow-card space-y-3"
-  >
+  <div v-else class="rounded-xl border border-[#E5EAEF] bg-white p-4 shadow-card space-y-3">
     <div class="flex items-center justify-between">
       <BaseSkeleton width="40%" height="14px" radius="md" />
       <BaseSkeleton width="20%" height="12px" radius="sm" />

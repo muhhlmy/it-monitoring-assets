@@ -312,8 +312,8 @@ async function submitImport() {
           <span>{{ successResult }}</span>
         </div>
         <p class="text-[11px] font-normal text-emerald-800">
-          Setiap karyawan baru otomatis dibuatkan akun pengguna default (role: User) dengan
-          password acak yang aman. Pengguna wajib mengganti password saat login pertama.
+          Setiap karyawan baru otomatis dibuatkan akun pengguna default (role: User) dengan password
+          acak yang aman. Pengguna wajib mengganti password saat login pertama.
         </p>
       </div>
 
@@ -373,11 +373,7 @@ async function submitImport() {
       </div>
 
       <!-- Parsed Data Preview -->
-      <div
-        v-if="isParsing"
-        class="py-4 space-y-2"
-        aria-busy="true"
-      >
+      <div v-if="isParsing" class="py-4 space-y-2" aria-busy="true">
         <p class="text-[11px] font-semibold text-[#5D87FF] flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-[#5D87FF] animate-ping"></span>
           Membaca dan memproses isi file Excel...
@@ -454,10 +450,19 @@ async function submitImport() {
                   <td class="p-2 text-[#7C8BAC]">
                     {{ row['Email Kantor'] || row.email_kantor || '—' }}
                   </td>
-                  <td class="p-2 text-[#2A3547]">{{ row.Title || row.title || row.jabatan || '—' }}</td>
+                  <td class="p-2 text-[#2A3547]">
+                    {{ row.Title || row.title || row.jabatan || '—' }}
+                  </td>
                   <td class="p-2 text-[#2A3547]">{{ row['Job Level'] || row.job_level || '—' }}</td>
                   <td class="p-2 text-[#2A3547]">{{ row.Departemen || row.departemen || '—' }}</td>
-                  <td class="p-2 text-[#2A3547]">{{ row['Employeement Status'] || row.employeement_status || row['Status Kepegawaian'] || '—' }}</td>
+                  <td class="p-2 text-[#2A3547]">
+                    {{
+                      row['Employeement Status'] ||
+                      row.employeement_status ||
+                      row['Status Kepegawaian'] ||
+                      '—'
+                    }}
+                  </td>
                   <td class="p-2 text-[#2A3547]">{{ row['Lokasi Kerja'] || row.lokasi || '—' }}</td>
                 </tr>
               </tbody>

@@ -179,10 +179,10 @@ function getStatusBadgeType(status) {
 // Helper untuk Status Asset card
 function getSortedByStatus() {
   const combined = {
-    'digunakan': { status: 'Digunakan', rawStatus: 'In Use', count: 0 },
-    'stok': { status: 'Stok', rawStatus: 'Stock', count: 0 },
+    digunakan: { status: 'Digunakan', rawStatus: 'In Use', count: 0 },
+    stok: { status: 'Stok', rawStatus: 'Stock', count: 0 },
     'dalam perawatan': { status: 'Dalam Perawatan', rawStatus: 'In Service', count: 0 },
-    'rusak': { status: 'Rusak', rawStatus: 'Damaged', count: 0 },
+    rusak: { status: 'Rusak', rawStatus: 'Damaged', count: 0 },
   }
 
   if (Array.isArray(stats.value?.byStatus)) {
@@ -327,13 +327,7 @@ onUnmounted(() => {
     <!-- ═══════════════════════════════════════════
          LOADING
          ═══════════════════════════════════════════ -->
-    <div
-      v-if="isLoading"
-      class="space-y-4"
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-    >
+    <div v-if="isLoading" class="space-y-4" role="status" aria-live="polite" aria-busy="true">
       <!-- Row 1: 5 Stat Cards Skeleton -->
       <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <SkeletonCard v-for="i in 5" :key="i" variant="summary" />
@@ -371,21 +365,33 @@ onUnmounted(() => {
             <thead>
               <tr class="border-b border-[#F1F5F9]">
                 <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Perangkat</th>
-                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Merek &amp; Tipe</th>
+                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">
+                  Merek &amp; Tipe
+                </th>
                 <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Serial</th>
                 <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Kondisi</th>
                 <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Status</th>
-                <th class="py-3 px-4 text-right text-xs font-semibold text-[#64748B] uppercase">Ditambahkan</th>
+                <th class="py-3 px-4 text-right text-xs font-semibold text-[#64748B] uppercase">
+                  Ditambahkan
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[#F8FAFC]">
               <tr v-for="r in 3" :key="'recent-asset-skel-' + r">
-                <td class="py-3.5 px-4"><BaseSkeleton width="130px" height="14px" radius="md" /></td>
-                <td class="py-3.5 px-4"><BaseSkeleton width="100px" height="14px" radius="sm" /></td>
+                <td class="py-3.5 px-4">
+                  <BaseSkeleton width="130px" height="14px" radius="md" />
+                </td>
+                <td class="py-3.5 px-4">
+                  <BaseSkeleton width="100px" height="14px" radius="sm" />
+                </td>
                 <td class="py-3.5 px-4"><BaseSkeleton width="90px" height="12px" radius="sm" /></td>
                 <td class="py-3.5 px-4"><BaseSkeleton width="70px" height="14px" radius="sm" /></td>
-                <td class="py-3.5 px-4"><BaseSkeleton width="65px" height="20px" radius="full" /></td>
-                <td class="py-3.5 px-4 text-right"><BaseSkeleton width="80px" height="12px" radius="sm" class="ml-auto" /></td>
+                <td class="py-3.5 px-4">
+                  <BaseSkeleton width="65px" height="20px" radius="full" />
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <BaseSkeleton width="80px" height="12px" radius="sm" class="ml-auto" />
+                </td>
               </tr>
             </tbody>
           </table>
@@ -402,20 +408,36 @@ onUnmounted(() => {
               <tr class="border-b border-[#F1F5F9]">
                 <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">No. Tiket</th>
                 <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Judul</th>
-                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Assigned To</th>
+                <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">
+                  Assigned To
+                </th>
                 <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Prioritas</th>
                 <th class="py-3 px-4 text-xs font-semibold text-[#64748B] uppercase">Status</th>
-                <th class="py-3 px-4 text-right text-xs font-semibold text-[#64748B] uppercase">Tanggal</th>
+                <th class="py-3 px-4 text-right text-xs font-semibold text-[#64748B] uppercase">
+                  Tanggal
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[#F8FAFC]">
               <tr v-for="r in 3" :key="'recent-ticket-skel-' + r">
-                <td class="py-3.5 px-4"><BaseSkeleton width="100px" height="14px" radius="md" /></td>
-                <td class="py-3.5 px-4"><BaseSkeleton width="180px" height="14px" radius="md" /></td>
-                <td class="py-3.5 px-4"><BaseSkeleton width="110px" height="14px" radius="sm" /></td>
-                <td class="py-3.5 px-4"><BaseSkeleton width="65px" height="20px" radius="full" /></td>
-                <td class="py-3.5 px-4"><BaseSkeleton width="65px" height="20px" radius="full" /></td>
-                <td class="py-3.5 px-4 text-right"><BaseSkeleton width="80px" height="12px" radius="sm" class="ml-auto" /></td>
+                <td class="py-3.5 px-4">
+                  <BaseSkeleton width="100px" height="14px" radius="md" />
+                </td>
+                <td class="py-3.5 px-4">
+                  <BaseSkeleton width="180px" height="14px" radius="md" />
+                </td>
+                <td class="py-3.5 px-4">
+                  <BaseSkeleton width="110px" height="14px" radius="sm" />
+                </td>
+                <td class="py-3.5 px-4">
+                  <BaseSkeleton width="65px" height="20px" radius="full" />
+                </td>
+                <td class="py-3.5 px-4">
+                  <BaseSkeleton width="65px" height="20px" radius="full" />
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <BaseSkeleton width="80px" height="12px" radius="sm" class="ml-auto" />
+                </td>
               </tr>
             </tbody>
           </table>

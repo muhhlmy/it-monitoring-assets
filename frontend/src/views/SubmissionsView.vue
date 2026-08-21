@@ -649,7 +649,11 @@ onMounted(fetchData)
           <BaseSkeleton width="210px" height="16px" radius="md" />
         </div>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-          <div v-for="i in 5" :key="'tujuan-skel-' + i" class="flex items-center gap-2.5 rounded-xl border border-[#F1F5F9] bg-[#FAFCFF] p-3">
+          <div
+            v-for="i in 5"
+            :key="'tujuan-skel-' + i"
+            class="flex items-center gap-2.5 rounded-xl border border-[#F1F5F9] bg-[#FAFCFF] p-3"
+          >
             <BaseSkeleton width="18px" height="18px" radius="sm" />
             <BaseSkeleton width="80px" height="13px" radius="sm" />
           </div>
@@ -683,7 +687,9 @@ onMounted(fetchData)
 
     <form v-else class="flex flex-col gap-6" @submit.prevent="generatePdf">
       <!-- Section 1: Profil Pihak Terkait -->
-      <div class="submission-section shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5 sm:p-6">
+      <div
+        class="submission-section shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5 sm:p-6"
+      >
         <h3 class="mb-4 text-[14px] font-extrabold text-[#172033] flex items-center gap-2">
           <span class="material-symbols-outlined text-brand">assignment_ind</span>
           I. Profil Pihak Terkait
@@ -814,7 +820,9 @@ onMounted(fetchData)
       </div>
 
       <!-- Section 2: Tujuan Serah Terima -->
-      <div class="submission-section shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5 sm:p-6">
+      <div
+        class="submission-section shadow-card rounded-[20px] border border-[#E8EDF3] bg-white p-5 sm:p-6"
+      >
         <h3 class="mb-4 text-[14px] font-extrabold text-[#172033] flex items-center gap-2">
           <span class="material-symbols-outlined text-brand">checklist</span>
           II. Tujuan Serah Terima Aset

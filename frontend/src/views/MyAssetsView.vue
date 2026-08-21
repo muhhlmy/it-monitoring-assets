@@ -387,8 +387,10 @@ async function loadMyOwnAssets() {
         id_karyawan: empData.id || empData.id_karyawan,
         nik: empData.nik,
         nama_karyawan: empData.nama_karyawan || currentUser?.nama || 'Saya',
-        title: empData.title || empData.jabatan || currentUser?.title || currentUser?.jabatan || 'Staff',
-        jabatan: empData.jabatan || empData.title || currentUser?.jabatan || currentUser?.title || 'Staff',
+        title:
+          empData.title || empData.jabatan || currentUser?.title || currentUser?.jabatan || 'Staff',
+        jabatan:
+          empData.jabatan || empData.title || currentUser?.jabatan || currentUser?.title || 'Staff',
         departemen: empData.departemen || currentUser?.departemen || '',
         directorate: empData.directorate || currentUser?.directorate || '',
         lokasi_kerja: empData.lokasi_kerja || currentUser?.lokasi_kerja || '',
@@ -695,7 +697,9 @@ onMounted(() => {
         <div v-else class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="border-b border-[#E2E8F0] bg-[#F8FAFC] text-[11px] font-semibold text-[#64748B] uppercase tracking-wider select-none">
+              <tr
+                class="border-b border-[#E2E8F0] bg-[#F8FAFC] text-[11px] font-semibold text-[#64748B] uppercase tracking-wider select-none"
+              >
                 <th class="py-3 pl-5 pr-4">Karyawan</th>
                 <th class="py-3 px-4">Departemen & Lokasi</th>
                 <th class="py-3 px-4">Kategori Aset</th>
@@ -739,8 +743,12 @@ onMounted(() => {
                     <span class="font-semibold text-[#1E293B] truncate">{{
                       employee.departemen || '—'
                     }}</span>
-                    <span class="text-[11px] text-[#64748B] flex items-center gap-1 truncate mt-0.5">
-                      <span class="material-symbols-outlined text-[13px] text-[#94A3B8]">location_on</span>
+                    <span
+                      class="text-[11px] text-[#64748B] flex items-center gap-1 truncate mt-0.5"
+                    >
+                      <span class="material-symbols-outlined text-[13px] text-[#94A3B8]"
+                        >location_on</span
+                      >
                       {{ employee.lokasi_kerja || '—' }}
                     </span>
                   </div>
@@ -884,14 +892,22 @@ onMounted(() => {
         </div>
 
         <!-- Employee Summary Stat Badges -->
-        <div class="flex items-center gap-3 shrink-0 border-t border-[#F1F5F9] pt-3 sm:border-t-0 sm:pt-0">
+        <div
+          class="flex items-center gap-3 shrink-0 border-t border-[#F1F5F9] pt-3 sm:border-t-0 sm:pt-0"
+        >
           <div class="rounded-lg bg-[#F8FAFC] px-3.5 py-2 border border-[#E2E8F0] text-right">
             <span class="block text-[10px] font-semibold uppercase text-[#64748B]">Total Aset</span>
-            <span class="text-base font-bold text-[#2563EB] mt-0.5 block">{{ myAssets.length }} Unit</span>
+            <span class="text-base font-bold text-[#2563EB] mt-0.5 block"
+              >{{ myAssets.length }} Unit</span
+            >
           </div>
           <div class="rounded-lg bg-[#F8FAFC] px-3.5 py-2 border border-[#E2E8F0] text-right">
-            <span class="block text-[10px] font-semibold uppercase text-[#64748B]">Penugasan Awal</span>
-            <span class="text-xs font-semibold text-[#0F172A] mt-1 block">{{ employeeAssignedSince }}</span>
+            <span class="block text-[10px] font-semibold uppercase text-[#64748B]"
+              >Penugasan Awal</span
+            >
+            <span class="text-xs font-semibold text-[#0F172A] mt-1 block">{{
+              employeeAssignedSince
+            }}</span>
           </div>
         </div>
       </div>
@@ -934,7 +950,10 @@ onMounted(() => {
         </div>
 
         <!-- Error Assets -->
-        <div v-else-if="assetError" class="p-6 text-center text-rose-600 text-xs rounded-xl border border-[#E2E8F0] bg-white">
+        <div
+          v-else-if="assetError"
+          class="p-6 text-center text-rose-600 text-xs rounded-xl border border-[#E2E8F0] bg-white"
+        >
           <p class="font-semibold">{{ assetError }}</p>
           <button
             type="button"
@@ -951,9 +970,13 @@ onMounted(() => {
           class="flex flex-col items-center justify-center gap-2 py-12 px-4 text-center rounded-xl border border-[#FEF3C7] bg-[#FFFBEB]"
         >
           <span class="material-symbols-outlined text-[32px] text-[#D97706]">account_box_off</span>
-          <h4 class="text-sm font-bold text-[#92400E]">Akun Belum Terhubung dengan Data Karyawan</h4>
+          <h4 class="text-sm font-bold text-[#92400E]">
+            Akun Belum Terhubung dengan Data Karyawan
+          </h4>
           <p class="max-w-md text-xs text-[#B45309]">
-            Akun Anda (<strong>{{ selectedEmployee.email_kantor }}</strong>) belum terhubung ke Master Data Karyawan. Silakan hubungi Administrator IT untuk mendaftarkan email Anda.
+            Akun Anda (<strong>{{ selectedEmployee.email_kantor }}</strong
+            >) belum terhubung ke Master Data Karyawan. Silakan hubungi Administrator IT untuk
+            mendaftarkan email Anda.
           </p>
         </div>
 
@@ -1007,11 +1030,17 @@ onMounted(() => {
               <h4
                 class="text-sm font-bold text-[#0F172A] leading-snug group-hover:text-[#2563EB] transition-colors truncate"
               >
-                {{ asset.label_aset || [asset.merek, asset.model].filter(Boolean).join(' ') || 'Aset IT' }}
+                {{
+                  asset.label_aset ||
+                  [asset.merek, asset.model].filter(Boolean).join(' ') ||
+                  'Aset IT'
+                }}
               </h4>
               <div class="mt-1 flex items-center justify-between text-xs text-[#64748B]">
                 <span class="font-mono font-medium">SN: {{ asset.nomor_seri || '—' }}</span>
-                <span class="font-mono text-[11px] text-[#94A3B8]">AST-IT-{{ String(asset.id_aset).padStart(5, '0') }}</span>
+                <span class="font-mono text-[11px] text-[#94A3B8]"
+                  >AST-IT-{{ String(asset.id_aset).padStart(5, '0') }}</span
+                >
               </div>
 
               <!-- Specs Grid -->
@@ -1023,7 +1052,9 @@ onMounted(() => {
                   }}</span>
                 </div>
                 <div>
-                  <span class="block text-[10px] font-semibold uppercase text-[#94A3B8]">Merek / Model</span>
+                  <span class="block text-[10px] font-semibold uppercase text-[#94A3B8]"
+                    >Merek / Model</span
+                  >
                   <span class="font-medium text-[#1E293B] truncate block mt-0.5">{{
                     [asset.merek, asset.model].filter(Boolean).join(' ') || '—'
                   }}</span>
@@ -1126,7 +1157,10 @@ onMounted(() => {
               <span>·</span>
               <span class="font-mono">SN: {{ selectedAsset.nomor_seri || '—' }}</span>
               <span>·</span>
-              <span>Pemegang: <strong class="text-[#0F172A]">{{ selectedEmployee.nama_karyawan }}</strong></span>
+              <span
+                >Pemegang:
+                <strong class="text-[#0F172A]">{{ selectedEmployee.nama_karyawan }}</strong></span
+              >
             </div>
           </div>
         </div>
@@ -1149,7 +1183,9 @@ onMounted(() => {
           <div class="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-2xs">
             <div class="flex items-center gap-2 pb-3 mb-3 border-b border-[#F1F5F9]">
               <span class="material-symbols-outlined text-[18px] text-[#2563EB]">info</span>
-              <h3 class="text-xs font-bold uppercase tracking-wider text-[#0F172A]">Informasi Perangkat</h3>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-[#0F172A]">
+                Informasi Perangkat
+              </h3>
             </div>
 
             <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
@@ -1206,7 +1242,9 @@ onMounted(() => {
               </div>
 
               <div>
-                <dt class="text-[10px] font-semibold uppercase text-[#94A3B8]">Kondisi Perangkat</dt>
+                <dt class="text-[10px] font-semibold uppercase text-[#94A3B8]">
+                  Kondisi Perangkat
+                </dt>
                 <dd class="mt-0.5 font-semibold text-[#0F172A]">
                   {{ selectedAsset.kondisi_aset || 'Normal' }}
                 </dd>
@@ -1219,9 +1257,12 @@ onMounted(() => {
             <div class="flex items-center justify-between pb-3 mb-3 border-b border-[#F1F5F9]">
               <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-[18px] text-[#059669]">person_pin</span>
-                <h3 class="text-xs font-bold uppercase tracking-wider text-[#0F172A]">Pemegang Aktif saat ini</h3>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-[#0F172A]">
+                  Pemegang Aktif saat ini
+                </h3>
               </div>
-              <span class="rounded-full bg-[#ECFDF5] px-2.5 py-0.5 text-[10px] font-semibold text-[#059669]"
+              <span
+                class="rounded-full bg-[#ECFDF5] px-2.5 py-0.5 text-[10px] font-semibold text-[#059669]"
                 >Active Holder</span
               >
             </div>
@@ -1237,9 +1278,12 @@ onMounted(() => {
                   {{ selectedEmployee.nama_karyawan }}
                 </h4>
                 <p class="text-[#64748B] font-medium text-[11px] truncate">
-                  {{ selectedEmployee.jabatan || 'Staff' }} · {{ selectedEmployee.departemen || '—' }}
+                  {{ selectedEmployee.jabatan || 'Staff' }} ·
+                  {{ selectedEmployee.departemen || '—' }}
                 </p>
-                <p class="font-mono text-[11px] text-[#94A3B8] mt-0.5">NIK: {{ selectedEmployee.nik }}</p>
+                <p class="font-mono text-[11px] text-[#94A3B8] mt-0.5">
+                  NIK: {{ selectedEmployee.nik }}
+                </p>
               </div>
             </div>
           </div>
@@ -1250,7 +1294,9 @@ onMounted(() => {
           <div class="flex items-center justify-between pb-3 mb-4 border-b border-[#F1F5F9]">
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined text-[18px] text-[#7C3AED]">history</span>
-              <h3 class="text-xs font-bold uppercase tracking-wider text-[#0F172A]">Audit Timeline & Log History</h3>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-[#0F172A]">
+                Audit Timeline & Log History
+              </h3>
             </div>
             <span class="text-[11px] font-semibold text-[#64748B]"
               >{{ assetHistoryTimeline.length }} Peristiwa</span
@@ -1259,17 +1305,15 @@ onMounted(() => {
 
           <!-- Loading logs indicator -->
           <div v-if="isLoadingLogs" class="py-8 text-center text-xs text-[#64748B]">
-            <div class="h-5 w-5 animate-spin rounded-full border-2 border-[#7C3AED] border-t-transparent mx-auto mb-2"></div>
+            <div
+              class="h-5 w-5 animate-spin rounded-full border-2 border-[#7C3AED] border-t-transparent mx-auto mb-2"
+            ></div>
             Memuat riwayat log...
           </div>
 
           <!-- Audit Timeline Activity Stream -->
           <div v-else class="relative border-l border-[#E2E8F0] pl-4 ml-3 space-y-4">
-            <div
-              v-for="(log, idx) in assetHistoryTimeline"
-              :key="idx"
-              class="relative group"
-            >
+            <div v-for="(log, idx) in assetHistoryTimeline" :key="idx" class="relative group">
               <!-- Timeline Node Dot -->
               <div
                 class="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white ring-2 ring-white"
@@ -1286,7 +1330,9 @@ onMounted(() => {
 
               <!-- Log Item Card -->
               <div class="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs">
-                <div class="flex items-center justify-between gap-2 text-[10.5px] text-[#64748B] mb-1">
+                <div
+                  class="flex items-center justify-between gap-2 text-[10.5px] text-[#64748B] mb-1"
+                >
                   <span class="font-medium">{{ formatDateTime(log.date) }}</span>
                   <span class="font-semibold text-[#475569]">Oleh: {{ log.actor }}</span>
                 </div>
@@ -1338,7 +1384,10 @@ onMounted(() => {
           <div
             class="min-h-24 whitespace-pre-wrap rounded-lg border border-[#E2E8F0] bg-white p-3 text-xs text-[#1E293B] leading-relaxed"
           >
-            {{ activeModalAsset.spesifikasi || 'Belum ada catatan spesifikasi detail untuk perangkat ini.' }}
+            {{
+              activeModalAsset.spesifikasi ||
+              'Belum ada catatan spesifikasi detail untuk perangkat ini.'
+            }}
           </div>
         </div>
 
