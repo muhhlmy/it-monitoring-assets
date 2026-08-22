@@ -709,6 +709,7 @@ onMounted(async () => {
         <!-- Filter Status -->
         <select
           v-model="filterStatus"
+          aria-label="Filter status"
           class="h-9 w-[135px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Status</option>

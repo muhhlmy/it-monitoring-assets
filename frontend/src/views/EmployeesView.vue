@@ -451,7 +451,7 @@ onMounted(() => {
         </div>
 
         <select
-          v-model="filterDepartemen"
+          v-model="filterDepartemen" aria-label="Filter departemen"
           class="h-9 w-[140px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Departemen</option>
@@ -461,7 +461,7 @@ onMounted(() => {
         </select>
 
         <select
-          v-model="filterLokasi"
+          v-model="filterLokasi" aria-label="Filter lokasi"
           class="h-9 w-[130px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Lokasi</option>
@@ -469,7 +469,7 @@ onMounted(() => {
         </select>
 
         <select
-          v-model="filterStatus"
+          v-model="filterStatus" aria-label="Filter status"
           class="h-9 w-[125px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Status</option>

@@ -130,7 +130,9 @@ const routes = [
   },
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/',
+    name: 'NotFound',
+    component: () => import('../views/NotFoundView.vue'),
+    meta: { title: 'Halaman Tidak Ditemukan', subtitle: '404' },
   },
 ]
 
@@ -163,6 +165,9 @@ router.beforeEach((to) => {
   if (to.meta.superadminOnly && !isSuper) {
     return { name: firstAllowed?.name || 'forbidden' }
   }
+
+  // /my-assets selalu diizinkan untuk user yang sudah login (DEF-005)
+  if (to.name === 'my-assets') return
 
   // Evaluasi Hak Akses Granular RBAC
   if (to.meta.permission && !canAccess(to.meta.permission)) {

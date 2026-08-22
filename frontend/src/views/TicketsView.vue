@@ -1071,7 +1071,7 @@ function toast(message, type = 'success') {
         <!-- Filter Options -->
         <div class="flex items-center gap-2 flex-wrap">
           <select
-            v-model="filterStatus"
+            v-model="filterStatus" aria-label="Filter status"
             @change="fetchTickets"
             class="h-9 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-xs font-semibold text-[#334155] focus:border-[#2563EB] focus:outline-none cursor-pointer"
           >
@@ -1084,7 +1084,7 @@ function toast(message, type = 'success') {
           </select>
 
           <select
-            v-model="filterPrioritas"
+            v-model="filterPrioritas" aria-label="Filter priority"
             @change="fetchTickets"
             class="h-9 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-xs font-semibold text-[#334155] focus:border-[#2563EB] focus:outline-none cursor-pointer"
           >

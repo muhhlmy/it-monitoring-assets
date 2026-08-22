@@ -136,7 +136,7 @@ export async function listUsers(req, res) {
     });
 
     setPaginationHeaders(res, totalCount, page, limit);
-    res.json(rows);
+    res.json({ data: rows, total: totalCount, page, pageSize: limit });
   } catch (error) {
     if (error.statusCode === 400) {
       return res.status(400).json({ error: error.message });

@@ -13,7 +13,21 @@ function req(method, path, body, token) {
     r.end();
   });
 }
+
 const sa = await req('POST', '/api/auth/login', { email: 'superadmin@admin.com', password: 'admin123' });
 const token = sa.body?.token;
-const users = await req('GET', '/api/users', null, token);
-console.log(JSON.stringify(users.body, null, 2));
+
+// Try creating an asset with minimal fields
+const testAsset = {
+  hostname: 'QA-TEST-HOSTNAME-' + Date.now(),
+  serial_number: 'QA-SN-' + Date.now(),
+  tipe_perangkat: 'Laptop',
+  status: 'In Use',
+  kondisi: 'Normal',
+  spesifikasi: 'QA test asset',
+  brand_merek: 'Lenovo',
+  model: 'ThinkPad',
+};
+
+const create = await req('POST', '/api/assets', testAsset, token);
+console.log(JSON.stringify({ status: create.status, body: create.body }, null, 2));

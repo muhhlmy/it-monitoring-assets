@@ -288,7 +288,7 @@ onMounted(() => {
 
           <!-- Chart -->
           <div v-else class="h-full w-full">
-            <Bar :data="chartData" :options="chartOptions" />
+            <Bar :data="chartData" :options="chartOptions" aria-label="Bar chart showing CSAT rating distribution" />
           </div>
         </div>
       </div>

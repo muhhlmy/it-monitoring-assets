@@ -583,7 +583,7 @@ function handlePopoverLogout() {
         <!-- Category Title (Hanya di Expanded Mode) -->
         <p
           v-if="!isCollapsed"
-          class="px-2 text-[10.5px] font-extrabold uppercase tracking-wider text-[#7C8BAC] transition-all"
+          class="px-2 text-[10.5px] font-extrabold uppercase tracking-wider text-[#475569] transition-all"
         >
           {{ group.title }}
         </p>

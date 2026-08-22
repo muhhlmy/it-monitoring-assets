@@ -379,7 +379,7 @@ function formatKondisiPill(kondisi) {
 
         <!-- Filter Lokasi -->
         <select
-          v-model="selectedLocation"
+          v-model="selectedLocation" aria-label="Filter lokasi"
           class="h-9 w-[140px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Lokasi</option>
@@ -390,7 +390,7 @@ function formatKondisiPill(kondisi) {
 
         <!-- Filter Tipe Fasilitas -->
         <select
-          v-model="selectedTipe"
+          v-model="selectedTipe" aria-label="Filter tipe fasilitas"
           class="h-9 w-[145px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Fasilitas</option>
@@ -399,7 +399,7 @@ function formatKondisiPill(kondisi) {
 
         <!-- Filter Kondisi -->
         <select
-          v-model="selectedKondisi"
+          v-model="selectedKondisi" aria-label="Filter kondisi"
           class="h-9 w-[135px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Kondisi</option>

@@ -55,8 +55,10 @@ test.describe('Asset Management - Create Asset Suite', () => {
       await specInput.fill(testAsset.spesifikasi)
     }
 
-    // 4. Click submit button on Step 3 (Button name is 'Tambah Aset' when modalMode === 'add')
-    const saveBtn = page.locator('button[type="submit"]').or(page.getByRole('button', { name: /^tambah aset$/i })).last()
+    // 4. Click submit button inside the modal (Step 3 — uses 'Tambah Aset' when modalMode === 'add')
+    const saveBtn = page.locator('.modal, [role="dialog"]').locator('button[type="submit"]').or(
+      page.getByRole('button', { name: /^tambah aset$/i })
+    ).last()
     await expect(saveBtn).toBeVisible({ timeout: 5000 })
     await saveBtn.click()
 

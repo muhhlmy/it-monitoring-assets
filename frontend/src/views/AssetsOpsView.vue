@@ -391,7 +391,7 @@ function formatDate(dateStr) {
 
         <!-- Filter Lokasi -->
         <select
-          v-model="selectedLocation"
+          v-model="selectedLocation" aria-label="Filter lokasi"
           class="h-9 w-[140px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Lokasi</option>
@@ -402,7 +402,7 @@ function formatDate(dateStr) {
 
         <!-- Filter Kategori -->
         <select
-          v-model="selectedKategori"
+          v-model="selectedKategori" aria-label="Filter kategori"
           class="h-9 w-[145px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Kategori</option>
@@ -411,7 +411,7 @@ function formatDate(dateStr) {
 
         <!-- Filter Status -->
         <select
-          v-model="selectedStatus"
+          v-model="selectedStatus" aria-label="Filter status"
           class="h-9 w-[135px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
           <option value="">Semua Status</option>

@@ -6,14 +6,17 @@ function req(method, path, body, token) {
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, timeout: 10000 };
     const r = http.request(opts, (res) => {
       let data = ''; res.on('data', c => data += c);
-      res.on('end', () => { try { resolve({ status: res.statusCode, body: JSON.parse(data) }); } catch { resolve({ status: res.statusCode, body: data.slice(0,500) }); } });
+      res.on('end', () => { try { resolve({ status: res.statusCode, body: JSON.parse(data) }); } catch { resolve({ status: res.statusCode, body: data.slice(0,300) }); } });
     });
     r.on('error', e => resolve({ error: e.message }));
     if (body) r.write(JSON.stringify(body));
     r.end();
   });
 }
-const sa = await req('POST', '/api/auth/login', { email: 'superadmin@admin.com', password: 'admin123' });
-const token = sa.body?.token;
-const users = await req('GET', '/api/users', null, token);
-console.log(JSON.stringify(users.body, null, 2));
+
+const ua = await req('POST', '/api/auth/login', { email: 'user@user.com', password: 'user12345' });
+const userToken = ua.body?.token;
+
+// Correct endpoint: /api/assets/my-assets
+const myAssets = await req('GET', '/api/assets/my-assets', null, userToken);
+console.log(JSON.stringify({ status: myAssets.status, body: myAssets.body }, null, 2));

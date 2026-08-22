@@ -13,7 +13,27 @@ function req(method, path, body, token) {
     r.end();
   });
 }
+
 const sa = await req('POST', '/api/auth/login', { email: 'superadmin@admin.com', password: 'admin123' });
 const token = sa.body?.token;
-const users = await req('GET', '/api/users', null, token);
-console.log(JSON.stringify(users.body, null, 2));
+
+// Update user id=3 (user@user.com) to set my_assets = read_only
+const update = await req('PUT', '/api/users/3', {
+  nama: 'User Karyawan',
+  email: 'user@user.com',
+  role: 'user',
+  permissions: {
+    dashboard: 'none',
+    assets: 'none',
+    assets_ga: 'none',
+    assets_ops: 'none',
+    my_assets: 'read_only',
+    tickets: 'read_only',
+    submissions: 'none',
+    users: 'none',
+    logs: 'none',
+    karyawan: 'none',
+    export: 'none'
+  }
+}, token);
+console.log(JSON.stringify({ status: update.status, body: update.body }, null, 2));

@@ -286,7 +286,7 @@ function parsePerubahan(perubahan, aksi) {
 
       <!-- Action Filter (Asset Tab only) -->
       <div v-if="activeTab === 'assets'" class="w-full sm:w-44">
-        <select v-model="filterAction" class="form-control w-full">
+        <select v-model="filterAction" aria-label="Filter aksi" class="form-control w-full">
           <option value="">Semua Aksi</option>
           <option value="TAMBAH">Tambah Aset</option>
           <option value="UBAH">Ubah Aset</option>
@@ -296,7 +296,7 @@ function parsePerubahan(perubahan, aksi) {
 
       <!-- Activity Filter (Audit Tab only) -->
       <div v-if="activeTab === 'audit'" class="w-full sm:w-44">
-        <select v-model="filterActivity" class="form-control w-full">
+        <select v-model="filterActivity" aria-label="Filter aktivitas" class="form-control w-full">
           <option value="">Semua Aktifitas</option>
           <option value="LOGIN">Berhasil Login</option>
           <option value="GAGAL_LOGIN">Gagal Login</option>

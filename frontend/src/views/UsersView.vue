@@ -254,7 +254,8 @@ async function fetchUsers() {
   isLoading.value = true
   pageError.value = ''
   try {
-    const data = await get('/api/users')
+    const response = await get('/api/users')
+    const data = Array.isArray(response) ? response : (response?.data || [])
     if (!Array.isArray(data)) throw new Error('Format data pengguna dari server tidak valid.')
     users.value = data
   } catch (e) {
@@ -569,7 +570,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
         </div>
 
         <select
-          id="user-role-filter"
+          id="user-role-filter" aria-label="Filter by role"
           v-model="filterRole"
           class="h-9 w-[135px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs"
         >
