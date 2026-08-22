@@ -6,11 +6,24 @@ async function ensureAuthenticated(page, userCred, baseURL) {
   const targetBase = baseURL || 'http://localhost:5173'
   await page.goto(`${targetBase}/login`, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(200)
+
   if (page.url().includes('/login')) {
-    await page.getByLabel(/email/i).fill(userCred.email)
-    await page.locator('input[type="password"]').first().fill(userCred.password)
+    await page.locator('#email').fill(userCred.email)
+    await page.locator('#password').fill(userCred.password)
     await page.getByRole('button', { name: /masuk/i }).click()
-    await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 10000 }).catch(() => {})
+
+    try {
+      await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 10000 })
+    } catch {
+      // Timeout — tetap di /login
+    }
+
+    if (page.url().includes('/login')) {
+      throw new Error(
+        `ensureAuthenticated failed for ${userCred.email}: still on /login after submit. ` +
+        `Check that the backend is running and test accounts exist in the database.`
+      )
+    }
   }
 }
 

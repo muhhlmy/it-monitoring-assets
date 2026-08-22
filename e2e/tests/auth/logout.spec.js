@@ -5,8 +5,8 @@ test.describe('Authentication - Logout Suite', () => {
   test('Should log in via UI and perform logout successfully', async ({ page }) => {
     // 1. Login
     await page.goto('/login')
-    await page.getByLabel(/email/i).fill(TEST_USERS.superadmin.email)
-    await page.getByLabel(/kata sandi/i).fill(TEST_USERS.superadmin.password)
+    await page.locator('#email').fill(TEST_USERS.superadmin.email)
+    await page.locator('#password').fill(TEST_USERS.superadmin.password)
     await page.getByRole('button', { name: /masuk/i }).click()
 
     // Verify redirected away from /login

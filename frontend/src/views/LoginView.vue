@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 
@@ -13,6 +13,7 @@ const rememberMe = ref(false)
 const showPassword = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
+const emailInput = ref(null)
 
 onMounted(() => {
   // Preload logo image agar tampilan mulus tanpa kedipan
@@ -30,6 +31,14 @@ onMounted(() => {
   setTimeout(() => {
     if (isMounting.value) isMounting.value = false
   }, 800)
+})
+
+// Focus email input after mounting animation completes
+watch(isMounting, async (mounting) => {
+  if (!mounting) {
+    await nextTick()
+    emailInput.value?.focus()
+  }
 })
 
 const handleLogin = async () => {
@@ -242,6 +251,7 @@ const handleLogin = async () => {
                 </span>
                 <input
                   id="email"
+                  ref="emailInput"
                   v-model="email"
                   type="text"
                   required
