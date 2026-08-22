@@ -531,25 +531,47 @@ export async function fetchAsset(req, res) {
 // GET /api/assets (paginated asset list)
 export async function listAssets(req, res) {
   try {
-    const { page, limit, offset } = parsePaginationQuery(req.query)
+    // Support ?all=true untuk fetch semua data tanpa pagination
+    const fetchAll = req.query.all === 'true' || req.query.all === '1'
 
-    const countRes = await pool.query(`
-      SELECT COUNT(*)::int AS count
-      FROM aset_ti
-      WHERE deleted_at IS NULL
-    `)
-    const totalCount = countRes.rows[0]?.count || 0
+    let totalCount, results
 
-    const results = await pool.query(
-      `SELECT ` + assetColumns + `
-       FROM aset_ti
-       WHERE deleted_at IS NULL
-       ORDER BY created_at DESC, id DESC
-       LIMIT $1 OFFSET $2`,
-      [limit, offset]
-    )
+    if (fetchAll) {
+      // Fetch all assets tanpa LIMIT/OFFSET
+      const countRes = await pool.query(`
+        SELECT COUNT(*)::int AS count
+        FROM aset_ti
+        WHERE deleted_at IS NULL
+      `)
+      totalCount = countRes.rows[0]?.count || 0
 
-    setPaginationHeaders(res, totalCount, page, limit)
+      results = await pool.query(
+        `SELECT ` + assetColumns + `
+         FROM aset_ti
+         WHERE deleted_at IS NULL
+         ORDER BY created_at DESC, id DESC`
+      )
+    } else {
+      const { page, limit, offset } = parsePaginationQuery(req.query)
+
+      const countRes = await pool.query(`
+        SELECT COUNT(*)::int AS count
+        FROM aset_ti
+        WHERE deleted_at IS NULL
+      `)
+      totalCount = countRes.rows[0]?.count || 0
+
+      results = await pool.query(
+        `SELECT ` + assetColumns + `
+         FROM aset_ti
+         WHERE deleted_at IS NULL
+         ORDER BY created_at DESC, id DESC
+         LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      )
+    }
+
+    setPaginationHeaders(res, totalCount, 1, totalCount)
     res.json(results.rows)
   } catch (error) {
     if (error.statusCode === 400) {

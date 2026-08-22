@@ -110,6 +110,44 @@ export async function listLocations(req, res) {
   }
 }
 
+// GET /api/karyawan/stats
+export async function showEmployeeStats(req, res) {
+  try {
+    const [totalRes, statusRes, deptRes, empTypeRes] = await Promise.all([
+      pool.query(`SELECT COUNT(*)::int AS total FROM karyawan`),
+      pool.query(`SELECT status, COUNT(*)::int AS count FROM karyawan GROUP BY status`),
+      pool.query(`SELECT COUNT(DISTINCT departemen)::int AS total FROM karyawan WHERE departemen IS NOT NULL`),
+      pool.query(`SELECT employeement_status, COUNT(*)::int AS count FROM karyawan GROUP BY employeement_status`),
+    ]);
+
+    const totalKaryawan = totalRes.rows[0]?.total || 0;
+    const byStatus = {};
+    for (const r of statusRes.rows) {
+      byStatus[r.status] = r.count;
+    }
+    const totalDepartemen = deptRes.rows[0]?.total || 0;
+    const byEmpType = {};
+    for (const r of empTypeRes.rows) {
+      byEmpType[r.employeement_status] = r.count;
+    }
+
+    res.json({
+      totalKaryawan,
+      active: byStatus['Active'] || 0,
+      outsource: byStatus['Outsource'] || 0,
+      resigned: byStatus['Resigned'] || 0,
+      totalDepartemen,
+      permanent: byEmpType['Permanent'] || 0,
+      contract: byEmpType['Contract'] || 0,
+      freelance: byEmpType['Freelance'] || 0,
+      intern: byEmpType['Intern'] || 0,
+    });
+  } catch (error) {
+    console.error("Error getting employee stats:", error);
+    res.status(500).json({ error: "Failed to get employee stats" });
+  }
+}
+
 export async function fetchEmployee(req, res) {
   try {
     const id = Number(req.params.id);

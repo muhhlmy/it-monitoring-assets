@@ -25,6 +25,11 @@ employeeRouter.get(
   requireEmployeeReferenceRead,
   employeeController.listLocations,
 )
+employeeRouter.get(
+  '/stats',
+  requireEmployeeReferenceRead,
+  employeeController.showEmployeeStats,
+)
 employeeRouter.get('/', requireEmployeeReferenceRead, employeeController.listEmployees)
 employeeRouter.get('/:id', requireEmployeeReferenceRead, employeeController.fetchEmployee)
 employeeRouter.post('/', requireEmployeeWrite, employeeController.storeEmployee)

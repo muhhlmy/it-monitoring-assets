@@ -213,7 +213,7 @@ async function fetchData() {
   pageError.value = ''
   try {
     const [assetData, employeeData, locationData] = await Promise.all([
-      get('/api/assets'),
+      get('/api/assets?all=true'),
       get('/api/karyawan'),
       get('/api/karyawan/locations'),
     ])
@@ -441,7 +441,7 @@ async function executeExport() {
   if (isExporting.value) return
   isExporting.value = true
   try {
-    const data = await get('/api/assets')
+    const data = await get('/api/assets?all=true')
     const q = searchQuery.value.trim().toLowerCase()
     const filteredData = data.filter((asset) => {
       const text = [

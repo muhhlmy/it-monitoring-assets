@@ -140,8 +140,8 @@ CREATE INDEX idx_account_security_locked_until ON account_security_state(locked_
 -- =====================================================================
 CREATE TABLE aset_ti (
     id                          SERIAL          PRIMARY KEY,
-    hostname                    VARCHAR(50)     NOT NULL UNIQUE,
-    serial_number               VARCHAR(50)     NOT NULL UNIQUE,
+    hostname                    VARCHAR(50)     NOT NULL,
+    serial_number               VARCHAR(50)     NOT NULL,
     spesifikasi                 TEXT,
     nik_pemegang_asset           VARCHAR(20),
     nama_karyawan_pemegang_asset VARCHAR(150),

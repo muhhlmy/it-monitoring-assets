@@ -20,6 +20,7 @@ const isParsing = ref(false)
 const isSubmitting = ref(false)
 const modalError = ref('')
 const successResult = ref(null)
+const importDetails = ref(null)
 
 const activeTab = ref('karyawan') // 'karyawan' | 'assets'
 const parsedKaryawanRows = ref([])
@@ -50,6 +51,7 @@ function resetModalState() {
   isSubmitting.value = false
   modalError.value = ''
   successResult.value = null
+  importDetails.value = null
   parsedKaryawanRows.value = []
   parsedAssetRows.value = []
   activeTab.value = 'karyawan'
@@ -271,6 +273,7 @@ async function submitImport() {
   isSubmitting.value = true
   modalError.value = ''
   successResult.value = null
+  importDetails.value = null
 
   try {
     const res = await post('/api/import/excel', {
@@ -279,6 +282,7 @@ async function submitImport() {
     })
 
     successResult.value = res.message || 'Import data Excel sukses!'
+    importDetails.value = res.details || null
     emit('imported')
   } catch (err) {
     modalError.value = err.message || 'Gagal memproses import data Excel.'
@@ -312,6 +316,42 @@ async function submitImport() {
           <span class="material-symbols-outlined text-[20px]">check_circle</span>
           <span>{{ successResult }}</span>
         </div>
+
+        <!-- Detail Import Breakdown -->
+        <div v-if="importDetails" class="mt-2 space-y-2 text-[11px] font-normal text-emerald-800">
+          <!-- Karyawan Stats -->
+          <div v-if="importDetails.totalKaryawanRows > 0" class="bg-white/60 rounded-lg p-2.5 space-y-1">
+            <p class="font-bold text-[12px] text-emerald-900">Table Karyawan</p>
+            <div class="flex gap-4 flex-wrap">
+              <span>Total Excel: <b>{{ importDetails.totalKaryawanRows }}</b></span>
+              <span>Baru: <b>{{ importDetails.importedKaryawanCount }}</b></span>
+              <span>Update: <b>{{ importDetails.updatedKaryawanCount }}</b></span>
+              <span v-if="importDetails.skippedKaryawan > 0" class="text-amber-700">Skip: <b>{{ importDetails.skippedKaryawan }}</b></span>
+              <span v-if="importDetails.createdUserCount > 0">Akun dibuat: <b>{{ importDetails.createdUserCount }}</b></span>
+            </div>
+          </div>
+
+          <!-- Asset Stats -->
+          <div v-if="importDetails.totalAssetRows > 0" class="bg-white/60 rounded-lg p-2.5 space-y-1">
+            <p class="font-bold text-[12px] text-emerald-900">Table Asset</p>
+            <div class="flex gap-4 flex-wrap">
+              <span>Total Excel: <b>{{ importDetails.totalAssetRows }}</b></span>
+              <span>Berhasil: <b>{{ importDetails.importedAssetCount }}</b></span>
+              <span v-if="importDetails.skippedAssets > 0" class="text-amber-700">Skip/Error: <b>{{ importDetails.skippedAssets }}</b></span>
+            </div>
+          </div>
+
+          <!-- Error List -->
+          <div v-if="importDetails.errors && importDetails.errors.length > 0" class="bg-amber-50 rounded-lg p-2.5 max-h-[180px] overflow-y-auto">
+            <p class="font-bold text-[12px] text-amber-800 mb-1">Detail Error / Skip ({{ importDetails.errors.length }}):</p>
+            <ul class="list-disc list-inside space-y-0.5 text-[11px] text-amber-900">
+              <li v-for="(err, idx) in importDetails.errors" :key="idx">
+                Row {{ err.row }} ({{ err.type }}): {{ err.reason }}
+              </li>
+            </ul>
+          </div>
+        </div>
+
         <p class="text-[11px] font-normal text-emerald-800">
           Setiap karyawan baru otomatis dibuatkan akun pengguna default (role: User) dengan password
           acak yang aman. Pengguna wajib mengganti password saat login pertama.

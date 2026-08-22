@@ -9,6 +9,7 @@ import AppBadge from '../components/ui/AppBadge.vue'
 import AppRowActions from '../components/ui/AppRowActions.vue'
 import AppImportModal from '../components/ui/AppImportModal.vue'
 import AppPagination from '../components/ui/AppPagination.vue'
+import StatCard from '../components/ui/StatCard.vue'
 import SkeletonTable from '../components/ui/skeleton/SkeletonTable.vue'
 
 const { get, post, put, del } = useApi()
@@ -19,6 +20,7 @@ const canWriteKaryawan = computed(
 
 // ── State Utama ──────────────────────────────────────────────
 const employees = ref([])
+const stats = ref(null)
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 const showImportModal = ref(false)
@@ -200,7 +202,10 @@ async function fetchData() {
   isLoading.value = true
   pageError.value = ''
   try {
-    const data = await get('/api/karyawan/with-assets')
+    const [data, statsData] = await Promise.all([
+      get('/api/karyawan/with-assets'),
+      get('/api/karyawan/stats'),
+    ])
     const rawList = Array.isArray(data) ? data : []
     employees.value = rawList.map((e) => ({
       ...e,
@@ -218,6 +223,7 @@ async function fetchData() {
       employeement_status: e.employeement_status || e.status_kepegawaian || 'Permanent',
       status_kepegawaian: e.status_kepegawaian || e.employeement_status || 'Permanent',
     }))
+    stats.value = statsData
   } catch (err) {
     pageError.value = err.message || 'Gagal memuat data karyawan.'
   } finally {
@@ -478,6 +484,47 @@ onMounted(() => {
           <option value="Resigned">Resigned</option>
         </select>
       </div>
+    </div>
+
+    <!-- ── Card Stats Karyawan ── -->
+    <div v-if="!isLoading && stats" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <StatCard
+        title="Total Karyawan"
+        :value="stats.totalKaryawan"
+        icon="groups"
+        color="primary"
+      />
+      <StatCard
+        title="Active"
+        :value="stats.active"
+        icon="check_circle"
+        color="success"
+      />
+      <StatCard
+        title="Outsource"
+        :value="stats.outsource"
+        icon="contract"
+        color="warning"
+      />
+      <StatCard
+        title="Resigned"
+        :value="stats.resigned"
+        icon="person_off"
+        color="danger"
+        :subtitle="stats.totalKaryawan ? Math.round(stats.resigned / stats.totalKaryawan * 100) + '% turnover' : ''"
+      />
+      <StatCard
+        title="Permanent"
+        :value="stats.permanent"
+        icon="badge"
+        color="cyan"
+      />
+      <StatCard
+        title="Departemen"
+        :value="stats.totalDepartemen"
+        icon="corporate_fare"
+        color="purple"
+      />
     </div>
 
     <!-- Table Section -->

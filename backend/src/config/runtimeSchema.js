@@ -57,8 +57,8 @@ const REQUIRED_RUNTIME_SCHEMA = Object.freeze({
   },
   aset_ti: {
     id: nn('int4'),
-    hostname: nn('varchar'),
-    serial_number: nn('varchar'),
+    hostname: optional('varchar'),
+    serial_number: optional('varchar'),
     spesifikasi: optional('text'),
     nik_pemegang_asset: optional('varchar'),
     nama_karyawan_pemegang_asset: optional('varchar'),

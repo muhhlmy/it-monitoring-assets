@@ -21,6 +21,24 @@ export function cleanText(value) {
   return text;
 }
 
+/**
+ * Konversi null/undefined menjadi placeholder '-' untuk field non-FK yang nullable.
+ * Digunakan agar empty cell dan '-' di Excel disimpan sebagai '-' di DB, bukan NULL.
+ *
+ * @param {*} value
+ * @returns {string} '-' jika value null/undefined, atau value asli
+ */
+export function dashIfNull(value) {
+  if (value === null || value === undefined) return '-';
+  return value;
+}
+
+export function safeTruncate(str, maxLen) {
+  if (str === null || str === undefined) return null;
+  const s = String(str).trim();
+  return s.length > maxLen ? s.substring(0, maxLen) : s;
+}
+
 export function extractNik(value) {
   const text = cleanText(value);
   if (!text) return null;
@@ -209,74 +227,105 @@ export async function importExcelData(req, res) {
     let karyawanRows = req.body?.karyawanRows || [];
     let assetRows = req.body?.assetRows || [];
 
+    const totalKaryawanRows = karyawanRows.length;
+    const totalAssetRows = assetRows.length;
+
     let importedKaryawanCount = 0;
     let updatedKaryawanCount = 0;
     let createdUserCount = 0;
     let importedAssetCount = 0;
     let updatedAssetCount = 0;
     const warnings = [];
+    const errors = [];
 
-    // Process Karyawan Rows
+    // ── Phase 1: Parse semua row karyawan, validasi NIK, kumpulkan data ──
+    const parsedKaryawan = [];
     for (let i = 0; i < karyawanRows.length; i++) {
       const row = karyawanRows[i];
+      const rowNum = i + 1;
       const nikRaw = getPropCaseInsensitive(row, ['NIK', 'nik', 'nomor_induk']);
       const nik = extractNik(nikRaw);
       const nama = getPropCaseInsensitive(row, ['Nama Karyawan', 'Nama', 'nama_karyawan', 'nama']);
+
+      if (!nik || !nama) {
+        errors.push({ row: rowNum, type: 'karyawan', reason: `NIK atau Nama tidak valid (NIK: "${nikRaw || '-'}", Nama: "${nama || '-'}")` });
+        continue;
+      }
+
       const emailRaw = getPropCaseInsensitive(row, ['Email Kantor', 'Email', 'email_kantor', 'email']);
       const email = emailRaw || (nik ? `${nik.toLowerCase()}@esb.co.id` : null);
       const lokasiRaw = getPropCaseInsensitive(row, ['Lokasi Kerja', 'Lokasi', 'lokasi_kerja', 'lokasi']);
-      const lokasi = normalizeLocation(lokasiRaw);
+      const lokasi = dashIfNull(normalizeLocation(lokasiRaw));
       const title = getPropCaseInsensitive(row, ['Title', 'Jabatan', 'title']) || 'User';
       const jobLevel = getPropCaseInsensitive(row, ['Job Level', 'Level', 'job_level']) || 'S1';
-      const departemen = getPropCaseInsensitive(row, ['Departemen', 'Department', 'departemen']);
-      const direktorat = getPropCaseInsensitive(row, ['Directorate', 'Direktorat', 'directorate']);
-      
+      const departemen = dashIfNull(getPropCaseInsensitive(row, ['Departemen', 'Department', 'departemen']));
+      const direktorat = dashIfNull(getPropCaseInsensitive(row, ['Directorate', 'Direktorat', 'directorate']));
+
       const tglMulaiRaw = getPropCaseInsensitive(row, ['Tanggal Mulai Bekerja', 'Tanggal Mulai', 'tanggal_mulai_bekerja']);
       const tanggalMulai = normalizeDate(tglMulaiRaw) || new Date().toISOString().split('T')[0];
 
       const empStatusRaw = getPropCaseInsensitive(row, ['Employeement Status', 'Status Kepegawaian', 'employeement_status', 'status_kepegawaian']);
       const employeementStatus = normalizeEmploymentStatus(empStatusRaw);
 
+      // FK field: tetap null agar disimpan sebagai NULL di DB
       const nikAtasanRaw = getPropCaseInsensitive(row, ['NIK Atasan Langsung', 'NIK Atasan', 'nik_atasan_langsung', 'nik_atasan']);
       const nikAtasan = extractNik(nikAtasanRaw);
 
       const statusRaw = getPropCaseInsensitive(row, ['Status', 'status']);
       const status = normalizeStatus(statusRaw);
 
-      if (!nik || !nama) continue;
+      parsedKaryawan.push({
+        rowNum,
+        nik,
+        nama,
+        email,
+        lokasi,
+        title,
+        jobLevel,
+        departemen,
+        direktorat,
+        tanggalMulai,
+        employeementStatus,
+        nikAtasan,
+        status,
+      });
+    }
 
+    // ── Phase 2: Insert/Update semua karyawan TANPA nik_atasan_langsung dulu ──
+    // Ini menghindari FK violation saat NIK atasan ada di row berikutnya
+    for (const emp of parsedKaryawan) {
       try {
         await withTransaction(async (client) => {
-          const existingEmpRes = await client.query(`SELECT id FROM karyawan WHERE nik = $1`, [nik]);
+          const existingEmpRes = await client.query(`SELECT id FROM karyawan WHERE nik = $1`, [emp.nik]);
 
           if (existingEmpRes.rows.length > 0) {
             await client.query(
               `UPDATE karyawan SET
                 nama_karyawan = $2, email_kantor = $3, lokasi_kerja = $4,
                 title = $5, job_level = $6, departemen = $7, directorate = $8,
-                status = $9, employeement_status = $10, nik_atasan_langsung = $11,
-                tanggal_mulai_bekerja = COALESCE($12, tanggal_mulai_bekerja),
+                status = $9, employeement_status = $10,
+                tanggal_mulai_bekerja = COALESCE($11, tanggal_mulai_bekerja),
                 updated_at = CURRENT_TIMESTAMP
                WHERE id = $1`,
-              [existingEmpRes.rows[0].id, nama, email, lokasi, title, jobLevel, departemen, direktorat, status, employeementStatus, nikAtasan, tanggalMulai]
+              [existingEmpRes.rows[0].id, emp.nama, emp.email, emp.lokasi, emp.title, emp.jobLevel, emp.departemen, emp.direktorat, emp.status, emp.employeementStatus, emp.tanggalMulai]
             );
             updatedKaryawanCount++;
           } else {
             await client.query(
               `INSERT INTO karyawan (nik, nama_karyawan, email_kantor, lokasi_kerja, 
                                      title, job_level, departemen, directorate, status,
-                                     tanggal_mulai_bekerja, employeement_status, nik_atasan_langsung)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-              [nik, nama, email, lokasi, title, jobLevel, departemen, direktorat, status, tanggalMulai, employeementStatus, nikAtasan]
+                                     tanggal_mulai_bekerja, employeement_status)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+              [emp.nik, emp.nama, emp.email, emp.lokasi, emp.title, emp.jobLevel, emp.departemen, emp.direktorat, emp.status, emp.tanggalMulai, emp.employeementStatus]
             );
             importedKaryawanCount++;
           }
 
           // Auto-create user account if not exists
-          if (email) {
+          if (emp.email) {
             const existingUserRes = await client.query(
               `SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))`,
-              [email]
+              [emp.email]
             );
             if (existingUserRes.rows.length === 0) {
               const randomTempPassword = crypto.randomBytes(16).toString('hex');
@@ -284,35 +333,56 @@ export async function importExcelData(req, res) {
               await client.query(
                 `INSERT INTO users (nama, email, password_hash, role, permissions, is_active)
                  VALUES ($1, $2, $3, 'user', '{}'::jsonb, true)`,
-                [nama, email, defaultPasswordHash]
+                [emp.nama, emp.email, defaultPasswordHash]
               );
               createdUserCount++;
             }
           }
         });
       } catch (err) {
-        warnings.push(`Karyawan ${nik} (${nama}) gagal: ${err.message}`);
+        errors.push({ row: emp.rowNum, type: 'karyawan', reason: `${emp.nik} (${emp.nama}): ${err.message}` });
       }
     }
 
-    // Process Asset Rows
+    // ── Phase 3: Update nik_atasan_langsung setelah semua NIK tersedia ──
+    for (const emp of parsedKaryawan) {
+      if (!emp.nikAtasan) continue; // null berarti memang tidak ada atasan
+
+      try {
+        await withTransaction(async (client) => {
+          // Validasi: pastikan NIK atasan ada di tabel karyawan
+          const atasanRes = await client.query(`SELECT nik FROM karyawan WHERE nik = $1`, [emp.nikAtasan]);
+          if (atasanRes.rows.length === 0) {
+            throw new Error(`NIK Atasan "${emp.nikAtasan}" tidak ditemukan di database`);
+          }
+          await client.query(
+            `UPDATE karyawan SET nik_atasan_langsung = $1, updated_at = CURRENT_TIMESTAMP WHERE nik = $2`,
+            [emp.nikAtasan, emp.nik]
+          );
+        });
+      } catch (err) {
+        errors.push({ row: emp.rowNum, type: 'karyawan', reason: `Atasan untuk ${emp.nik}: ${err.message}` });
+      }
+    }
+
+    // ── Process Asset Rows ──
     for (let i = 0; i < assetRows.length; i++) {
       const row = assetRows[i];
-      const hostname = getPropCaseInsensitive(row, ['Hostname', 'Label Aset', 'Label', 'hostname', 'label_aset']);
-      const serialNumber = getPropCaseInsensitive(row, ['Serial Number', 'Serial', 'SN', 'serial_number', 'nomor_seri']);
-      const spesifikasi = getPropCaseInsensitive(row, ['Spesifikasi', 'Spec', 'spesifikasi']);
-      
+      const rawHostname = getPropCaseInsensitive(row, ['Hostname', 'Label Aset', 'Label', 'hostname', 'label_aset']);
+      const rawSerialNumber = getPropCaseInsensitive(row, ['Serial Number', 'Serial', 'SN', 'serial_number', 'nomor_seri']);
+      const spesifikasi = dashIfNull(getPropCaseInsensitive(row, ['Spesifikasi', 'Spec', 'spesifikasi']));
+
       const nikPemegangRaw = getPropCaseInsensitive(row, ['NIK Pemegang', 'NIK Pemegang Asset', 'NIK', 'nik_pemegang_asset', 'nik']);
       const nikPemegang = extractNik(nikPemegangRaw);
-      
+
       const namaPemegangRaw = getPropCaseInsensitive(row, ['Nama Karyawan Pemegang', 'Nama Karyawan', 'nama_karyawan_pemegang_asset', 'nama_karyawan']);
       const namaPemegang = extractName(namaPemegangRaw);
-      const deptPemegang = getPropCaseInsensitive(row, ['Departemen Pemegang', 'Departemen', 'departemen_pemegang_asset', 'departemen']);
+      const deptPemegang = dashIfNull(getPropCaseInsensitive(row, ['Departemen Pemegang', 'Departemen', 'departemen_pemegang_asset', 'departemen']));
       const lokasiAsetRaw = getPropCaseInsensitive(row, ['Lokasi Aset', 'Lokasi', 'lokasi_asset', 'lokasi_kerja']);
-      const lokasiAset = normalizeLocation(lokasiAsetRaw);
+      const lokasiAset = dashIfNull(normalizeLocation(lokasiAsetRaw));
       const tipePerangkat = getPropCaseInsensitive(row, ['Tipe Perangkat', 'Tipe', 'tipe_perangkat']) || 'Laptop';
-      const brandMerek = getPropCaseInsensitive(row, ['Brand/Merek', 'Merek', 'Brand', 'brand_merek']);
-      const model = getPropCaseInsensitive(row, ['Model', 'model']);
+      const brandMerek = dashIfNull(getPropCaseInsensitive(row, ['Brand/Merek', 'Merek', 'Brand', 'brand_merek']));
+      const model = dashIfNull(getPropCaseInsensitive(row, ['Model', 'model']));
 
       const statusRaw = getPropCaseInsensitive(row, ['Status', 'status']);
       const status = normalizeAssetStatus(statusRaw);
@@ -320,78 +390,86 @@ export async function importExcelData(req, res) {
       const kondisiRaw = getPropCaseInsensitive(row, ['Kondisi', 'kondisi']);
       const kondisi = normalizeAssetKondisi(kondisiRaw);
 
-      const noteAsset = getPropCaseInsensitive(row, ['Note Asset', 'Catatan', 'note_asset']);
+      const noteAsset = dashIfNull(getPropCaseInsensitive(row, ['Note Asset', 'Catatan', 'note_asset']));
 
-      const hostnameFinal = hostname || serialNumber;
-      const serialFinal = serialNumber || hostname;
+      const rowNum = i + 1;
+      const rowSuffix = String(rowNum).padStart(4, '0');
 
-      if (!hostnameFinal && !serialFinal) continue;
+      let hostnameFinal = rawHostname;
+      let serialFinal = rawSerialNumber;
+
+      // Ensure NON-NULL fallback values to satisfy NOT NULL constraints in DB schema
+      if (!hostnameFinal && !serialFinal) {
+        hostnameFinal = `AST-${rowSuffix}`;
+        serialFinal = `SN-${rowSuffix}`;
+      } else if (!hostnameFinal) {
+        hostnameFinal = `HOST-${serialFinal}`;
+      } else if (!serialFinal) {
+        serialFinal = `SN-${hostnameFinal}`;
+      }
+
+      const targetHostname = safeTruncate(hostnameFinal, 50);
+      const targetSerial = safeTruncate(serialFinal, 50);
 
       try {
         await withTransaction(async (client) => {
           // Verify employee info if NIK provided
-          let resolvedNama = namaPemegang;
-          let resolvedDept = deptPemegang;
-          let resolvedLokasi = lokasiAset;
+          let resolvedNik = null;
+          let resolvedNama = safeTruncate(namaPemegang, 150);
+          let resolvedDept = safeTruncate(deptPemegang, 100);
+          let resolvedLokasi = safeTruncate(lokasiAset, 100);
 
           if (nikPemegang) {
-            const empRes = await client.query(`SELECT nama_karyawan, departemen, lokasi_kerja FROM karyawan WHERE nik = $1`, [nikPemegang]);
+            const empRes = await client.query(`SELECT nik, nama_karyawan, departemen, lokasi_kerja FROM karyawan WHERE nik = $1`, [nikPemegang]);
             if (empRes.rows.length > 0) {
-              resolvedNama = empRes.rows[0].nama_karyawan;
-              resolvedDept = empRes.rows[0].departemen;
-              if (!resolvedLokasi) resolvedLokasi = empRes.rows[0].lokasi_kerja;
+              resolvedNik = empRes.rows[0].nik;
+              if (!resolvedNama || resolvedNama === '-') resolvedNama = safeTruncate(empRes.rows[0].nama_karyawan, 150);
+              if (!resolvedDept || resolvedDept === '-') resolvedDept = safeTruncate(empRes.rows[0].departemen, 100);
+              if (!resolvedLokasi || resolvedLokasi === '-') resolvedLokasi = safeTruncate(empRes.rows[0].lokasi_kerja, 100);
             }
           }
 
-          const existingAssetRes = await client.query(
-            `SELECT id FROM aset_ti WHERE (hostname = $1 OR serial_number = $2) AND deleted_at IS NULL ORDER BY id ASC LIMIT 1`,
-            [hostnameFinal, serialFinal]
-          );
+          const safeTipe = safeTruncate(tipePerangkat, 50) || 'Laptop';
+          const safeBrand = safeTruncate(brandMerek, 50);
+          const safeModel = safeTruncate(model, 100);
+          const safeNote = safeTruncate(noteAsset, 255);
 
-          if (existingAssetRes.rows.length > 0) {
-            await client.query(
-              `UPDATE aset_ti SET
-                hostname = $2, serial_number = $3, spesifikasi = $4, nik_pemegang_asset = $5,
-                nama_karyawan_pemegang_asset = $6, departemen_pemegang_asset = $7, lokasi_asset = $8,
-                tipe_perangkat = $9, brand_merek = $10, model = $11, status = $12, kondisi = $13,
-                note_asset = $14, updated_at = CURRENT_TIMESTAMP
-               WHERE id = $1`,
-              [existingAssetRes.rows[0].id, hostnameFinal, serialFinal, spesifikasi, nikPemegang,
-               resolvedNama, resolvedDept, resolvedLokasi, tipePerangkat, brandMerek, model,
-               status, kondisi, noteAsset]
-            );
-            updatedAssetCount++;
-          } else {
-            await client.query(
-              `INSERT INTO aset_ti (hostname, serial_number, spesifikasi, nik_pemegang_asset,
-                                    nama_karyawan_pemegang_asset, departemen_pemegang_asset, lokasi_asset,
-                                    tipe_perangkat, brand_merek, model, status, kondisi, note_asset)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-              [hostnameFinal, serialFinal, spesifikasi, nikPemegang,
-               resolvedNama, resolvedDept, resolvedLokasi, tipePerangkat, brandMerek, model,
-               status, kondisi, noteAsset]
-            );
-            importedAssetCount++;
-          }
+          await client.query(
+            `INSERT INTO aset_ti (hostname, serial_number, spesifikasi, nik_pemegang_asset,
+                                  nama_karyawan_pemegang_asset, departemen_pemegang_asset, lokasi_asset,
+                                  tipe_perangkat, brand_merek, model, status, kondisi, note_asset)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+            [targetHostname, targetSerial, spesifikasi, resolvedNik,
+             resolvedNama, resolvedDept, resolvedLokasi, safeTipe, safeBrand, safeModel,
+             status, kondisi, safeNote]
+          );
+          importedAssetCount++;
         });
       } catch (err) {
-        warnings.push(`Aset ${hostnameFinal} (${serialFinal}) gagal: ${err.message}`);
+        errors.push({ row: rowNum, type: 'asset', reason: err.message });
       }
     }
 
     const totalKaryawan = importedKaryawanCount + updatedKaryawanCount;
     const totalAssets = importedAssetCount + updatedAssetCount;
+    const skippedKaryawan = totalKaryawanRows - totalKaryawan;
+    const skippedAssets = totalAssetRows - totalAssets;
 
     res.json({
       success: true,
       message: `Proses import sukses! ${totalKaryawan} Karyawan dan ${totalAssets} Aset IT berhasil diproses.`,
       details: {
+        totalKaryawanRows,
+        totalAssetRows,
         importedKaryawanCount,
         updatedKaryawanCount,
+        skippedKaryawan,
         createdUserCount,
         importedAssetCount,
         updatedAssetCount,
-        warnings,
+        skippedAssets,
+        warnings: errors.map(e => `Row ${e.row} (${e.type}): ${e.reason}`),
+        errors,
       },
     });
 
@@ -400,4 +478,3 @@ export async function importExcelData(req, res) {
     res.status(500).json({ error: error.message || 'Gagal memproses import data Excel.' });
   }
 }
-
