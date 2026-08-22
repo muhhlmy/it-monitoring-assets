@@ -14,10 +14,25 @@ const BEARER_TOKEN_PATTERN =
   /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i;
 const MAX_BEARER_TOKEN_LENGTH = 4096;
 
+function buildErrorResponse(res, statusCode, code, message) {
+  const requestId = res.getHeader('X-Request-ID')
+  return res.status(statusCode).json({
+    error: {
+      code,
+      message,
+      ...(requestId ? { requestId } : {}),
+    },
+    message,
+  })
+}
+
 function rejectAuthentication(res) {
-  return res.status(401).json({
-    message: 'Sesi tidak valid atau telah berakhir.',
-  });
+  return buildErrorResponse(
+    res,
+    401,
+    'AUTHENTICATION_REQUIRED',
+    'Sesi tidak valid atau telah berakhir.',
+  )
 }
 
 function readBearerToken(req) {
@@ -122,7 +137,7 @@ export function authorizeRoles(...allowedRoles) {
   
   return (req, res, next) => {
     if (!req.user || !req.user.role) {
-      return res.status(401).json({ message: 'Akses ditolak.' });
+      return buildErrorResponse(res, 401, 'AUTHENTICATION_REQUIRED', 'Akses ditolak.');
     }
 
     const userRole = req.user.role.trim().toLowerCase();
@@ -131,7 +146,12 @@ export function authorizeRoles(...allowedRoles) {
     if (userRole === 'super admin' || userRole === 'superadmin' || normalizedAllowed.includes(userRole)) {
       next();
     } else {
-      return res.status(403).json({ message: 'Anda tidak memiliki hak akses untuk endpoint ini.' });
+      return buildErrorResponse(
+        res,
+        403,
+        'FORBIDDEN',
+        'Anda tidak memiliki hak akses untuk endpoint ini.',
+      );
     }
   };
 }
@@ -158,11 +178,16 @@ export function authorizeAnyPermission(featureKeys, access = 'read') {
 
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ message: 'Akses ditolak.' });
+      return buildErrorResponse(res, 401, 'AUTHENTICATION_REQUIRED', 'Akses ditolak.');
     }
 
     if (!hasValidKeys || !permissionCheck) {
-      return res.status(403).json({ message: 'Konfigurasi permission tidak valid.' });
+      return buildErrorResponse(
+        res,
+        403,
+        'FORBIDDEN',
+        'Konfigurasi permission tidak valid.',
+      );
     }
 
     const userRole = normalizeAuthenticatedRole(req.user.role);
@@ -171,7 +196,7 @@ export function authorizeAnyPermission(featureKeys, access = 'read') {
     }
 
     if (userRole !== 'admin' && userRole !== 'user') {
-      return res.status(403).json({ message: 'Akses ditolak.' });
+      return buildErrorResponse(res, 403, 'FORBIDDEN', 'Akses ditolak.');
     }
 
     const perms = req.user.permissions;
@@ -184,9 +209,12 @@ export function authorizeAnyPermission(featureKeys, access = 'read') {
       return next();
     }
 
-    return res.status(403).json({
-      message: `Anda tidak memiliki permission ${access} yang diperlukan.`,
-    });
+    return buildErrorResponse(
+      res,
+      403,
+      'FORBIDDEN',
+      `Anda tidak memiliki permission ${access} yang diperlukan.`,
+    );
   };
 }
 

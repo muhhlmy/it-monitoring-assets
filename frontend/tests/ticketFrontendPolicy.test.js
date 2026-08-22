@@ -231,22 +231,21 @@ test('ticket delete control is visible to superadmin only', async () => {
   )
 })
 
-test('app header gates ticket fetch, polling, and SSE behind ticket permission', async () => {
+test('app header gates ticket fetch and SSE behind ticket permission', async () => {
   const source = await readFile(appHeaderSourceUrl, 'utf8')
   const mountSection = sourceSection(source, 'onMounted(() => {', 'onBeforeUnmount')
   const permissionGateIndex = mountSection.indexOf(
     "if (!hasPermission('tickets')) return",
   )
   const fetchIndex = mountSection.indexOf('fetchTickets()')
-  const pollingIndex = mountSection.indexOf('setInterval(fetchTickets')
   const connectIndex = mountSection.indexOf('connectSSE()')
 
   assert.notEqual(permissionGateIndex, -1)
-  for (const guardedIndex of [fetchIndex, pollingIndex, connectIndex]) {
+  for (const guardedIndex of [fetchIndex, connectIndex]) {
     assert.notEqual(guardedIndex, -1)
     assert.ok(
       permissionGateIndex < guardedIndex,
-      'ticket permission gate must run before ticket fetch, polling, and SSE',
+      'ticket permission gate must run before ticket fetch and SSE',
     )
   }
 })

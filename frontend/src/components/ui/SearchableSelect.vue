@@ -231,14 +231,14 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
     >
       <span v-if="selectedOption" class="truncate text-[11px]">
         {{ selectedOption[labelKey] }}
-        <span v-if="secondaryLabelKey" class="font-mono text-[9px] text-[#94A3B8]">
+        <span v-if="secondaryLabelKey" class="font-mono text-[9px] text-[#475569]">
           ({{ selectedOption[secondaryLabelKey] }})
         </span>
       </span>
-      <span v-else class="truncate text-[11px] text-[#9CA3AF]">{{ placeholder }}</span>
+      <span v-else class="truncate text-[11px] text-[#475569]">{{ placeholder }}</span>
       <span
         aria-hidden="true"
-        class="material-symbols-outlined shrink-0 text-[16px] text-[#94A3B8] transition-transform duration-200"
+        class="material-symbols-outlined shrink-0 text-[16px] text-[#475569] transition-transform duration-200"
         :class="{ 'rotate-180': isOpen }"
         >keyboard_arrow_down</span
       >
@@ -248,7 +248,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
       v-if="clearable && selectedOption"
       type="button"
       :aria-label="`Hapus pilihan ${selectedOption[labelKey]}`"
-      class="absolute right-7 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[#94A3B8] transition-colors hover:bg-red-50 hover:text-[#EF4444]"
+      class="absolute right-7 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[#475569] transition-colors hover:bg-red-50 hover:text-[#DC2626]"
       @click.stop="clearSelection"
     >
       <span aria-hidden="true" class="material-symbols-outlined text-[14px]">close</span>

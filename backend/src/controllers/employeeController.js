@@ -1,6 +1,7 @@
 import { pool, withTransaction } from "../config/database.js";
 import { hashPassword } from "../security/passwordService.js";
 import { normalizeLocation } from "../utils/locationNormalizer.js";
+import { parsePaginationQuery, setPaginationHeaders } from "../security/requestValidation.js";
 
 // Validasi ENUM status karyawan & Job Level sesuai spesifikasi
 const VALID_KARYAWAN_STATUSES = ["Active", "Outsource", "Resigned"];
@@ -24,16 +25,28 @@ function cleanText(value) {
 
 export async function listEmployees(req, res) {
   try {
+    const { page, limit, offset } = parsePaginationQuery(req.query)
+
+    const countRes = await pool.query(`SELECT COUNT(*)::int AS count FROM karyawan`)
+    const totalCount = countRes.rows[0]?.count || 0
+
     const result = await pool.query(
       `SELECT id, id AS id_karyawan, nik, nama_karyawan, status, status AS status_karyawan,
               title, title AS jabatan, job_level, job_level AS tingkat_jabatan, departemen,
               directorate, directorate AS direktorat, tanggal_mulai_bekerja, employeement_status,
               employeement_status AS status_kepegawaian, nik_atasan_langsung, email_kantor, lokasi_kerja
        FROM karyawan
-       ORDER BY nama_karyawan`,
+       ORDER BY nama_karyawan ASC, id ASC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
     );
+
+    setPaginationHeaders(res, totalCount, page, limit)
     res.json(result.rows);
   } catch (error) {
+    if (error.statusCode === 400) {
+      return res.status(400).json({ error: error.message })
+    }
     console.error("Error listing employees:", error);
     res.status(500).json({ error: "Failed to list employees" });
   }

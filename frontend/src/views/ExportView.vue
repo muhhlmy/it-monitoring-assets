@@ -289,7 +289,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-6 pb-12 text-[#0F172A]">
+  <div class="space-y-6 pb-12 text-[#0F172A]" :data-testid="!isLoadingMetadata ? 'page-ready' : undefined">
     <!-- Notification Toast -->
     <Transition name="fade">
       <div

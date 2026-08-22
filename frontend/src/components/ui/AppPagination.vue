@@ -50,7 +50,7 @@ function goToPage(page) {
 
 <template>
   <div
-    class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-1 px-1 text-[11.5px] text-[#64748B] select-none"
+    class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-1 px-1 text-[11.5px] text-[#475569] select-none"
   >
     <div class="flex items-center gap-1 font-medium">
       <span>Menampilkan</span>
@@ -62,26 +62,29 @@ function goToPage(page) {
       <span>data</span>
     </div>
 
-    <div v-if="totalPages > 1" class="flex items-center gap-1">
+    <div v-if="totalPages > 1" class="flex items-center gap-1" role="navigation" aria-label="Navigasi Halaman">
       <button
         type="button"
         @click="goToPage(currentPage - 1)"
         :disabled="currentPage === 1"
-        class="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E2E8F0] bg-white text-[#475569] shadow-2xs hover:bg-[#F8FAFC] hover:text-[#0F172A] hover:border-[#CBD5E1] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        aria-label="Halaman Sebelumnya"
         title="Halaman Sebelumnya"
+        class="flex h-8 w-8 items-center justify-center rounded-lg border border-[#CBD5E1] bg-white text-[#334155] shadow-2xs hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        <span class="material-symbols-outlined text-[18px]">chevron_left</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[18px]">chevron_left</span>
       </button>
 
       <template v-for="page in visiblePageNumbers" :key="page">
         <button
           type="button"
           @click="goToPage(page)"
+          :aria-label="`Halaman ${page}`"
+          :aria-current="page === currentPage ? 'page' : undefined"
           class="flex h-8 min-w-[32px] px-2 items-center justify-center rounded-lg text-[12px] font-bold transition-all cursor-pointer"
           :class="
             page === currentPage
-              ? 'bg-[#2563EB] text-white shadow-2xs'
-              : 'border border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F8FAFC] hover:text-[#0F172A] hover:border-[#CBD5E1]'
+              ? 'bg-[#1D4ED8] text-white shadow-2xs'
+              : 'border border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC] hover:text-[#0F172A]'
           "
         >
           {{ page }}
@@ -92,10 +95,11 @@ function goToPage(page) {
         type="button"
         @click="goToPage(currentPage + 1)"
         :disabled="currentPage === totalPages"
-        class="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E2E8F0] bg-white text-[#475569] shadow-2xs hover:bg-[#F8FAFC] hover:text-[#0F172A] hover:border-[#CBD5E1] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        aria-label="Halaman Selanjutnya"
         title="Halaman Selanjutnya"
+        class="flex h-8 w-8 items-center justify-center rounded-lg border border-[#CBD5E1] bg-white text-[#334155] shadow-2xs hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[18px]">chevron_right</span>
       </button>
     </div>
   </div>

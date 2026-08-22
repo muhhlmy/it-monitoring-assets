@@ -3,18 +3,30 @@ import express from "express";
 import { env } from "./config/env.js";
 import { requireJsonRequest } from "./middleware/jsonRequestMiddleware.js";
 import { setSecurityHeaders } from "./middleware/securityHeaders.js";
+import { requireSafeOrigin } from "./middleware/originValidationMiddleware.js";
+import {
+  requestIdMiddleware,
+  apiNotFoundHandler,
+  globalErrorHandler,
+} from "./middleware/errorHandlerMiddleware.js";
 import { router } from "./routes/index.js";
 import { isCorsOriginAllowed } from "./security/corsPolicy.js";
-import fs from 'fs';
 
 export const app = express();
 
 app.set("trust proxy", env.trustProxy);
 app.disable("x-powered-by");
+app.use(requestIdMiddleware);
 app.use(setSecurityHeaders);
 
+// Always emit Vary: Origin header to prevent HTTP cache poisoning across different origins
+app.use((req, res, next) => {
+  res.setHeader("Vary", "Origin");
+  next();
+});
+
 function checkCorsOrigin(origin, callback) {
-  // Request tanpa origin biasanya berasal dari Postman atau aplikasi backend.
+  // Requests without an Origin header are non-browser clients (cURL, Postman, server-to-server)
   if (!origin) {
     callback(null, true);
     return;
@@ -26,103 +38,35 @@ function checkCorsOrigin(origin, callback) {
   }
 
   console.warn(`[CORS Blocked] Origin: "${origin}". Allowed origins:`, env.corsOrigins);
-  const error = new Error("Origin tidak diizinkan oleh konfigurasi CORS.");
-  error.statusCode = 403;
-  callback(error);
+  // Deny CORS permission by passing false to cors middleware (suppresses Access-Control-Allow-Origin header)
+  callback(null, false);
 }
 
 app.use(
   cors({
     origin: checkCorsOrigin,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Authorization", "Content-Type", "Accept", "X-Requested-With", "X-Request-ID"],
     exposedHeaders: [
       "X-Total-Count",
       "X-Page",
       "X-Page-Size",
+      "X-Total-Pages",
+      "X-Request-ID",
       "RateLimit-Limit",
       "RateLimit-Remaining",
       "RateLimit-Reset",
       "Retry-After",
     ],
+    credentials: false,
+    optionsSuccessStatus: 204,
   }),
 );
+app.use(requireSafeOrigin);
 app.use(requireJsonRequest);
 app.use(express.json({ limit: "8mb" }));
 app.use(router);
 
-function handleNotFound(req, res) {
-  res.status(404).json({ message: "Endpoint tidak ditemukan." });
-}
-
-function handleError(err, req, res, next) {
-  if (err.status === 413 || err.statusCode === 413) {
-    res.status(413).json({ message: "Payload melebihi batas yang diizinkan." });
-    return;
-  }
-
-  // Error ini terjadi jika body request bukan JSON yang valid.
-  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
-    res.status(400).json({ message: "Format JSON tidak valid." });
-    return;
-  }
-
-  // Kode 23505 dari PostgreSQL berarti nilai unique sudah digunakan.
-  if (err.code === "23505") {
-    let field = "Data";
-    const constraint = String(err.constraint || "").toLowerCase();
-    const detail = String(err.detail || "").toLowerCase();
-
-    if (constraint.includes("email") || detail.includes("email")) {
-      field = "Email";
-    } else if (constraint.includes("nik") || detail.includes("nik")) {
-      field = "NIK";
-    } else if (constraint.includes("nomor_seri") || detail.includes("nomor_seri")) {
-      field = "Nomor seri";
-    } else if (constraint.includes("label") || detail.includes("label")) {
-      field = "Label aset";
-    } else if (constraint.includes("kode") || detail.includes("kode")) {
-      field = "Kode unit";
-    }
-
-    res.status(409).json({ message: `${field} sudah digunakan.` });
-    return;
-  }
-
-  // Kode 23514 dari PostgreSQL berarti check constraint terlanggar.
-  if (err.code === "23514") {
-    res.status(400).json({ message: "Data tidak memenuhi validasi aturan sistem (check constraint)." });
-    return;
-  }
-
-  // Error dari trigger DB yang melarang hard-delete
-  if (err.message && err.message.includes("Hard delete is prohibited")) {
-    res.status(400).json({ message: "Penghapusan data secara permanen (hard delete) dilarang oleh sistem. Gunakan metode soft-delete." });
-    return;
-  }
-
-  // LOG ERROR TO FILE AND CONSOLE  
-  const timestamp = new Date().toISOString();
-  const errorLog = `[${timestamp}] ERROR:\n` + 
-                   `Status: ${err.statusCode || 'N/A'}\n` +
-                   `Message: ${err.message || 'Unknown'}\n` +
-                   `Stack: ${(err.stack || 'No stack').substring(0, 1000)}\n`;
-  
-  try {
-    fs.appendFileSync('./error_log.log', errorLog);
-  } catch (e) {
-    // Ignore file write errors
-  }
-  
-  console.error(errorLog);
-
-  if (err.statusCode) {
-    res.status(err.statusCode).json({ message: err.message });
-    return;
-  }
-
-  console.error(err);
-  res.status(500).json({ message: "Terjadi kesalahan pada server." });
-}
-
-// Kedua handler ini harus diletakkan paling bawah.
-app.use(handleNotFound);
-app.use(handleError);
+// Unknown route & global error handlers (must be registered last)
+app.use(apiNotFoundHandler);
+app.use(globalErrorHandler);

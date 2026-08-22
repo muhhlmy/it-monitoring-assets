@@ -40,6 +40,43 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
+/**
+ * Projects raw user object to minimal client-safe UI fields.
+ * Explicitly excludes passwords, hashes, tokens, secrets, or internal DB metadata.
+ */
+export function sanitizeUserForStorage(user) {
+  if (!isPlainObject(user)) {
+    return null
+  }
+
+  const {
+    id,
+    nama,
+    email,
+    role,
+    permissions,
+    nik,
+    departemen,
+    directorate,
+    lokasi_kerja,
+    title,
+    jabatan,
+  } = user
+
+  return {
+    id: id ? Number(id) : null,
+    nama: typeof nama === 'string' ? nama : '',
+    email: typeof email === 'string' ? email : '',
+    role: typeof role === 'string' ? role : '',
+    permissions: permissions && typeof permissions === 'object' && !Array.isArray(permissions) ? permissions : {},
+    nik: typeof nik === 'string' ? nik : '',
+    departemen: typeof departemen === 'string' ? departemen : '',
+    directorate: typeof directorate === 'string' ? directorate : '',
+    lokasi_kerja: typeof lokasi_kerja === 'string' ? lokasi_kerja : '',
+    title: typeof title === 'string' ? title : (typeof jabatan === 'string' ? jabatan : ''),
+  }
+}
+
 function readStorage(storage, persistent) {
   const token = safeGetItem(storage, AUTH_TOKEN_KEY)
   const rawUser = safeGetItem(storage, AUTH_USER_KEY)
@@ -51,8 +88,9 @@ function readStorage(storage, persistent) {
   }
 
   try {
-    const user = JSON.parse(rawUser)
-    if (!isPlainObject(user)) {
+    const parsedUser = JSON.parse(rawUser)
+    const user = sanitizeUserForStorage(parsedUser)
+    if (!user) {
       clearStorage(storage)
       return null
     }
@@ -88,7 +126,8 @@ export function clearAuthSession() {
 }
 
 export function storeAuthSession({ token, user, remember = false } = {}) {
-  if (typeof token !== 'string' || !token.trim() || !isPlainObject(user)) {
+  const sanitizedUser = sanitizeUserForStorage(user)
+  if (typeof token !== 'string' || !token.trim() || !sanitizedUser) {
     throw new TypeError('Data sesi autentikasi tidak valid.')
   }
 
@@ -97,7 +136,7 @@ export function storeAuthSession({ token, user, remember = false } = {}) {
     throw new Error('Penyimpanan sesi tidak tersedia pada browser ini.')
   }
 
-  const serializedUser = JSON.stringify(user)
+  const serializedUser = JSON.stringify(sanitizedUser)
   clearAuthSession()
 
   try {

@@ -452,21 +452,12 @@ function scrollChatToBottom() {
   if (el) el.scrollTop = el.scrollHeight
 }
 
-// ── Realtime Chat Polling ──────────────────────────────────────
-let chatPollInterval = null
-function startChatPoll(ticketId) {
-  stopChatPoll()
-  chatPollInterval = setInterval(() => {
-    if (showDetailModal.value && activeDetailTab.value === 'comments' && ticketId) {
-      fetchTicketComments(ticketId, true)
-    }
-  }, 3000)
+// Realtime chat comments are delivered via SSE (COMMENT_CREATED events)
+function startChatPoll(_ticketId) {
+  // Realtime updates handled via SSE
 }
 function stopChatPoll() {
-  if (chatPollInterval) {
-    clearInterval(chatPollInterval)
-    chatPollInterval = null
-  }
+  // Realtime updates handled via SSE
 }
 
 async function sendComment() {
@@ -949,7 +940,7 @@ function toast(message, type = 'success') {
 </script>
 
 <template>
-  <div class="flex min-w-0 flex-col gap-5">
+  <div class="flex min-w-0 flex-col gap-5" :data-testid="!isLoading ? 'page-ready' : undefined">
     <!-- Toast Notification -->
     <Transition name="slide-right">
       <div

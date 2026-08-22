@@ -1,3 +1,5 @@
+import { env } from '../config/env.js'
+
 const DEFAULT_MAX_ENTRIES = 10_000
 
 function getClientIp(req) {
@@ -48,6 +50,11 @@ export function createBoundedRateLimiter({
   }
 
   const middleware = (req, res, next) => {
+    // Exclude SSE (Server-Sent Events) from request rate limiting
+    if (req.headers?.accept === 'text/event-stream' || req.path?.endsWith('/events')) {
+      return next()
+    }
+
     const currentTime = now()
     const generatedKeys = keyGenerator(req)
     const keys = [...new Set((Array.isArray(generatedKeys) ? generatedKeys : [generatedKeys]).filter(Boolean))]
@@ -81,7 +88,15 @@ export function createBoundedRateLimiter({
 
     if (blocked) {
       res.setHeader?.('Retry-After', String(resetSeconds))
-      return res.status(429).json({ message })
+      const requestId = req.requestId || (res.getHeader && res.getHeader('X-Request-ID'))
+      return res.status(429).json({
+        error: {
+          code: 'RATE_LIMITED',
+          message,
+          ...(requestId ? { requestId } : {}),
+        },
+        message,
+      })
     }
     return next()
   }
@@ -92,9 +107,9 @@ export function createBoundedRateLimiter({
 }
 
 export const apiRateLimiter = createBoundedRateLimiter({
-  windowMs: 60_000,
-  max: 120,
-  keyGenerator: (req) => `api:ip:${getClientIp(req)}`,
+  windowMs: env.rateLimit?.windowMs || 60_000,
+  max: env.rateLimit?.max || 150,
+  keyGenerator: (req) => (req.user?.id ? `api:user:${req.user.id}` : `api:ip:${getClientIp(req)}`),
 })
 
 export const loginRateLimiter = createBoundedRateLimiter({
@@ -108,3 +123,23 @@ export const loginRateLimiter = createBoundedRateLimiter({
   message: 'Terlalu banyak percobaan login. Silakan coba lagi nanti.',
 })
 
+export const authRateLimiter = createBoundedRateLimiter({
+  windowMs: 15 * 60_000,
+  max: env.rateLimit?.authMax || 20,
+  keyGenerator: (req) => (req.user?.id ? `auth:user:${req.user.id}` : `auth:ip:${getClientIp(req)}`),
+  message: 'Terlalu banyak permintaan otentikasi. Silakan coba lagi nanti.',
+})
+
+export const exportRateLimiter = createBoundedRateLimiter({
+  windowMs: 15 * 60_000,
+  max: env.rateLimit?.exportMax || 10,
+  keyGenerator: (req) => (req.user?.id ? `export:user:${req.user.id}` : `export:ip:${getClientIp(req)}`),
+  message: 'Terlalu banyak permintaan ekspor data. Silakan coba lagi nanti.',
+})
+
+export const writeRateLimiter = createBoundedRateLimiter({
+  windowMs: 60_000,
+  max: 60,
+  keyGenerator: (req) => (req.user?.id ? `write:user:${req.user.id}` : `write:ip:${getClientIp(req)}`),
+  message: 'Terlalu banyak operasi perubahan data. Silakan coba lagi nanti.',
+})

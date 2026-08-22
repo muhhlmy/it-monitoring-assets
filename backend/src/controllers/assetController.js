@@ -3,6 +3,8 @@
 
 import { pool, withTransaction } from "../config/database.js";
 import { normalizeLocation } from "../utils/locationNormalizer.js";
+import { canReadITAsset, canWriteITAsset } from "../security/resourceAuthorizationPolicy.js";
+import { parsePaginationQuery, setPaginationHeaders } from "../security/requestValidation.js";
 
 function createHttpError(statusCode, message) {
   const error = new Error(message);
@@ -37,6 +39,13 @@ export async function replaceAsset(req, res) {
   try {
     const id = validateAssetId(req.params.id);
     const auditActor = requireAssetAuditActor(req);
+
+    const existingTarget = await findAssetById(id);
+    if (!existingTarget) throw createHttpError(404, "Aset tidak ditemukan.");
+    if (!canWriteITAsset(req.user, existingTarget)) {
+      return res.status(403).json({ error: "Anda tidak memiliki akses untuk mengubah aset ini." });
+    }
+
     const asset = validateAssetPayload(req.body);
 
     async function updateInsideTransaction(databaseClient) {
@@ -118,6 +127,9 @@ export async function deleteAsset(req, res) {
     const auditActor = requireAssetAuditActor(req);
     const asset = await findAssetById(id);
     if (!asset) throw createHttpError(404, "Aset tidak ditemukan.");
+    if (!canWriteITAsset(req.user, asset)) {
+      return res.status(403).json({ error: "Anda tidak memiliki akses untuk menghapus aset ini." });
+    }
 
     await withTransaction(async (databaseClient) => {
       await databaseClient.query("UPDATE aset_ti SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1", [id]);
@@ -471,6 +483,14 @@ export async function showAssetStats(req, res) {
 // GET /api/assets/cycle/:nik
 export async function getDeviceCycleByNik(req, res) {
   try {
+    const requestedNik = (req.params.nik || '').trim().toLowerCase();
+    const userNik = (req.user?.nik || req.user?.employee?.nik || '').trim().toLowerCase();
+    const isUserRole = (req.user?.role || '').trim().toLowerCase() === 'user';
+
+    if (isUserRole && requestedNik !== userNik) {
+      return res.status(403).json({ error: "Anda tidak memiliki akses ke riwayat aset pengguna ini." });
+    }
+
     const cycleSql = `
       SELECT rpa.*, a.hostname, a.serial_number, a.model, a.brand_merek
       FROM riwayat_pemakaian_aset rpa
@@ -493,6 +513,11 @@ export async function fetchAsset(req, res) {
     const id = validateAssetId(req.params.id);
     const asset = await findAssetById(id);
     if (!asset) throw createHttpError(404, "Aset tidak ditemukan.");
+
+    if (!canReadITAsset(req.user, asset)) {
+      return res.status(403).json({ error: "Anda tidak memiliki akses ke aset ini." });
+    }
+
     res.json(asset);
   } catch (error) {
     if (error.statusCode) {
@@ -503,19 +528,35 @@ export async function fetchAsset(req, res) {
   }
 }
 
-// GET /api/assets (list all assets)
+// GET /api/assets (paginated asset list)
 export async function listAssets(req, res) {
   try {
-    const results = await pool.query(`
-      SELECT ` + assetColumns + `
+    const { page, limit, offset } = parsePaginationQuery(req.query)
+
+    const countRes = await pool.query(`
+      SELECT COUNT(*)::int AS count
       FROM aset_ti
       WHERE deleted_at IS NULL
-      ORDER BY created_at DESC
-    `);
-    res.json(results.rows);
+    `)
+    const totalCount = countRes.rows[0]?.count || 0
+
+    const results = await pool.query(
+      `SELECT ` + assetColumns + `
+       FROM aset_ti
+       WHERE deleted_at IS NULL
+       ORDER BY created_at DESC, id DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    )
+
+    setPaginationHeaders(res, totalCount, page, limit)
+    res.json(results.rows)
   } catch (error) {
-    console.error('Error listing assets:', error);
-    res.status(500).json({ error: 'Gagal memuat daftar aset.' });
+    if (error.statusCode === 400) {
+      return res.status(400).json({ error: error.message })
+    }
+    console.error('Error listing assets:', error)
+    res.status(500).json({ error: 'Gagal memuat daftar aset.' })
   }
 }
 

@@ -1,5 +1,7 @@
 import { pool, withTransaction } from "../config/database.js";
 import { normalizeLocation } from "../utils/locationNormalizer.js";
+import { canReadOPSAsset, canWriteOPSAsset } from "../security/resourceAuthorizationPolicy.js";
+import { parsePaginationQuery, setPaginationHeaders } from "../security/requestValidation.js";
 
 function createHttpError(statusCode, message) {
   const error = new Error(message);
@@ -61,18 +63,33 @@ function normalizeOpsRecord(row) {
 
 export async function listOpsAssets(req, res) {
   try {
-    const result = await pool.query(`
-      SELECT id, hostname, nama_asset, kategori, lokasi, pic, tanggal_beli, total_asset_amount, kondisi, status, created_at, updated_at
+    const { page, limit, offset } = parsePaginationQuery(req.query)
+
+    const countRes = await pool.query(`
+      SELECT COUNT(*)::int AS count
       FROM aset_ops
       WHERE deleted_at IS NULL
-      ORDER BY created_at DESC
-    `);
+    `)
+    const totalCount = countRes.rows[0]?.count || 0
 
-    const records = result.rows.map(normalizeOpsRecord);
-    res.json(records);
+    const result = await pool.query(
+      `SELECT id, hostname, nama_asset, kategori, lokasi, pic, tanggal_beli, total_asset_amount, kondisi, status, created_at, updated_at
+       FROM aset_ops
+       WHERE deleted_at IS NULL
+       ORDER BY created_at DESC, id DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    )
+
+    const records = result.rows.map(normalizeOpsRecord)
+    setPaginationHeaders(res, totalCount, page, limit)
+    res.json(records)
   } catch (error) {
-    console.error("Error listing OPS assets:", error);
-    res.status(500).json({ error: "Gagal memuat daftar Aset OPS." });
+    if (error.statusCode === 400) {
+      return res.status(400).json({ error: error.message })
+    }
+    console.error("Error listing OPS assets:", error)
+    res.status(500).json({ error: "Gagal memuat daftar Aset OPS." })
   }
 }
 
@@ -87,7 +104,13 @@ export async function fetchOpsAsset(req, res) {
     );
 
     if (result.rowCount === 0) throw createHttpError(404, "Aset OPS tidak ditemukan.");
-    res.json(normalizeOpsRecord(result.rows[0]));
+    const assetRecord = result.rows[0];
+
+    if (!canReadOPSAsset(req.user, assetRecord)) {
+      return res.status(403).json({ error: "Anda tidak memiliki akses ke Aset OPS ini." });
+    }
+
+    res.json(normalizeOpsRecord(assetRecord));
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
     console.error("Error fetching OPS asset:", error);
@@ -151,6 +174,10 @@ export async function replaceOpsAsset(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id) || id <= 0) throw createHttpError(400, "ID Aset OPS tidak valid.");
+
+    if (!canWriteOPSAsset(req.user, null)) {
+      return res.status(403).json({ error: "Anda tidak memiliki akses untuk mengubah Aset OPS." });
+    }
 
     const body = req.body || {};
     const hostname = cleanText(body.hostname);
@@ -218,6 +245,10 @@ export async function deleteOpsAsset(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id) || id <= 0) throw createHttpError(400, "ID Aset OPS tidak valid.");
+
+    if (!canWriteOPSAsset(req.user, null)) {
+      return res.status(403).json({ error: "Anda tidak memiliki akses untuk menghapus Aset OPS." });
+    }
 
     const actor = requireAuditActor(req);
 

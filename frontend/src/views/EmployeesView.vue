@@ -384,7 +384,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex min-w-0 flex-col gap-5">
+  <div class="flex min-w-0 flex-col gap-5" :data-testid="!isLoading ? 'page-ready' : undefined">
     <!-- Notification Toast -->
     <Transition name="fade">
       <div

@@ -20,18 +20,22 @@ router.use('/health',     healthRouter)
 router.use('/api',        apiRateLimiter)
 router.use('/api/auth',   authRoutes)
 
+// Canonical RESTful endpoints & backward-compatible aliases
 router.use('/api/assets',        authenticateToken, assetRouter)
 router.use('/api/ga-assets',     authenticateToken, gaAssetRouter)
 router.use('/api/assets-ga',     authenticateToken, gaAssetRouter)
+router.use('/api/assets_ga',     authenticateToken, gaAssetRouter) // Deprecated snake_case alias
 router.use('/api/ops-assets',    authenticateToken, opsAssetRouter)
 router.use('/api/assets-ops',    authenticateToken, opsAssetRouter)
+router.use('/api/assets_ops',    authenticateToken, opsAssetRouter) // Deprecated snake_case alias
 router.use('/api/tickets',       authenticateToken, ticketRouter)
 router.use('/api/ticket-queues', authenticateToken, queueRouter)
 router.use('/api/export',        authenticateToken, exportRouter)
 
 const requireAdmin = authorizeRoles('admin', 'super admin', 'superadmin')
 
-router.use('/api/karyawan', authenticateToken, requireAdmin, employeeRouter)
-router.use('/api/users',    authenticateToken, requireAdmin, userRouter)
-router.use('/api/logs',     authenticateToken, requireAdmin, logRouter)
-router.use('/api/import',   authenticateToken, requireAdmin, importRouter)
+router.use('/api/employees', authenticateToken, requireAdmin, employeeRouter) // Canonical endpoint
+router.use('/api/karyawan',  authenticateToken, requireAdmin, employeeRouter) // Legacy alias
+router.use('/api/users',     authenticateToken, requireAdmin, userRouter)
+router.use('/api/logs',      authenticateToken, requireAdmin, logRouter)
+router.use('/api/import',    authenticateToken, requireAdmin, importRouter)

@@ -1,5 +1,7 @@
 import { pool, withTransaction } from "../config/database.js";
 import { normalizeLocation } from "../utils/locationNormalizer.js";
+import { canReadGAAsset, canWriteGAAsset } from "../security/resourceAuthorizationPolicy.js";
+import { parsePaginationQuery, setPaginationHeaders } from "../security/requestValidation.js";
 
 function createHttpError(statusCode, message) {
   const error = new Error(message);
@@ -52,18 +54,33 @@ function normalizeGaRecord(row) {
 
 export async function listGaAssets(req, res) {
   try {
-    const result = await pool.query(`
-      SELECT id, hostname, quantity, tipe_fasilitas, nama_asset, ukuran, detail, lokasi, lokasi_detail, kondisi, created_at, updated_at
+    const { page, limit, offset } = parsePaginationQuery(req.query)
+
+    const countRes = await pool.query(`
+      SELECT COUNT(*)::int AS count
       FROM aset_ga
       WHERE deleted_at IS NULL
-      ORDER BY created_at DESC
-    `);
+    `)
+    const totalCount = countRes.rows[0]?.count || 0
 
-    const records = result.rows.map(normalizeGaRecord);
-    res.json(records);
+    const result = await pool.query(
+      `SELECT id, hostname, quantity, tipe_fasilitas, nama_asset, ukuran, detail, lokasi, lokasi_detail, kondisi, created_at, updated_at
+       FROM aset_ga
+       WHERE deleted_at IS NULL
+       ORDER BY created_at DESC, id DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    )
+
+    const records = result.rows.map(normalizeGaRecord)
+    setPaginationHeaders(res, totalCount, page, limit)
+    res.json(records)
   } catch (error) {
-    console.error("Error listing GA assets:", error);
-    res.status(500).json({ error: "Gagal memuat daftar Aset GA." });
+    if (error.statusCode === 400) {
+      return res.status(400).json({ error: error.message })
+    }
+    console.error("Error listing GA assets:", error)
+    res.status(500).json({ error: "Gagal memuat daftar Aset GA." })
   }
 }
 
@@ -78,7 +95,13 @@ export async function fetchGaAsset(req, res) {
     );
 
     if (result.rowCount === 0) throw createHttpError(404, "Aset GA tidak ditemukan.");
-    res.json(normalizeGaRecord(result.rows[0]));
+    const assetRecord = result.rows[0];
+
+    if (!canReadGAAsset(req.user, assetRecord)) {
+      return res.status(403).json({ error: "Anda tidak memiliki akses ke Aset GA ini." });
+    }
+
+    res.json(normalizeGaRecord(assetRecord));
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
     console.error("Error fetching GA asset:", error);
@@ -143,6 +166,10 @@ export async function replaceGaAsset(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id) || id <= 0) throw createHttpError(400, "ID Aset GA tidak valid.");
+
+    if (!canWriteGAAsset(req.user, null)) {
+      return res.status(403).json({ error: "Anda tidak memiliki akses untuk mengubah Aset GA." });
+    }
 
     const body = req.body || {};
     const hostname = cleanText(body.hostname);
@@ -211,6 +238,10 @@ export async function deleteGaAsset(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id) || id <= 0) throw createHttpError(400, "ID Aset GA tidak valid.");
+
+    if (!canWriteGAAsset(req.user, null)) {
+      return res.status(403).json({ error: "Anda tidak memiliki akses untuk menghapus Aset GA." });
+    }
 
     const actor = requireAuditActor(req);
 

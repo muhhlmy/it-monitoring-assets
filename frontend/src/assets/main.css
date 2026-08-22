@@ -1,41 +1,46 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-primary: #5d87ff;
-  --color-primary-hover: #4570ea;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
   --color-primary-light: #ecf2ff;
-  --color-secondary: #49beff;
+  --color-secondary: #0284c7;
   --color-secondary-light: #e8f7ff;
-  --color-success: #13deb9;
+  --color-success: #059669;
   --color-success-light: #edfbf7;
-  --color-warning: #ffae1f;
+  --color-warning: #b45309;
   --color-warning-light: #fef5e5;
-  --color-danger: #fa896b;
+  --color-danger: #dc2626;
   --color-danger-light: #fdede8;
 
-  --color-esb-primary: #fc841b;
-  --color-esb-primary-dark: #e26f10;
+  --color-esb-primary: #d97706;
+  --color-esb-primary-dark: #b45309;
   --color-esb-primary-light: #fff2e7;
 
-  --color-brand: #5d87ff;
-  --color-brand-dark: #4570ea;
+  --color-brand: #2563eb;
+  --color-brand-dark: #1d4ed8;
   --color-brand-light: #ecf2ff;
-  --color-brand-secondary: #49beff;
-  --color-brand-accent: #13deb9;
+  --color-brand-secondary: #0284c7;
+  --color-brand-accent: #059669;
   --color-bg: #f4f6f9;
   --color-surface: #ffffff;
-  --color-border: #e5eaef;
-  --color-text: #2a3547;
-  --color-text-muted: #7c8bac;
+  --color-border: #e2e8f0;
+  --color-text: #0f172a;
+  --color-text-muted: #475569;
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
   font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  color: #2a3547;
+  color: #0f172a;
   background: #f4f6f9;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 *,

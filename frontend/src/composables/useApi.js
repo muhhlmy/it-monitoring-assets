@@ -57,6 +57,11 @@ export function useApi() {
         headers: customHeaders,
       })
     } catch (error) {
+      if (error?.name === 'AbortError' || fetchOptions.signal?.aborted) {
+        const abortErr = new Error('Permintaan dibatalkan.', { cause: error })
+        abortErr.name = 'AbortError'
+        throw abortErr
+      }
       throw new Error('Tidak dapat terhubung ke server. Periksa koneksi dan coba lagi.', {
         cause: error,
       })
@@ -72,15 +77,19 @@ export function useApi() {
         }
       }
 
-      const message = payload?.message || 'Sesi telah berakhir, silakan login kembali.'
+      const message =
+        payload?.error?.message ||
+        payload?.message ||
+        'Sesi telah berakhir, silakan login kembali.'
       throw new Error(message)
     }
 
     if (!response.ok) {
       const message =
-        payload && typeof payload === 'object' && 'message' in payload
-          ? payload.message
-          : `Permintaan gagal (HTTP ${response.status})`
+        payload?.error?.message ||
+        payload?.message ||
+        (typeof payload?.error === 'string' ? payload.error : null) ||
+        `Permintaan gagal (HTTP ${response.status})`
       throw new Error(message)
     }
 

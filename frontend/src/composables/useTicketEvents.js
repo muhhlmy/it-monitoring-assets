@@ -250,7 +250,14 @@ function forceReconnect() {
 
 function handleVisibilityChange() {
   if (typeof document === 'undefined') return
-  if (document.visibilityState === 'visible') forceReconnect()
+  if (document.visibilityState === 'visible') {
+    forceReconnect()
+  } else if (document.visibilityState === 'hidden') {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
+  }
 }
 
 function handleOnline() {

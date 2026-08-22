@@ -336,7 +336,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6 min-h-[calc(100vh-80px)]">
+  <div class="flex flex-col gap-6 min-h-[calc(100vh-80px)]" :data-testid="!isLoading ? 'page-ready' : undefined">
     <!-- ═══════════════════════════════════════════
          LOADING
          ═══════════════════════════════════════════ -->
@@ -517,124 +517,124 @@ onUnmounted(() => {
 
         <!-- 2. In Use -->
         <div
-          class="dash-stat-card shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B7E8DD] bg-gradient-to-br from-[#EDFBF7] to-white p-3.5"
+          class="dash-stat-card shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#A7F3D0] bg-gradient-to-br from-[#ECFDF5] to-white p-3.5"
         >
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold uppercase tracking-wide text-[#13DEB9]"
+            <span class="text-[10px] font-extrabold uppercase tracking-wide text-[#047857]"
               >Digunakan</span
             >
             <span class="flex items-center -mr-1">
               <span
-                class="material-symbols-outlined text-[18px] text-[#13DEB9]/70"
-                style="opacity: 0.7"
+                aria-hidden="true"
+                class="material-symbols-outlined text-[18px] text-[#047857]"
                 >check_circle</span
               >
             </span>
           </div>
           <div class="mt-2.5">
-            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">
+            <p class="font-num text-[22px] font-extrabold text-[#0F172A] leading-none">
               {{ countDipakai }}
             </p>
             <div class="flex items-center gap-1.5 mt-2">
-              <div class="flex-1 h-1.5 bg-[#E6F4F1] rounded-full overflow-hidden">
+              <div class="flex-1 h-1.5 bg-[#D1FAE5] rounded-full overflow-hidden">
                 <div
-                  class="h-full bg-gradient-to-r from-[#13DEB9] to-[#1ECAB5] rounded-full transition-all duration-500"
+                  class="h-full bg-gradient-to-r from-[#059669] to-[#047857] rounded-full transition-all duration-500"
                   :style="{ width: pctDipakai + '%' }"
                 ></div>
               </div>
-              <span class="text-[10px] font-bold text-[#13DEB9]">{{ pctDipakai }}%</span>
+              <span class="text-[10px] font-extrabold text-[#047857]">{{ pctDipakai }}%</span>
             </div>
           </div>
         </div>
 
         <!-- 3. Stock -->
         <div
-          class="dash-stat-card shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#B2E2FF] bg-gradient-to-br from-[#E8F7FF] to-white p-3.5"
+          class="dash-stat-card shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#BAE6FD] bg-gradient-to-br from-[#F0F9FF] to-white p-3.5"
         >
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold uppercase tracking-wide text-[#49BEFF]">Stok</span>
+            <span class="text-[10px] font-extrabold uppercase tracking-wide text-[#0369A1]">Stok</span>
             <span class="flex items-center -mr-1">
               <span
-                class="material-symbols-outlined text-[18px] text-[#49BEFF]/70"
-                style="opacity: 0.7"
+                aria-hidden="true"
+                class="material-symbols-outlined text-[18px] text-[#0369A1]"
                 >inventory</span
               >
             </span>
           </div>
           <div class="mt-2.5">
-            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">
+            <p class="font-num text-[22px] font-extrabold text-[#0F172A] leading-none">
               {{ countTersedia }}
             </p>
             <div class="flex items-center gap-1.5 mt-2">
-              <div class="flex-1 h-1.5 bg-[#E6F6FA] rounded-full overflow-hidden">
+              <div class="flex-1 h-1.5 bg-[#E0F2FE] rounded-full overflow-hidden">
                 <div
-                  class="h-full bg-gradient-to-r from-[#49BEFF] to-[#3DA8E5] rounded-full transition-all duration-500"
+                  class="h-full bg-gradient-to-r from-[#0284C7] to-[#0369A1] rounded-full transition-all duration-500"
                   :style="{ width: pctTersedia + '%' }"
                 ></div>
               </div>
-              <span class="text-[10px] font-bold text-[#49BEFF]">{{ pctTersedia }}%</span>
+              <span class="text-[10px] font-extrabold text-[#0369A1]">{{ pctTersedia }}%</span>
             </div>
           </div>
         </div>
 
         <!-- 4. Damaged -->
         <div
-          class="dash-stat-card shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FCD5CE] bg-gradient-to-br from-[#FDEDE8] to-white p-3.5"
+          class="dash-stat-card shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FECACA] bg-gradient-to-br from-[#FEF2F2] to-white p-3.5"
         >
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold uppercase tracking-wide text-[#FA896B]">Rusak</span>
+            <span class="text-[10px] font-extrabold uppercase tracking-wide text-[#B91C1C]">Rusak</span>
             <span class="flex items-center -mr-1">
               <span
-                class="material-symbols-outlined text-[18px] text-[#FA896B]/70"
-                style="opacity: 0.7"
+                aria-hidden="true"
+                class="material-symbols-outlined text-[18px] text-[#B91C1C]"
                 >report_problem</span
               >
             </span>
           </div>
           <div class="mt-2.5">
-            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">
+            <p class="font-num text-[22px] font-extrabold text-[#0F172A] leading-none">
               {{ countRusak }}
             </p>
             <div class="flex items-center gap-1.5 mt-2">
-              <div class="flex-1 h-1.5 bg-[#FDF2EF] rounded-full overflow-hidden">
+              <div class="flex-1 h-1.5 bg-[#FEE2E2] rounded-full overflow-hidden">
                 <div
-                  class="h-full bg-gradient-to-r from-[#FA896B] to-[#E87558] rounded-full transition-all duration-500"
+                  class="h-full bg-gradient-to-r from-[#DC2626] to-[#B91C1C] rounded-full transition-all duration-500"
                   :style="{ width: pctRusak + '%' }"
                 ></div>
               </div>
-              <span class="text-[10px] font-bold text-[#FA896B]">{{ pctRusak }}%</span>
+              <span class="text-[10px] font-extrabold text-[#B91C1C]">{{ pctRusak }}%</span>
             </div>
           </div>
         </div>
 
         <!-- 5. In Service -->
         <div
-          class="dash-stat-card shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FAD0AB] bg-gradient-to-br from-[#FEF5E5] to-white p-3.5"
+          class="dash-stat-card shadow-2xs hover:shadow-xs transition-shadow duration-300 flex flex-col justify-between rounded-xl border border-[#FDE68A] bg-gradient-to-br from-[#FFFBEB] to-white p-3.5"
         >
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold uppercase tracking-wide text-[#FFAE1F]"
+            <span class="text-[10px] font-extrabold uppercase tracking-wide text-[#B45309]"
               >Dalam Perawatan</span
             >
             <span class="flex items-center -mr-1">
               <span
-                class="material-symbols-outlined text-[18px] text-[#FFAE1F]/70"
-                style="opacity: 0.7"
+                aria-hidden="true"
+                class="material-symbols-outlined text-[18px] text-[#B45309]"
                 >build</span
               >
             </span>
           </div>
           <div class="mt-2.5">
-            <p class="font-num text-[22px] font-bold text-[#2A3547] leading-none">
+            <p class="font-num text-[22px] font-extrabold text-[#0F172A] leading-none">
               {{ countMaintenance }}
             </p>
             <div class="flex items-center gap-1.5 mt-2">
-              <div class="flex-1 h-1.5 bg-[#FEF8F1] rounded-full overflow-hidden">
+              <div class="flex-1 h-1.5 bg-[#FEF3C7] rounded-full overflow-hidden">
                 <div
-                  class="h-full bg-gradient-to-r from-[#FFAE1F] to-[#E69A1A] rounded-full transition-all duration-500"
+                  class="h-full bg-gradient-to-r from-[#D97706] to-[#B45309] rounded-full transition-all duration-500"
                   :style="{ width: pctMaintenance + '%' }"
                 ></div>
               </div>
-              <span class="text-[10px] font-bold text-[#FFAE1F]">{{ pctMaintenance }}%</span>
+              <span class="text-[10px] font-extrabold text-[#B45309]">{{ pctMaintenance }}%</span>
             </div>
           </div>
         </div>

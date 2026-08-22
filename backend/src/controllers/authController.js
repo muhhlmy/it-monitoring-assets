@@ -13,6 +13,12 @@ import {
   revokeSession,
   revokeAllUserSessions,
 } from '../services/sessionService.js';
+import {
+  checkAccountLockout,
+  recordFailedLogin,
+  resetFailedLogin,
+  DUMMY_BCRYPT_HASH,
+} from '../services/accountSecurityService.js';
 
 const MAX_LOGIN_EMAIL_LENGTH = 150
 const MAX_LOGIN_PASSWORD_LENGTH = 255
@@ -49,7 +55,14 @@ export async function login(req, res) {
 
     const { email, password } = credentials
 
-    // Cari user berdasarkan email beserta data karyawan dari tabel karyawan (jika terhubung)
+    // 1. Check persistent account lockout state
+    const lockoutState = await checkAccountLockout(email)
+    if (lockoutState.isLocked) {
+      res.setHeader('Retry-After', String(lockoutState.retryAfterSeconds))
+      return res.status(429).json({ message: 'Terlalu banyak percobaan login. Silakan coba lagi nanti.' })
+    }
+
+    // 2. Cari user berdasarkan email
     const result = await pool.query(
       `
       SELECT 
@@ -79,26 +92,36 @@ export async function login(req, res) {
       [email],
     )
 
-    if (result.rowCount === 0) {
-      return res.status(401).json({ message: 'Email atau password salah.' })
-    }
+    const userRow = result.rowCount > 0 ? result.rows[0] : null
+    const hashToVerify = userRow ? userRow.password_hash : DUMMY_BCRYPT_HASH
 
-    const userRow = result.rows[0]
+    // 3. Verify password (runs against dummy hash for non-existent users to preserve timing)
+    const isPasswordValid = await verifyPassword(password, hashToVerify)
+
+    if (!userRow || !isPasswordValid) {
+      const failedState = await recordFailedLogin(email)
+      if (userRow) {
+        await pool.query(
+          'INSERT INTO log_audit_login (user_id, email, login_time, ip_address, user_agent) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4)',
+          [userRow.id, userRow.email, req.ip, req.headers['user-agent']],
+        ).catch(() => {})
+      }
+
+      if (failedState.lockedUntil && failedState.retryAfterSeconds > 0) {
+        res.setHeader('Retry-After', String(failedState.retryAfterSeconds))
+        return res.status(429).json({ message: 'Terlalu banyak percobaan login. Silakan coba lagi nanti.' })
+      }
+
+      return res.status(401).json({ message: 'Kredensial tidak valid.' })
+    }
 
     // Cek apakah akun aktif
     if (!userRow.is_active) {
       return res.status(403).json({ message: 'Akun Anda telah dinonaktifkan.' })
     }
 
-    const isPasswordValid = await verifyPassword(password, userRow.password_hash)
-
-    if (!isPasswordValid) {
-      await pool.query(
-        'INSERT INTO log_audit_login (user_id, email, login_time, ip_address, user_agent) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4)',
-        [userRow.id, userRow.email, req.ip, req.headers['user-agent']],
-      )
-      return res.status(401).json({ message: 'Email atau password salah.' })
-    }
+    // Reset failed login state on successful authentication
+    await resetFailedLogin(email)
 
     const userRole = (userRow.role || '').trim().toLowerCase()
     const isSuper = userRole === 'superadmin' || userRole === 'super admin'

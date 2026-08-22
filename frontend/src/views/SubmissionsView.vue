@@ -594,7 +594,7 @@ onMounted(fetchData)
 </script>
 
 <template>
-  <div class="flex min-w-0 flex-col gap-5">
+  <div class="flex min-w-0 flex-col gap-5" :data-testid="!isLoading ? 'page-ready' : undefined">
     <!-- Loading Form Skeleton (Matches Serah Terima Form layout 100%) -->
     <div v-if="isLoading" role="status" aria-busy="true" class="flex flex-col gap-6 select-none">
       <!-- Section 1 Skeleton: Profil Pihak Terkait -->

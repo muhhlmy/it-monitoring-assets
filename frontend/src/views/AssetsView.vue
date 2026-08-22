@@ -663,7 +663,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="space-y-4" :data-testid="!isLoading ? 'page-ready' : undefined">
     <!-- Simplified SaaS Header & Toolbar Container -->
     <div
       class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs"

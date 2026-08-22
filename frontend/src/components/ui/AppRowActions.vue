@@ -121,9 +121,10 @@ onBeforeUnmount(() => {
       ref="buttonRef"
       type="button"
       @click.stop="toggleDropdown"
+      aria-label="Opsi Aksi"
       title="Opsi Aksi"
-      class="flex h-7 w-7 items-center justify-center rounded-lg text-[#64748B] opacity-50 group-hover:opacity-100 hover:bg-[#F1F5F9] hover:text-[#0F172A] transition-all cursor-pointer"
-      :class="isOpen ? 'bg-[#F1F5F9] text-[#0F172A] opacity-100' : ''"
+      class="flex h-7 w-7 items-center justify-center rounded-lg text-[#334155] hover:bg-[#F1F5F9] hover:text-[#0F172A] transition-all cursor-pointer"
+      :class="isOpen ? 'bg-[#F1F5F9] text-[#0F172A]' : ''"
     >
       <span aria-hidden="true" class="material-symbols-outlined text-[18px]">more_horiz</span>
     </button>
@@ -145,13 +146,13 @@ onBeforeUnmount(() => {
               class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] font-bold transition-all cursor-pointer text-left whitespace-nowrap"
               :class="[
                 act.disabled
-                  ? 'opacity-40 cursor-not-allowed text-gray-400'
+                  ? 'opacity-40 cursor-not-allowed text-gray-500'
                   : act.danger
-                    ? 'text-rose-600 hover:bg-rose-50'
-                    : 'text-[#2A3547] hover:bg-[#ECF2FF] hover:text-[#5D87FF]',
+                    ? 'text-rose-700 hover:bg-rose-50'
+                    : 'text-[#0F172A] hover:bg-[#EFF6FF] hover:text-[#1D4ED8]',
               ]"
             >
-              <span v-if="act.icon" class="material-symbols-outlined text-[16px] shrink-0">
+              <span v-if="act.icon" aria-hidden="true" class="material-symbols-outlined text-[16px] shrink-0">
                 {{ act.icon }}
               </span>
               <span class="whitespace-nowrap shrink-0">{{ act.label }}</span>

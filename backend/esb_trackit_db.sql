@@ -116,10 +116,24 @@ CREATE TABLE user_sessions (
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX idx_user_sessions_sid ON user_sessions(session_id);
+CREATE INDEX idx_user_sessions_sid ON user_sessions(session_id);
 CREATE INDEX idx_user_sessions_user ON user_sessions(user_id);
 CREATE INDEX idx_user_sessions_expires ON user_sessions(expires_at);
-CREATE INDEX idx_user_sessions_revoked ON user_sessions(revoked_at);
+CREATE INDEX idx_user_sessions_revoked ON user_sessions(revoked_at) WHERE revoked_at IS NOT NULL;
+
+-- =====================================================================
+-- TABEL 2C: Account Security State (Brute-Force & Lockout Tracking)
+-- =====================================================================
+CREATE TABLE account_security_state (
+    account_key                 VARCHAR(255)    PRIMARY KEY,
+    failed_attempt_count        INTEGER         NOT NULL DEFAULT 0,
+    first_failed_at             TIMESTAMPTZ,
+    last_failed_at              TIMESTAMPTZ,
+    locked_until                TIMESTAMPTZ,
+    updated_at                  TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_account_security_locked_until ON account_security_state(locked_until) WHERE locked_until IS NOT NULL;
 
 -- =====================================================================
 -- TABEL 3: Asset (Master Data Aset IT)

@@ -509,7 +509,7 @@ onBeforeUnmount(() => window.clearTimeout(toastTimer))
 </script>
 
 <template>
-  <div class="flex min-w-0 flex-col gap-5">
+  <div class="flex min-w-0 flex-col gap-5" :data-testid="!isLoading ? 'page-ready' : undefined">
     <!-- ── Toast Notifikasi ──────────────────────────────── -->
     <Transition name="slide-right">
       <div

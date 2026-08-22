@@ -21,10 +21,12 @@ import {
   createHttpError,
   parseNewPassword,
   parseOptionalBoolean,
+  parsePaginationQuery,
   parsePositiveIntegerParam,
   parseQueueIds,
   parseRequiredEmail,
   parseRequiredName,
+  setPaginationHeaders,
 } from "../security/requestValidation.js";
 
 const USER_CREATE_FIELDS = new Set([
@@ -97,30 +99,50 @@ async function lockActiveSuperadmins(queryable) {
 }
 
 export async function listUsers(req, res) {
-  const result = await pool.query(
-    `SELECT u.id, u.nama, u.email, u.role, u.permissions, u.is_active, u.created_at AS dibuat_pada, u.updated_at AS diperbarui_pada,
-            COALESCE(
-              JSON_AGG(
-                JSON_BUILD_OBJECT('id', q.id, 'kode', q.kode, 'nama', q.nama)
-              ) FILTER (WHERE q.id IS NOT NULL), '[]'
-            ) AS queues
-       FROM users u
-       LEFT JOIN user_ticket_queues utq ON utq.user_id = u.id
-       LEFT JOIN ticket_queues q ON q.id = utq.queue_id AND q.is_active = true
-      WHERE u.deleted_at IS NULL
-      GROUP BY u.id
-      ORDER BY u.id DESC`,
-  );
+  try {
+    const { page, limit, offset } = parsePaginationQuery(req.query)
 
-  const rows = result.rows.map((user) => {
-    const isSuper = isSuperAdminRole(user.role);
-    user.permissions = isSuper
-      ? { ...SUPERADMIN_PERMISSIONS }
-      : normalizePermissions(user.permissions, { defaults: DEFAULT_USER_PERMISSIONS });
-    user.queue_ids = (user.queues || []).map((q) => Number(q.id)).filter(Number.isSafeInteger);
-    return user;
-  });
-  res.json(rows);
+    const countRes = await pool.query(`
+      SELECT COUNT(*)::int AS count
+      FROM users
+      WHERE deleted_at IS NULL
+    `)
+    const totalCount = countRes.rows[0]?.count || 0
+
+    const result = await pool.query(
+      `SELECT u.id, u.nama, u.email, u.role, u.permissions, u.is_active, u.created_at AS dibuat_pada, u.updated_at AS diperbarui_pada,
+              COALESCE(
+                JSON_AGG(
+                  JSON_BUILD_OBJECT('id', q.id, 'kode', q.kode, 'nama', q.nama)
+                ) FILTER (WHERE q.id IS NOT NULL), '[]'
+              ) AS queues
+         FROM users u
+         LEFT JOIN user_ticket_queues utq ON utq.user_id = u.id
+         LEFT JOIN ticket_queues q ON q.id = utq.queue_id AND q.is_active = true
+        WHERE u.deleted_at IS NULL
+        GROUP BY u.id
+        ORDER BY u.id DESC
+        LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    const rows = result.rows.map((user) => {
+      const isSuper = isSuperAdminRole(user.role);
+      user.permissions = isSuper
+        ? { ...SUPERADMIN_PERMISSIONS }
+        : normalizePermissions(user.permissions, { defaults: DEFAULT_USER_PERMISSIONS });
+      user.queue_ids = (user.queues || []).map((q) => Number(q.id)).filter(Number.isSafeInteger);
+      return user;
+    });
+
+    setPaginationHeaders(res, totalCount, page, limit);
+    res.json(rows);
+  } catch (error) {
+    if (error.statusCode === 400) {
+      return res.status(400).json({ error: error.message });
+    }
+    throw error;
+  }
 }
 
 export async function storeUser(req, res) {

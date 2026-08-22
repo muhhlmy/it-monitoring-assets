@@ -160,6 +160,12 @@ export const env = {
     bcryptRounds: readBoundedInteger("PASSWORD_BCRYPT_ROUNDS", 12, 10, 14),
     legacyMode: readLegacyPasswordMode(),
   },
+  rateLimit: {
+    windowMs: readNumber("API_RATE_LIMIT_WINDOW_MS", 60_000),
+    max: readNumber("API_RATE_LIMIT_MAX", 150),
+    authMax: readNumber("AUTH_RATE_LIMIT_MAX", 20),
+    exportMax: readNumber("EXPORT_RATE_LIMIT_MAX", 10),
+  },
   trustProxy: readTrustedProxyCidrs(),
   corsOrigins: readCorsOrigins(),
 };

@@ -565,7 +565,6 @@ onMounted(() => {
   if (!hasPermission('tickets')) return
   loadNotifications()
   fetchTickets()
-  pollTimer = setInterval(fetchTickets, 15000)
 
   connectSSE()
   onSSE('TICKET_CREATED', handleSseTicketCreated)
@@ -575,7 +574,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
-  clearInterval(pollTimer)
   offSSE('TICKET_CREATED', handleSseTicketCreated)
   offSSE('TICKET_UPDATED', handleSseTicketUpdated)
   offSSE('COMMENT_CREATED', handleSseCommentCreated)
@@ -601,10 +599,10 @@ onBeforeUnmount(() => {
       </button>
 
       <div class="min-w-0 hidden sm:block">
-        <h1 class="truncate text-[14px] font-extrabold tracking-tight text-[#2A3547] leading-tight">
+        <h1 class="truncate text-[14px] font-extrabold tracking-tight text-[#0F172A] leading-tight">
           {{ pageTitle }}
         </h1>
-        <p class="truncate text-[10px] font-medium text-[#7C8BAC] leading-none">
+        <p class="truncate text-[10px] font-medium text-[#475569] leading-none">
           {{ pageSubtitle }}
         </p>
       </div>
@@ -622,7 +620,7 @@ onBeforeUnmount(() => {
 
           <span
             aria-hidden="true"
-            class="material-symbols-outlined absolute left-3 text-[17px] text-[#7C8BAC] pointer-events-none transition-colors"
+            class="material-symbols-outlined absolute left-3 text-[17px] text-[#475569] pointer-events-none transition-colors"
           >
             search
           </span>
@@ -635,7 +633,7 @@ onBeforeUnmount(() => {
             autocomplete="off"
             @focus="initGlobalSearchData"
             placeholder="Cari aset, karyawan, tiket, atau user..."
-            class="h-8 w-full rounded-full border border-[#DFE5EF] bg-[#F8FAFC] pl-9 pr-16 text-[11px] font-medium text-[#2A3547] placeholder-[#94A3B8] outline-none transition-all shadow-xs focus:bg-white focus:border-[#5D87FF] focus:ring-2 focus:ring-[#5D87FF]/20"
+            class="h-8 w-full rounded-full border border-[#DFE5EF] bg-[#F8FAFC] pl-9 pr-16 text-[11px] font-medium text-[#0F172A] placeholder-[#64748B] outline-none transition-all shadow-xs focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20"
           />
 
           <!-- Action Buttons / Hotkey Indicator -->
@@ -644,23 +642,24 @@ onBeforeUnmount(() => {
               v-if="searchQuery"
               type="button"
               @click="clearSearch"
-              class="flex h-6 w-6 items-center justify-center rounded-full text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#475569] transition-all"
+              aria-label="Bersihkan pencarian"
+              class="flex h-6 w-6 items-center justify-center rounded-full text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A] transition-all"
               title="Bersihkan Pencarian"
             >
-              <span class="material-symbols-outlined text-[15px]">close</span>
+              <span aria-hidden="true" class="material-symbols-outlined text-[15px]">close</span>
             </button>
 
             <button
               type="submit"
               :disabled="!searchQuery.trim()"
-              class="flex items-center gap-1 rounded-full bg-[#ECF2FF] px-2.5 py-1 text-[10px] font-extrabold text-[#5D87FF] hover:bg-[#5D87FF] hover:text-white disabled:opacity-40 transition-all cursor-pointer"
+              class="flex items-center gap-1 rounded-full bg-[#EFF6FF] px-2.5 py-1 text-[10px] font-extrabold text-[#1D4ED8] hover:bg-[#1D4ED8] hover:text-white disabled:opacity-40 transition-all cursor-pointer"
             >
               Cari
             </button>
 
             <kbd
               v-if="!searchQuery"
-              class="hidden md:inline-flex items-center rounded-md border border-[#E2E8F0] bg-white px-1.5 py-0.5 text-[9px] font-mono font-semibold text-[#94A3B8] shadow-2xs"
+              class="hidden md:inline-flex items-center rounded-md border border-[#E2E8F0] bg-white px-1.5 py-0.5 text-[9px] font-mono font-semibold text-[#475569] shadow-2xs"
             >
               Ctrl K
             </kbd>

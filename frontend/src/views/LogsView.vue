@@ -198,7 +198,7 @@ function parsePerubahan(perubahan, aksi) {
 </script>
 
 <template>
-  <div class="flex min-w-0 flex-col gap-4">
+  <div class="flex min-w-0 flex-col gap-4" :data-testid="!isLoading ? 'page-ready' : undefined">
     <!-- Simplified SaaS Header Container -->
     <div
       class="flex flex-col gap-3.5 bg-white p-4.5 rounded-2xl border border-[#E2E8F0]/80 shadow-2xs"

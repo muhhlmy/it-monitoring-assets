@@ -127,15 +127,14 @@ const handleLogin = async () => {
 
         <!-- Top Header: Brand Logo & Status Indicator -->
         <div class="relative z-10 flex items-center justify-between">
-          <img src="/ESB Logo.svg" alt="ESB Logo" class="h-7 lg:h-8 w-auto object-contain" />
-          
+          <img src="/ESB Logo.svg" alt="ESB People Technology Logo" class="h-7 lg:h-8 w-auto object-contain" />
         </div>
 
         <!-- Middle Focal Point: Brand Statement & Typography -->
         <div class="relative z-10 max-w-sm space-y-6 my-auto py-8 transition-all duration-300">
           <div class="space-y-2">
             <div
-              class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0892F5] tracking-wide uppercase"
+              class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#1D4ED8] tracking-wide uppercase"
             >
               <span>IT Assets Monitoring</span>
             </div>
@@ -146,29 +145,29 @@ const handleLogin = async () => {
             </h1>
           </div>
 
-          <p class="text-sm lg:text-base text-slate-600 font-normal leading-relaxed">
+          <p class="text-sm lg:text-base text-slate-700 font-normal leading-relaxed">
             Platform terpadu untuk pengawasan aset IT, inventarisasi perangkat, dan manajemen tiket
             support secara real-time.
           </p>
 
           <!-- Minimal Feature Badges -->
-          <div class="pt-2 flex flex-wrap gap-2 text-xs font-medium text-slate-600">
+          <div class="pt-2 flex flex-wrap gap-2 text-xs font-medium text-slate-700">
             <div
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/80 border border-slate-200/70 text-slate-700 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/90 border border-slate-300/80 text-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
             >
-              <span class="material-symbols-outlined text-[15px] text-[#0892F5]">inventory_2</span>
+              <span aria-hidden="true" class="material-symbols-outlined text-[15px] text-[#1D4ED8]">inventory_2</span>
               <span>Asset Control</span>
             </div>
             <div
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/80 border border-slate-200/70 text-slate-700 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/90 border border-slate-300/80 text-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
             >
-              <span class="material-symbols-outlined text-[15px] text-[#0892F5]">devices</span>
+              <span aria-hidden="true" class="material-symbols-outlined text-[15px] text-[#1D4ED8]">devices</span>
               <span>Health Monitoring</span>
             </div>
             <div
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/80 border border-slate-200/70 text-slate-700 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/90 border border-slate-300/80 text-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
             >
-              <span class="material-symbols-outlined text-[15px] text-[#0892F5]"
+              <span aria-hidden="true" class="material-symbols-outlined text-[15px] text-[#1D4ED8]"
                 >confirmation_number</span
               >
               <span>Support Desk</span>
@@ -178,10 +177,10 @@ const handleLogin = async () => {
 
         <!-- Bottom Footer -->
         <div
-          class="relative z-10 flex items-center justify-between text-xs text-slate-400 font-medium"
+          class="relative z-10 flex items-center justify-between text-xs text-slate-600 font-medium"
         >
           <span>&copy; 2026 ESB People Technology</span>
-          <span class="text-[11px] text-slate-400/80 font-normal">#AhlinyaBisnisKuliner</span>
+          <span class="text-[11px] text-slate-600 font-medium">#AhlinyaBisnisKuliner</span>
         </div>
       </div>
 
@@ -193,11 +192,11 @@ const handleLogin = async () => {
         <div
           class="flex md:hidden items-center justify-between pb-4 border-b border-slate-100 mb-4 shrink-0"
         >
-          <img src="/ESB Logo.svg" alt="ESB Logo" class="h-7 w-auto object-contain" />
+          <img src="/ESB Logo.svg" alt="ESB People Technology Logo" class="h-7 w-auto object-contain" />
           <div
-            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/80 text-[10px] font-semibold text-slate-600"
+            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/80 text-[10px] font-semibold text-slate-700"
           >
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-600" aria-hidden="true"></span>
             <span>TrackIT Enterprise</span>
           </div>
         </div>
@@ -211,7 +210,7 @@ const handleLogin = async () => {
             <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
               Selamat datang kembali
             </h2>
-            <p class="mt-1.5 text-xs sm:text-sm text-slate-500 font-normal leading-relaxed">
+            <p class="mt-1.5 text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
               Masuk dengan akun enterprise Anda untuk melanjutkan.
             </p>
           </div>
@@ -219,27 +218,27 @@ const handleLogin = async () => {
           <!-- Error Alert (Clean & Non-aggressive) -->
           <div
             v-if="errorMessage"
-            class="mb-5 rounded-xl bg-red-50/90 p-3.5 border border-red-100 flex items-start gap-2.5 transition-all"
+            class="mb-5 rounded-xl bg-red-50 p-3.5 border border-red-200 flex items-start gap-2.5 transition-all"
             role="alert"
           >
-            <span class="material-symbols-outlined text-red-500 text-[18px] mt-0.5 shrink-0"
+            <span aria-hidden="true" class="material-symbols-outlined text-red-700 text-[18px] mt-0.5 shrink-0"
               >error</span
             >
-            <p class="text-xs font-medium text-red-700 leading-relaxed">{{ errorMessage }}</p>
+            <p class="text-xs font-semibold text-red-800 leading-relaxed">{{ errorMessage }}</p>
           </div>
 
           <!-- Authentication Form -->
           <form @submit.prevent="handleLogin" class="space-y-4">
             <!-- Email / Username Input -->
             <div class="space-y-1.5">
-              <label for="email" class="block text-xs font-semibold text-slate-700">
+              <label for="email" class="block text-xs font-bold text-slate-800">
                 Email atau nama pengguna
               </label>
               <div class="relative">
                 <span
-                  class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center"
+                  class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none flex items-center"
                 >
-                  <span class="material-symbols-outlined text-[18px]">mail</span>
+                  <span aria-hidden="true" class="material-symbols-outlined text-[18px]">mail</span>
                 </span>
                 <input
                   id="email"
@@ -248,21 +247,21 @@ const handleLogin = async () => {
                   required
                   autocomplete="username"
                   placeholder="admin@esb.co.id"
-                  class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 text-sm text-slate-900 transition-all duration-150 placeholder:text-slate-400 focus:border-[#0892F5] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#0892F5]/10"
+                  class="h-11 w-full rounded-xl border border-slate-300 bg-slate-50/50 pl-10 pr-4 text-sm text-slate-900 transition-all duration-150 placeholder:text-slate-500 focus:border-[#2563EB] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#2563EB]/10"
                 />
               </div>
             </div>
 
             <!-- Password Input -->
             <div class="space-y-1.5">
-              <label for="password" class="block text-xs font-semibold text-slate-700">
+              <label for="password" class="block text-xs font-bold text-slate-800">
                 Kata sandi
               </label>
               <div class="relative">
                 <span
-                  class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center"
+                  class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none flex items-center"
                 >
-                  <span class="material-symbols-outlined text-[18px]">lock</span>
+                  <span aria-hidden="true" class="material-symbols-outlined text-[18px]">lock</span>
                 </span>
                 <input
                   id="password"
@@ -271,16 +270,16 @@ const handleLogin = async () => {
                   required
                   autocomplete="current-password"
                   placeholder="••••••••"
-                  class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-10 text-sm text-slate-900 transition-all duration-150 placeholder:text-slate-400 focus:border-[#0892F5] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#0892F5]/10"
+                  class="h-11 w-full rounded-xl border border-slate-300 bg-slate-50/50 pl-10 pr-10 text-sm text-slate-900 transition-all duration-150 placeholder:text-slate-500 focus:border-[#2563EB] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#2563EB]/10"
                 />
                 <button
                   type="button"
                   @click="showPassword = !showPassword"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none focus:text-slate-600"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-700 transition-colors focus:outline-none focus:text-slate-700"
                   :aria-label="showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
                   tabindex="-1"
                 >
-                  <span class="material-symbols-outlined text-[18px] block">
+                  <span aria-hidden="true" class="material-symbols-outlined text-[18px] block">
                     {{ showPassword ? 'visibility_off' : 'visibility' }}
                   </span>
                 </button>
@@ -293,10 +292,10 @@ const handleLogin = async () => {
                 <input
                   v-model="rememberMe"
                   type="checkbox"
-                  class="w-4 h-4 rounded border-slate-300 text-[#0892F5] focus:ring-2 focus:ring-[#0892F5]/20 accent-[#0892F5] cursor-pointer"
+                  class="w-4 h-4 rounded border-slate-300 text-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 accent-[#2563EB] cursor-pointer"
                 />
                 <span
-                  class="text-xs sm:text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors"
+                  class="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-slate-900 transition-colors"
                 >
                   Ingat saya
                 </span>
@@ -307,10 +306,10 @@ const handleLogin = async () => {
             <button
               type="submit"
               :disabled="isLoading"
-              class="w-full h-11 mt-2 rounded-xl bg-[#0892F5] hover:bg-[#0780D8] text-white font-semibold text-sm transition-all duration-150 shadow-xs active:scale-[0.99] disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center gap-2 group cursor-pointer"
+              class="w-full h-11 mt-2 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm transition-all duration-150 shadow-xs active:scale-[0.99] disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center gap-2 group cursor-pointer"
             >
               <span v-if="isLoading" class="flex items-center gap-2">
-                <span class="material-symbols-outlined animate-spin text-[18px]"
+                <span aria-hidden="true" class="material-symbols-outlined animate-spin text-[18px]"
                   >progress_activity</span
                 >
                 <span>Masuk...</span>
@@ -318,6 +317,7 @@ const handleLogin = async () => {
               <template v-else>
                 <span>Masuk</span>
                 <span
+                  aria-hidden="true"
                   class="material-symbols-outlined text-[18px] transition-transform duration-150 group-hover:translate-x-0.5"
                   >arrow_forward</span
                 >

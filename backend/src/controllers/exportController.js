@@ -592,7 +592,7 @@ export async function exportTableData(req, res) {
       const auditActor = req.user?.nama || req.user?.email || 'Super Administrator'
       await pool.query(
         `INSERT INTO log_riwayat_aset (id_aset, label_aset, aksi, perubahan, oleh_pengguna, dibuat_pada)
-         VALUES (NULL, $1, $2, $3, $4, CURRENT_TIMESTAMP)`,
+         VALUES (0, $1, $2, $3, $4, CURRENT_TIMESTAMP)`,
         [
           `Export ${schema.label}`,
           'UBAH',
@@ -623,3 +623,229 @@ export async function exportTableData(req, res) {
     res.status(500).json({ success: false, message: 'Terjadi kesalahan pada server.' })
   }
 }
+
+/**
+ * Neutralizes CSV formula injection by prefixing single quote if string begins with =, +, -, @, \t, \r
+ */
+export function escapeCsvField(val) {
+  if (val === null || val === undefined) {
+    return ''
+  }
+  let str = String(val)
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`
+  }
+  if (/[",\n\r]/.test(str)) {
+    str = `"${str.replace(/"/g, '""')}"`
+  }
+  return str
+}
+
+export function toCsvString(rows, columns) {
+  const headerRow = columns.map((col) => escapeCsvField(col.label || col.name)).join(',')
+  const dataRows = rows.map((row) =>
+    columns
+      .map((col) => {
+        let val = row[col.name]
+        if ((col.name === 'lokasi_asset' || col.name === 'lokasi_kerja') && val) {
+          val = normalizeLocation(val)
+        }
+        return escapeCsvField(val)
+      })
+      .join(',')
+  )
+  return [headerRow, ...dataRows].join('\r\n')
+}
+
+async function logExportAudit(req, label, tableName, rowCount) {
+  try {
+    const auditActor = req.user?.nama || req.user?.email || 'Super Administrator'
+    await pool.query(
+      `INSERT INTO log_riwayat_aset (id_aset, label_aset, aksi, perubahan, oleh_pengguna, dibuat_pada)
+       VALUES (0, $1, $2, $3, $4, CURRENT_TIMESTAMP)`,
+      [
+        `Export ${label}`,
+        'UBAH',
+        `Mengekspor ${rowCount} baris data (tabel: ${tableName})`,
+        auditActor
+      ]
+    )
+  } catch (logErr) {
+    console.error('[Export Audit Log Error]', logErr.message)
+  }
+}
+
+/**
+ * GET /api/export
+ * Root index listing available export endpoints and format capabilities.
+ */
+export async function getExportIndex(req, res) {
+  res.json({
+    success: true,
+    service: 'IT Assets Monitoring Export API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    endpoints: [
+      { path: '/api/export/assets', name: 'Export Assets', description: 'Export IT asset inventory data', formats: ['csv', 'json'] },
+      { path: '/api/export/users', name: 'Export Users', description: 'Export system user accounts (excluding secrets)', formats: ['csv', 'json'] },
+      { path: '/api/export/tickets', name: 'Export Tickets', description: 'Export IT support tickets data', formats: ['csv', 'json'] },
+      { path: '/api/export/tables', name: 'Tables Metadata', description: 'Export schema metadata and row counts', formats: ['json'] },
+      { path: '/api/export/data', name: 'Custom Data Export', description: 'Custom table export with column selection', formats: ['json'] }
+    ]
+  })
+}
+
+/**
+ * GET /api/export/assets
+ * Direct file download export for Assets.
+ */
+export async function exportAssetsHandler(req, res) {
+  try {
+    const format = (req.query.format || 'csv').toLowerCase()
+    const schema = TABLE_SCHEMAS.aset_ti
+    const selectedCols = schema.columns.map((c) => c.name)
+
+    const result = await pool.query(
+      `SELECT id, hostname, serial_number, nik_pemegang_asset, nama_karyawan_pemegang_asset,
+              departemen_pemegang_asset, lokasi_asset, tipe_perangkat, brand_merek, model,
+              spesifikasi, status, kondisi, note_asset, created_at, updated_at
+       FROM aset_ti
+       WHERE deleted_at IS NULL
+       ORDER BY id DESC
+       LIMIT ${MAX_EXPORT_ROWS}`
+    )
+
+    const projectedRows = result.rows.map((row) =>
+      Object.fromEntries(
+        selectedCols.map((column) => {
+          let val = row[column]
+          if (column === 'lokasi_asset' && val) {
+            val = normalizeLocation(val)
+          }
+          return [column, val]
+        })
+      )
+    )
+
+    await logExportAudit(req, 'Aset IT', 'aset_ti', projectedRows.length)
+
+    const todayStr = new Date().toISOString().slice(0, 10)
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader('Content-Disposition', `attachment; filename="export-assets-${todayStr}.json"`)
+      return res.json({
+        success: true,
+        tableName: 'aset_ti',
+        totalRows: projectedRows.length,
+        data: projectedRows
+      })
+    }
+
+    const csvContent = toCsvString(projectedRows, schema.columns)
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="export-assets-${todayStr}.csv"`)
+    res.send(csvContent)
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan pada server saat mengekspor aset.' })
+  }
+}
+
+/**
+ * GET /api/export/users
+ * Direct file download export for Users (STRICTLY excludes password hashes & credentials).
+ */
+export async function exportUsersHandler(req, res) {
+  try {
+    const format = (req.query.format || 'csv').toLowerCase()
+    const schema = TABLE_SCHEMAS.users
+    const selectedCols = schema.columns.map((c) => c.name)
+
+    const result = await pool.query(
+      `SELECT id, nama, email, role, is_active, created_at, updated_at
+       FROM users
+       ORDER BY id ASC
+       LIMIT ${MAX_EXPORT_ROWS}`
+    )
+
+    const projectedRows = result.rows.map((row) =>
+      Object.fromEntries(selectedCols.map((column) => [column, row[column]]))
+    )
+
+    await logExportAudit(req, 'Pengguna Sistem', 'users', projectedRows.length)
+
+    const todayStr = new Date().toISOString().slice(0, 10)
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader('Content-Disposition', `attachment; filename="export-users-${todayStr}.json"`)
+      return res.json({
+        success: true,
+        tableName: 'users',
+        totalRows: projectedRows.length,
+        data: projectedRows
+      })
+    }
+
+    const csvContent = toCsvString(projectedRows, schema.columns)
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="export-users-${todayStr}.csv"`)
+    res.send(csvContent)
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan pada server saat mengekspor pengguna.' })
+  }
+}
+
+/**
+ * GET /api/export/tickets
+ * Direct file download export for Tickets.
+ */
+export async function exportTicketsHandler(req, res) {
+  try {
+    const format = (req.query.format || 'csv').toLowerCase()
+    const schema = TABLE_SCHEMAS.tickets
+
+    const result = await pool.query(
+      `SELECT tickets.id, tickets.nomor_tiket, tickets.judul, tickets.deskripsi, tickets.kategori,
+              tickets.status_tiket, tickets.prioritas, tickets.pelapor_user_id,
+              COALESCE(u_pelapor.nama, '') AS pelapor,
+              tickets.assigned_to_user_id,
+              COALESCE(u_assignee.nama, '') AS assigned_to,
+              tickets.created_at, tickets.updated_at, tickets.resolved_at
+       FROM tickets
+       LEFT JOIN users u_pelapor ON u_pelapor.id = tickets.pelapor_user_id
+       LEFT JOIN users u_assignee ON u_assignee.id = tickets.assigned_to_user_id
+       WHERE tickets.deleted_at IS NULL
+       ORDER BY tickets.id DESC
+       LIMIT ${MAX_EXPORT_ROWS}`
+    )
+
+    const selectedCols = schema.columns.map((c) => c.name)
+    const projectedRows = result.rows.map((row) =>
+      Object.fromEntries(selectedCols.map((column) => [column, row[column]]))
+    )
+
+    await logExportAudit(req, 'Tiket Kendala IT', 'tickets', projectedRows.length)
+
+    const todayStr = new Date().toISOString().slice(0, 10)
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader('Content-Disposition', `attachment; filename="export-tickets-${todayStr}.json"`)
+      return res.json({
+        success: true,
+        tableName: 'tickets',
+        totalRows: projectedRows.length,
+        data: projectedRows
+      })
+    }
+
+    const csvContent = toCsvString(projectedRows, schema.columns)
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="export-tickets-${todayStr}.csv"`)
+    res.send(csvContent)
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Terjadi kesalahan pada server saat mengekspor tiket.' })
+  }
+}
+
