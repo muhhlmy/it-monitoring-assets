@@ -5,6 +5,7 @@ import AppModal from './AppModal.vue'
 import AppPagination from './AppPagination.vue'
 import SkeletonTable from './skeleton/SkeletonTable.vue'
 import { useApi } from '@/composables/useApi'
+import { normalizeLocation } from '@/utils/locationNormalizer.js'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -463,7 +464,7 @@ async function submitImport() {
                       '—'
                     }}
                   </td>
-                  <td class="p-2 text-[#2A3547]">{{ row['Lokasi Kerja'] || row.lokasi || '—' }}</td>
+                  <td class="p-2 text-[#2A3547]">{{ normalizeLocation(row['Lokasi Kerja'] || row.lokasi || row.lokasi_kerja) || '—' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -548,12 +549,13 @@ async function submitImport() {
                   </td>
                   <td class="p-2 text-[#2A3547]">
                     {{
-                      row['Lokasi Asset'] ||
-                      row.Lokasi ||
-                      row.lokasi_aset ||
-                      row['Lokasi Aset'] ||
-                      row['Lokasi Kerja'] ||
-                      '—'
+                      normalizeLocation(
+                        row['Lokasi Asset'] ||
+                        row.Lokasi ||
+                        row.lokasi_aset ||
+                        row['Lokasi Aset'] ||
+                        row['Lokasi Kerja']
+                      ) || '—'
                     }}
                   </td>
                   <td class="p-2 font-semibold text-[#5D87FF]">

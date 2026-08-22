@@ -19,6 +19,6 @@ describe('AssetsOpsView Frontend & Currency Formatter Tests', () => {
 
   test('harus memformat lokasi Aset OPS dengan benar', () => {
     assert.equal(normalizeLocation('GS'), 'Gading Serpong')
-    assert.equal(normalizeLocation('pl/gs'), 'Pluit / Gading Serpong')
+    assert.equal(normalizeLocation('pl/gs'), 'Pluit - Gading Serpong')
   })
 })

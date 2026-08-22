@@ -1,8 +1,9 @@
 import crypto from 'node:crypto';
 import { pool, withTransaction } from "../config/database.js";
 import { hashPassword } from "../security/passwordService.js";
+import { normalizeLocation } from "../utils/locationNormalizer.js";
 
-function cleanText(value) {
+export function cleanText(value) {
   if (value === undefined || value === null) return null;
   const text = String(value).trim();
   if (
@@ -20,7 +21,7 @@ function cleanText(value) {
   return text;
 }
 
-function extractNik(value) {
+export function extractNik(value) {
   const text = cleanText(value);
   if (!text) return null;
 
@@ -74,7 +75,7 @@ const MONTH_MAP = {
   dec: '12', des: '12', desember: '12', december: '12'
 };
 
-function normalizeDate(val) {
+export function normalizeDate(val) {
   if (val === undefined || val === null) return null;
 
   // JS Date object
@@ -223,7 +224,8 @@ export async function importExcelData(req, res) {
       const nama = getPropCaseInsensitive(row, ['Nama Karyawan', 'Nama', 'nama_karyawan', 'nama']);
       const emailRaw = getPropCaseInsensitive(row, ['Email Kantor', 'Email', 'email_kantor', 'email']);
       const email = emailRaw || (nik ? `${nik.toLowerCase()}@esb.co.id` : null);
-      const lokasi = getPropCaseInsensitive(row, ['Lokasi Kerja', 'Lokasi', 'lokasi_kerja', 'lokasi']);
+      const lokasiRaw = getPropCaseInsensitive(row, ['Lokasi Kerja', 'Lokasi', 'lokasi_kerja', 'lokasi']);
+      const lokasi = normalizeLocation(lokasiRaw);
       const title = getPropCaseInsensitive(row, ['Title', 'Jabatan', 'title']) || 'User';
       const jobLevel = getPropCaseInsensitive(row, ['Job Level', 'Level', 'job_level']) || 'S1';
       const departemen = getPropCaseInsensitive(row, ['Departemen', 'Department', 'departemen']);
@@ -306,7 +308,8 @@ export async function importExcelData(req, res) {
       const namaPemegangRaw = getPropCaseInsensitive(row, ['Nama Karyawan Pemegang', 'Nama Karyawan', 'nama_karyawan_pemegang_asset', 'nama_karyawan']);
       const namaPemegang = extractName(namaPemegangRaw);
       const deptPemegang = getPropCaseInsensitive(row, ['Departemen Pemegang', 'Departemen', 'departemen_pemegang_asset', 'departemen']);
-      const lokasiAset = getPropCaseInsensitive(row, ['Lokasi Aset', 'Lokasi', 'lokasi_asset', 'lokasi_kerja']);
+      const lokasiAsetRaw = getPropCaseInsensitive(row, ['Lokasi Aset', 'Lokasi', 'lokasi_asset', 'lokasi_kerja']);
+      const lokasiAset = normalizeLocation(lokasiAsetRaw);
       const tipePerangkat = getPropCaseInsensitive(row, ['Tipe Perangkat', 'Tipe', 'tipe_perangkat']) || 'Laptop';
       const brandMerek = getPropCaseInsensitive(row, ['Brand/Merek', 'Merek', 'Brand', 'brand_merek']);
       const model = getPropCaseInsensitive(row, ['Model', 'model']);

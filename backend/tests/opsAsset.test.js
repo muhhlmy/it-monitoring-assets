@@ -17,7 +17,7 @@ describe('Aset OPS Data & Validation Logic', () => {
     assert.ok(validAsset.hostname);
     assert.ok(validAsset.nama_asset);
     assert.ok(validAsset.kategori);
-    assert.equal(normalizeLocation(validAsset.lokasi), 'Gading Serpong / Pluit');
+    assert.equal(normalizeLocation(validAsset.lokasi), 'Gading Serpong - Pluit');
     assert.equal(validAsset.total_asset_amount, 15000000);
   });
 });

@@ -3,20 +3,28 @@
  */
 
 export const LOCATION_MAP = Object.freeze({
-  PL: 'Pluit',
   GS: 'Gading Serpong',
+  PL: 'Pluit',
+  JKT: 'Jakarta',
+  BKS: 'Bekasi',
+  DPK: 'Depok',
+  BGR: 'Bogor',
+  TGR: 'Tangerang',
 });
 
 /**
  * Mengubah kode atau string lokasi ke nama display resmi.
  *
  * Contoh:
- * - "PL" => "Pluit"
  * - "GS" => "Gading Serpong"
- * - "GS / PL" => "Gading Serpong / Pluit"
- * - "PL / GS" => "Pluit / Gading Serpong"
- * - " PL " => "Pluit"
- * - "gs/pl" => "Gading Serpong / Pluit"
+ * - "PL" => "Pluit"
+ * - "JKT" => "Jakarta"
+ * - "BKS" => "Bekasi"
+ * - "DPK" => "Depok"
+ * - "BGR" => "Bogor"
+ * - "TGR" => "Tangerang"
+ * - "GS / PL" => "Gading Serpong - Pluit"
+ * - "PL / GS" => "Pluit - Gading Serpong"
  *
  * @param {string} rawLocation
  * @returns {string}
@@ -46,5 +54,5 @@ export function normalizeLocation(rawLocation) {
     })
     .filter(Boolean);
 
-  return normalizedSegments.join(' / ');
+  return normalizedSegments.join(' - ');
 }

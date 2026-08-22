@@ -268,8 +268,10 @@ test('DEFECT-12 — Server-Side Database Pagination Suite (API-05)', async (t) =
     assert.equal(res1.status, 200)
     assert.equal(res2.status, 200)
 
-    const items1 = JSON.parse(res1.body)
-    const items2 = JSON.parse(res2.body)
+    const json1 = JSON.parse(res1.body)
+    const json2 = JSON.parse(res2.body)
+    const items1 = Array.isArray(json1) ? json1 : json1.data
+    const items2 = Array.isArray(json2) ? json2 : json2.data
     assert.equal(items1.length, 5)
     assert.equal(items2.length, 5)
 
