@@ -36,4 +36,15 @@ describe('Import NIK & Text Extractor Logic', () => {
     assert.equal(normalizeDate('1-Agustus-2023'), '2023-08-01');
     assert.equal(normalizeDate('2025-10-12'), '2025-10-12');
   });
+
+  test('harus membersihkan cell kosong, "-", "--", "N/A", "null", "none" pada seluruh kolom Aset', () => {
+    assert.equal(cleanText('-'), null);
+    assert.equal(cleanText('--'), null);
+    assert.equal(cleanText('n/a'), null);
+    assert.equal(cleanText('N/A'), null);
+    assert.equal(cleanText('none'), null);
+    assert.equal(cleanText('null'), null);
+    assert.equal(cleanText('undefined'), null);
+    assert.equal(cleanText(' ThinkPad T14 '), 'ThinkPad T14');
+  });
 });
