@@ -1,0 +1,33 @@
+{
+  "page": "Asset TI",
+  "path": "/assets",
+  "timestamp": "2026-08-22T05:05:28.905Z",
+  "violations": 2,
+  "critical": 1,
+  "serious": 1,
+  "moderate": 0,
+  "passes": 24,
+  "details": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+      "nodes": [
+        "<p data-v-0355add9=\"\" class=\"px-2 text-[10.5px] font-extrabold uppercase tracking-wider text-[#7C8BAC] transition-all\">HOME</p>",
+        "<span data-v-0355add9=\"\" class=\"rounded-full px-1.5 py-0.2 text-[9px] font-bold shrink-0 bg-[#ECF2FF] text-[#5D87FF]\">New</span>"
+      ]
+    },
+    {
+      "id": "select-name",
+      "impact": "critical",
+      "description": "Ensure select element has an accessible name",
+      "help": "Select element must have an accessible name",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/select-name?application=playwright",
+      "nodes": [
+        "<select data-v-a2ffde4e=\"\" class=\"h-9 w-[135px] shrink-0 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs text-[#0F172A] focus:border-[#2563EB] focus:outline-none transition-all cursor-pointer shadow-2xs\">"
+      ]
+    }
+  ]
+}

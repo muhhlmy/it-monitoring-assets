@@ -1,0 +1,34 @@
+{
+  "page": "Dashboard",
+  "path": "/",
+  "timestamp": "2026-08-22T05:05:25.975Z",
+  "violations": 2,
+  "critical": 0,
+  "serious": 2,
+  "moderate": 0,
+  "passes": 26,
+  "details": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+      "nodes": [
+        "<p data-v-0355add9=\"\" class=\"px-2 text-[10.5px] font-extrabold uppercase tracking-wider text-[#7C8BAC] transition-all\">HOME</p>",
+        "<span data-v-0355add9=\"\" class=\"min-w-0 flex-1 leading-none whitespace-nowrap\">Dashboard</span>"
+      ]
+    },
+    {
+      "id": "role-img-alt",
+      "impact": "serious",
+      "description": "Ensure [role=\"img\"] and [role=\"image\"] elements have alternative text",
+      "help": "[role=\"img\"] and [role=\"image\"] elements must have alternative text",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/role-img-alt?application=playwright",
+      "nodes": [
+        "<canvas role=\"img\" width=\"586\" height=\"150\" style=\"display: block; box-sizing: border-box; height: 150px; width: 586.7px;\"><p></p></canvas>",
+        "<canvas role=\"img\" width=\"953\" height=\"150\" style=\"display: block; box-sizing: border-box; height: 150px; width: 953px;\"><p></p></canvas>"
+      ]
+    }
+  ]
+}

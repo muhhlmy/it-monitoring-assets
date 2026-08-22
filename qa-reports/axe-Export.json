@@ -1,0 +1,23 @@
+{
+  "page": "Export",
+  "path": "/export",
+  "timestamp": "2026-08-22T05:05:47.550Z",
+  "violations": 1,
+  "critical": 0,
+  "serious": 1,
+  "moderate": 0,
+  "passes": 24,
+  "details": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+      "nodes": [
+        "<p data-v-0355add9=\"\" class=\"px-2 text-[10.5px] font-extrabold uppercase tracking-wider text-[#7C8BAC] transition-all\">HOME</p>",
+        "<span data-v-0355add9=\"\" class=\"rounded-full px-1.5 py-0.2 text-[9px] font-bold shrink-0 bg-[#ECF2FF] text-[#5D87FF]\">New</span>"
+      ]
+    }
+  ]
+}
