@@ -26,6 +26,13 @@ export default async function globalSetup(config) {
       // Use deterministic locators — #email and #password are stable DOM ids
       await page.locator('#email').fill(userCred.email)
       await page.locator('#password').fill(userCred.password)
+
+      // Ensure "Ingat saya" is checked so session data is stored in localStorage (captured by storageState)
+      const rememberCheckbox = page.locator('input[type="checkbox"]').first()
+      if (await rememberCheckbox.isVisible()) {
+        await rememberCheckbox.check()
+      }
+
       await page.getByRole('button', { name: /masuk/i }).click()
 
       await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 10000 })
@@ -44,9 +51,11 @@ export default async function globalSetup(config) {
       const raw = fs.readFileSync(storageStatePath, 'utf-8')
       const state = JSON.parse(raw)
       const hasCookies = Array.isArray(state.cookies) && state.cookies.length > 0
-      const hasOrigins = Array.isArray(state.origins) && state.origins.length > 0
+      const hasLocalStorage =
+        Array.isArray(state.origins) &&
+        state.origins.some((o) => Array.isArray(o.localStorage) && o.localStorage.length > 0)
 
-      if (!hasCookies && !hasOrigins) {
+      if (!hasCookies && !hasLocalStorage) {
         throw new Error(
           `Authentication state empty for role "${roleKey}". ` +
           `cookies: ${state.cookies?.length || 0}, origins: ${state.origins?.length || 0}`

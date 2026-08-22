@@ -59,4 +59,20 @@ test.describe('Role-Based Access Control (RBAC) Suite', () => {
     await expect(page).toHaveURL(/\/users$/)
     await expect(page.getByRole('heading', { name: /pengguna|user management/i }).first()).toBeVisible()
   })
+
+  test('Admin: should be authenticated and have access to Dashboard & Asset Management', async ({
+    adminPage,
+  }) => {
+    const page = adminPage
+
+    // First confirm admin is authenticated via Dashboard
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await expect(page).not.toHaveURL(/\/login/)
+    await expect(page.getByText('Total Aset', { exact: true }).first()).toBeVisible({ timeout: 10000 })
+
+    // Then verify access to /assets
+    await page.goto('/assets', { waitUntil: 'domcontentloaded' })
+    await expect(page).toHaveURL(/\/assets$/)
+    await expect(page.getByRole('heading', { name: /aset/i }).first()).toBeVisible()
+  })
 })
