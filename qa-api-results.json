@@ -1,0 +1,327 @@
+{
+  "results": [
+    {
+      "test": "Valid login (superadmin)",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "test": "Valid login (admin)",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "test": "Valid login (user)",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "test": "Invalid password",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "test": "Nonexistent email",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "test": "Empty email field",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "test": "Empty password field",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "test": "Malformed email",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "test": "SQL injection in email",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "test": "XSS in email",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "test": "Missing body",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "test": "No token on /api/assets",
+      "method": "GET",
+      "path": "/api/assets",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "test": "Invalid token format",
+      "method": "GET",
+      "path": "/api/assets",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "test": "Tampered token",
+      "method": "GET",
+      "path": "/api/assets",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "test": "No Authorization header",
+      "method": "GET",
+      "path": "/api/assets",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "test": "GET /api/assets",
+      "method": "GET",
+      "path": "/api/assets",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "test": "GET /api/employees",
+      "method": "GET",
+      "path": "/api/employees",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "test": "GET /api/users",
+      "method": "GET",
+      "path": "/api/users",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "test": "GET /api/logs",
+      "method": "GET",
+      "path": "/api/logs",
+      "expected": 200,
+      "actual": 404,
+      "passed": false
+    },
+    {
+      "test": "GET /api/tickets",
+      "method": "GET",
+      "path": "/api/tickets",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "test": "GET /health",
+      "method": "GET",
+      "path": "/health",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "test": "GET /api/auth/me",
+      "method": "GET",
+      "path": "/api/auth/me",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "test": "GET /api/ga-assets",
+      "method": "GET",
+      "path": "/api/ga-assets",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "test": "GET /api/ops-assets",
+      "method": "GET",
+      "path": "/api/ops-assets",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "test": "GET /api/ticket-queues",
+      "method": "GET",
+      "path": "/api/ticket-queues",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "test": "User GET /api/assets (should work)",
+      "method": "GET",
+      "path": "/api/assets",
+      "expected": 200,
+      "actual": 403,
+      "passed": false
+    },
+    {
+      "test": "User GET /api/employees (should be 403)",
+      "method": "GET",
+      "path": "/api/employees",
+      "expected": 403,
+      "actual": 403,
+      "passed": true
+    },
+    {
+      "test": "User GET /api/users (should be 403)",
+      "method": "GET",
+      "path": "/api/users",
+      "expected": 403,
+      "actual": 403,
+      "passed": true
+    },
+    {
+      "test": "User GET /api/logs (should be 403)",
+      "method": "GET",
+      "path": "/api/logs",
+      "expected": 403,
+      "actual": 403,
+      "passed": true
+    },
+    {
+      "test": "Security header: X-Content-Type-Options",
+      "method": "GET",
+      "path": "/api/assets",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "test": "Security header: X-Frame-Options",
+      "method": "GET",
+      "path": "/api/assets",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "test": "Security header: Content-Security-Policy",
+      "method": "GET",
+      "path": "/api/assets",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "test": "Security header: Referrer-Policy",
+      "method": "GET",
+      "path": "/api/assets",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "test": "Security header: Permissions-Policy",
+      "method": "GET",
+      "path": "/api/assets",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "test": "Security header: Cache-Control",
+      "method": "GET",
+      "path": "/api/assets",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "test": "Path traversal attempt",
+      "method": "GET",
+      "path": "/api/assets/../../../etc/passwd",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "test": "TRACE method",
+      "method": "TRACE",
+      "path": "/api/assets",
+      "expected": 405,
+      "actual": 404,
+      "passed": false
+    },
+    {
+      "test": "GET non-existent asset ID",
+      "method": "GET",
+      "path": "/api/assets/99999",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "test": "GET non-existent user ID",
+      "method": "GET",
+      "path": "/api/users/99999",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "test": "GET non-existent employee ID",
+      "method": "GET",
+      "path": "/api/employees/99999",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    }
+  ],
+  "superadmin_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxI",
+  "admin_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxN",
+  "user_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxN"
+}

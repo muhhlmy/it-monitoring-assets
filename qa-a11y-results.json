@@ -1,0 +1,102 @@
+[
+  {
+    "test": "Load time Dashboard",
+    "passed": true,
+    "details": "2064ms"
+  },
+  {
+    "test": "Load time Assets",
+    "passed": true,
+    "details": "2358ms"
+  },
+  {
+    "test": "Load time Tickets",
+    "passed": true,
+    "details": "2064ms"
+  },
+  {
+    "test": "Load time Users",
+    "passed": true,
+    "details": "2368ms"
+  },
+  {
+    "test": "Load time Employees",
+    "passed": true,
+    "details": "2061ms"
+  },
+  {
+    "test": "Images have alt attributes",
+    "passed": true,
+    "details": "1 images, 0 without alt"
+  },
+  {
+    "test": "Buttons have accessible names",
+    "passed": true,
+    "details": "12 buttons (some may use text content)"
+  },
+  {
+    "test": "Form inputs have labels",
+    "passed": true,
+    "details": "1 inputs, 0 without id/aria-label"
+  },
+  {
+    "test": "Text elements present",
+    "passed": true,
+    "details": "331 text elements"
+  },
+  {
+    "test": "Skip navigation link",
+    "passed": false,
+    "details": "not found (minor)"
+  },
+  {
+    "test": "Heading hierarchy",
+    "passed": true,
+    "details": "h1=1, h2=0"
+  },
+  {
+    "test": "Keyboard tab reaches first input",
+    "passed": false,
+    "details": "BODY.undefined"
+  },
+  {
+    "test": "Keyboard tab reaches second input",
+    "passed": true,
+    "details": "INPUT.text"
+  },
+  {
+    "test": "Enter key submits form",
+    "passed": true,
+    "details": "http://localhost:5173/"
+  },
+  {
+    "test": "Responsive Mobile 320px",
+    "passed": true,
+    "details": "body=320px, overflow=false"
+  },
+  {
+    "test": "Responsive Mobile 375px",
+    "passed": true,
+    "details": "body=375px, overflow=false"
+  },
+  {
+    "test": "Responsive Tablet 768px",
+    "passed": true,
+    "details": "body=768px, overflow=false"
+  },
+  {
+    "test": "Responsive Desktop 1280px",
+    "passed": true,
+    "details": "body=1280px, overflow=false"
+  },
+  {
+    "test": "Responsive Desktop 1920px",
+    "passed": true,
+    "details": "body=1920px, overflow=false"
+  },
+  {
+    "test": "No critical console errors",
+    "passed": true,
+    "details": "0 errors"
+  }
+]

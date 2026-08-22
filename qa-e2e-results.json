@@ -1,0 +1,112 @@
+[
+  {
+    "test": "Login with valid credentials",
+    "passed": true,
+    "details": "http://localhost:5173/"
+  },
+  {
+    "test": "Invalid password shows error",
+    "passed": true,
+    "details": "stayed on login"
+  },
+  {
+    "test": "Empty form stays on login",
+    "passed": true,
+    "details": ""
+  },
+  {
+    "test": "Page: Dashboard (/)",
+    "passed": true,
+    "details": "title=\"Dashboard | IT Assets Monitoring\""
+  },
+  {
+    "test": "Page: Assets IT (/assets)",
+    "passed": true,
+    "details": "title=\"Aset IT | IT Assets Monitoring\""
+  },
+  {
+    "test": "Page: Assets GA (/assets-ga)",
+    "passed": true,
+    "details": "title=\"Aset GA | IT Assets Monitoring\""
+  },
+  {
+    "test": "Page: Assets OPS (/assets-ops)",
+    "passed": true,
+    "details": "title=\"Aset Ops | IT Assets Monitoring\""
+  },
+  {
+    "test": "Page: My Assets (/my-assets)",
+    "passed": true,
+    "details": "title=\"Aset Karyawan | IT Assets Monitoring\""
+  },
+  {
+    "test": "Page: Employees (/karyawan)",
+    "passed": true,
+    "details": "title=\"Karyawan | IT Assets Monitoring\""
+  },
+  {
+    "test": "Page: Tickets (/tickets)",
+    "passed": true,
+    "details": "title=\"Tiket | IT Assets Monitoring\""
+  },
+  {
+    "test": "Page: Users (/users)",
+    "passed": true,
+    "details": "title=\"Pengguna | IT Assets Monitoring\""
+  },
+  {
+    "test": "Page: Submissions (/submissions)",
+    "passed": true,
+    "details": "title=\"Pengajuan | IT Assets Monitoring\""
+  },
+  {
+    "test": "Page: Logs (/logs)",
+    "passed": true,
+    "details": "title=\"Log Aktivitas | IT Assets Monitoring\""
+  },
+  {
+    "test": "Page: Export (/export)",
+    "passed": true,
+    "details": "title=\"Ekspor Data | IT Assets Monitoring\""
+  },
+  {
+    "test": "Logout via API + storage clear",
+    "passed": true,
+    "details": "http://localhost:5173/login"
+  },
+  {
+    "test": "No console errors during testing",
+    "passed": false,
+    "details": "2 errors found"
+  },
+  {
+    "test": "Responsive Mobile 375px",
+    "passed": true,
+    "details": "overflow=false"
+  },
+  {
+    "test": "Responsive Tablet 768px",
+    "passed": true,
+    "details": "overflow=false"
+  },
+  {
+    "test": "Responsive Desktop 1920px",
+    "passed": true,
+    "details": "overflow=false"
+  },
+  {
+    "test": "User role login",
+    "passed": true,
+    "details": "http://localhost:5173/my-assets"
+  },
+  {
+    "test": "User redirected from /users",
+    "passed": true,
+    "details": "http://localhost:5173/"
+  },
+  {
+    "test": "User redirected from /logs",
+    "passed": true,
+    "details": "http://localhost:5173/"
+  }
+]
