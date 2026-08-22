@@ -228,7 +228,7 @@ function autoExpandActiveParent() {
   if (['/assets', '/my-assets'].includes(currentPath)) expandedParents.value.asset_management = true
   if (['/tickets', '/submissions'].includes(currentPath)) expandedParents.value.helpdesk = true
   if (['/users', '/karyawan'].includes(currentPath)) expandedParents.value.master_data = true
-  if (['/logs', '/export'].includes(currentPath)) expandedParents.value.sistem = true
+  if (['/logs', '/export', '/database'].includes(currentPath)) expandedParents.value.sistem = true
 }
 
 watch(
@@ -357,6 +357,12 @@ const menuGroups = computed(() => {
               permission: 'export',
               superadminOnly: true,
             },
+            {
+              to: '/database',
+              label: 'Database',
+              icon: 'database',
+              superadminOnly: true,
+            },
           ],
         },
       ],
@@ -366,7 +372,7 @@ const menuGroups = computed(() => {
   return groups
     .map((g) => {
       const validItems = (g.items || []).filter(
-        (item) => (!item.superadminOnly || isSuperAdmin.value) && hasPermission(item.permission),
+        (item) => (!item.superadminOnly || isSuperAdmin.value) && (item.superadminOnly || hasPermission(item.permission)),
       )
 
       const validParents = (g.parents || [])
@@ -374,7 +380,7 @@ const menuGroups = computed(() => {
           ...p,
           items: (p.items || []).filter(
             (item) =>
-              (!item.superadminOnly || isSuperAdmin.value) && hasPermission(item.permission),
+              (!item.superadminOnly || isSuperAdmin.value) && (item.superadminOnly || hasPermission(item.permission)),
           ),
         }))
         .filter((p) => p.items.length > 0)

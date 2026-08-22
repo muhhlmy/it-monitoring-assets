@@ -7,10 +7,18 @@ export function requireJsonRequest(req, res, next) {
   }
 
   const contentType = req.headers['content-type']
-  if (
-    typeof contentType !== 'string' ||
-    !/^application\/json(?:\s*;\s*charset\s*=\s*utf-8\s*)?$/i.test(contentType)
-  ) {
+  if (typeof contentType !== 'string') {
+    res.status(415).json({ message: 'Request body wajib menggunakan application/json.' })
+    return
+  }
+
+  // Allow multipart/form-data for file uploads (backup restore, etc.)
+  if (contentType.startsWith('multipart/form-data')) {
+    next()
+    return
+  }
+
+  if (!/^application\/json(?:\s*;\s*charset\s*=\s*utf-8\s*)?$/i.test(contentType)) {
     res.status(415).json({ message: 'Request body wajib menggunakan application/json.' })
     return
   }

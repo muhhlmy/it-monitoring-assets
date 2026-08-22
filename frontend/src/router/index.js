@@ -113,6 +113,16 @@ const routes = [
     },
   },
   {
+    path: '/database',
+    name: 'database',
+    component: () => import('../views/DatabaseView.vue'),
+    meta: {
+      title: 'Database',
+      subtitle: 'Backup & restore database',
+      superadminOnly: true,
+    },
+  },
+  {
     path: '/forbidden',
     name: 'forbidden',
     component: () => import('../views/AccessDeniedView.vue'),

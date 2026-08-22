@@ -42,6 +42,9 @@ const realAssetLogs = ref([])
 const isLoadingCycle = ref(false)
 const isLoadingLogs = ref(false)
 
+// ── Page-level loading state (aggregates all loading flags) ──────────────────
+const isLoading = computed(() => isLoadingEmployees.value || isLoadingAssets.value || isLoadingCycle.value || isLoadingLogs.value)
+
 // ── Level 1: Filtered Employees (Rule: STRICTLY ONLY employees with assets > 0) ──
 const employeesWithAssets = computed(() => {
   return employees.value.filter((e) => parseInt(e.jumlah_aset || 0) > 0)

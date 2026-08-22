@@ -11,6 +11,7 @@ import { ticketRouter }   from './ticketRoutes.js'
 import { queueRouter }    from './queueRoutes.js'
 import { exportRouter }   from './exportRoutes.js'
 import importRouter       from './importRoutes.js'
+import { backupRouter }   from './backupRoutes.js'
 import authRoutes from './authRoutes.js'
 import { apiRateLimiter } from '../middleware/rateLimitMiddleware.js'
 
@@ -39,3 +40,4 @@ router.use('/api/karyawan',  authenticateToken, requireAdmin, employeeRouter) //
 router.use('/api/users',     authenticateToken, requireAdmin, userRouter)
 router.use('/api/logs',      authenticateToken, requireAdmin, logRouter)
 router.use('/api/import',    authenticateToken, requireAdmin, importRouter)
+router.use('/api/admin/database', authenticateToken, backupRouter)
