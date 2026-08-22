@@ -5,16 +5,19 @@ node_modules/
 .env
 .env.*
 !.env.example
+!.env.e2e.example
 
-# Build output
+# Build output & test reports
 dist/
 build/
-
-# Test coverage
+playwright-report/
+test-results/
 coverage/
 
-# E2E auth state (generated at runtime, never commit)
+# E2E auth state & generated QA outputs
 e2e/auth/*.json
+qa-*.json
+qa_tokens.json
 
 # Tool caches
 .cache/

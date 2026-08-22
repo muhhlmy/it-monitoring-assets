@@ -94,25 +94,20 @@ erDiagram
 
 ```text
 it-monitoring-assets/
-├── backend/
-│   ├── esb_trackit_db.sql           # File Skema SQL PostgreSQL & Seed Data Init
+├── .github/                 # CI/CD Workflows
+├── backend/                 # Node.js + Express + PostgreSQL API Server
+│   ├── esb_trackit_db.sql   # File Skema SQL PostgreSQL & Seed Data Init
 │   ├── package.json
 │   └── src/
-│       ├── config/                  # Database connection, Schema Verification, Migrations
-│       ├── controllers/             # Express controllers (Asset, Ticket, Auth, Export, etc.)
-│       ├── middleware/              # Auth & Permission verification middleware
-│       ├── routes/                  # Express API Routes
-│       ├── services/                # Ticket Access Policy & SSE Realtime Service
-│       └── index.js                 # Entry point server Express
-├── frontend/
+├── frontend/                # Vue 3 + Vite Single Page Application
 │   ├── package.json
 │   ├── vite.config.js
 │   └── src/
-│       ├── assets/                  # CSS styles & design tokens
-│       ├── components/              # Reusable UI Components (AppModal, AppBadge, TicketCaspRating, etc.)
-│       ├── composables/             # Vue Composables (useAuth, useApi, useTicketRealtime)
-│       ├── router/                  # Vue Router configuration
-│       └── views/                   # Application Pages (AssetsView, TicketsView, DashboardView, etc.)
+├── e2e/                     # Playwright End-to-End Test Automation Suite
+├── docs/                    # Project Documentation, Prompts & QA Reports
+├── scripts/                 # Reusable Automation & QA Utility Scripts
+├── playwright.config.js     # Global Playwright Configuration
+├── package.json             # Root Workspace Manifest & E2E Commands
 └── README.md
 ```
 
