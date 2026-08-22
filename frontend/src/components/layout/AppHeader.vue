@@ -14,7 +14,7 @@ defineEmits(['toggle-mobile', 'toggle-collapse'])
 
 const route = useRoute()
 const router = useRouter()
-const { user, logout, hasPermission } = useAuth()
+const { user, logout, hasPermission, isSuperAdmin } = useAuth()
 const { get } = useApi()
 const { connect: connectSSE, disconnect: disconnectSSE, on: onSSE, off: offSSE } = useTicketEvents()
 
@@ -1234,6 +1234,16 @@ onBeforeUnmount(() => {
               >
                 <span class="material-symbols-outlined text-[16px] text-[#64748B]">badge</span>
                 <span>Aset Saya</span>
+              </button>
+
+              <button
+                v-if="isSuperAdmin"
+                type="button"
+                @click="router.push('/export'); isProfileOpen = false"
+                class="w-full flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+              >
+                <span class="material-symbols-outlined text-[16px]">restart_alt</span>
+                <span>Reset Database</span>
               </button>
 
               <div class="my-1 border-t border-[#F1F5F9]"></div>

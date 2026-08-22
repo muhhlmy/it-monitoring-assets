@@ -204,4 +204,14 @@ test('DEFECT-10 — Export API Implementation & Security Suite (EXP-02)', async 
     assert.equal(escapeCsvField('@cmd'), "'@cmd")
     assert.equal(escapeCsvField('Normal Text'), 'Normal Text')
   })
+
+  await t.test('TEST 9 — Non-superadmin user POST /api/export/reset-database is denied with 403', async () => {
+    const res = await makeRequest(
+      server,
+      '/api/export/reset-database',
+      { Authorization: `Bearer ${normalUserToken}`, method: 'POST' },
+      {},
+    )
+    assert.equal(res.status, 403)
+  })
 })

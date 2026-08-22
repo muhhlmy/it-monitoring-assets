@@ -1,10 +1,52 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useApi } from '@/composables/useApi'
+import { useAuth } from '@/composables/useAuth'
 import { exportToCsv, exportToJson, exportToExcel, exportToPdf } from '@/utils/exportEngine'
 import SkeletonCard from '@/components/ui/skeleton/SkeletonCard.vue'
+import AppModal from '@/components/ui/AppModal.vue'
 
 const api = useApi()
+const { isSuperAdmin } = useAuth()
+
+// Reset Database State
+const showResetModal = ref(false)
+const confirmResetInput = ref('')
+const isResetting = ref(false)
+
+function openResetModal() {
+  confirmResetInput.value = ''
+  showResetModal.value = true
+}
+
+function closeResetModal() {
+  showResetModal.value = false
+  confirmResetInput.value = ''
+}
+
+async function handleConfirmResetDatabase() {
+  if (confirmResetInput.value.trim().toUpperCase() !== 'RESET') {
+    showToast('Ketik "RESET" untuk mengonfirmasi tindakan ini.', 'error')
+    return
+  }
+
+  isResetting.value = true
+  try {
+    const res = await api.post('/api/export/reset-database')
+    if (res.success) {
+      showToast(res.message || 'Database berhasil di-reset dan dikosongkan!', 'success')
+      showResetModal.value = false
+      confirmResetInput.value = ''
+      await fetchTablesMetadata()
+    } else {
+      showToast(res.message || 'Gagal me-reset database.', 'error')
+    }
+  } catch (err) {
+    showToast(err.message || 'Terjadi kesalahan saat me-reset database.', 'error')
+  } finally {
+    isResetting.value = false
+  }
+}
 
 // State
 const isLoading = ref(true)
@@ -352,6 +394,34 @@ onMounted(() => {
             {{ isLoading ? '...' : totalDbRecords.toLocaleString('id-ID') }}
           </span>
         </div>
+      </div>
+    </div>
+
+    <!-- Danger Zone: Reset Database Card (Superadmin only) -->
+    <div
+      v-if="isSuperAdmin"
+      class="bg-rose-50/70 border border-rose-200/80 rounded-2xl p-4 sm:p-5 shadow-2xs transition-all"
+    >
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="space-y-1">
+          <div class="flex items-center gap-1.5 text-xs text-rose-700 font-bold tracking-wide uppercase">
+            <span class="material-symbols-outlined text-[16px]">warning</span>
+            <span>Danger Zone — Pemeliharaan Database</span>
+          </div>
+          <h3 class="text-sm font-bold text-rose-900">Reset &amp; Kosongkan Database</h3>
+          <p class="text-xs text-rose-700/90 leading-relaxed max-w-2xl">
+            Menghapus secara permanen seluruh data aset TI, aset GA, aset OPS, tiket helpdesk, karyawan, dan log aktivitas.
+            Akun Superadmin default (<code class="font-mono bg-white/80 px-1 py-0.5 rounded text-rose-900 border border-rose-200">superadmin@admin.com</code>) akan diprovisi kembali secara otomatis.
+          </p>
+        </div>
+        <button
+          type="button"
+          @click="openResetModal"
+          class="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2.5 transition-all shadow-xs shrink-0 cursor-pointer active:scale-95"
+        >
+          <span class="material-symbols-outlined text-[18px]">restart_alt</span>
+          <span>Reset Database</span>
+        </button>
       </div>
     </div>
 
@@ -988,6 +1058,65 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Reset Database Confirmation Modal -->
+    <AppModal
+      :is-open="showResetModal"
+      title="Reset & Kosongkan Database"
+      subtitle="Tindakan berbahaya ini akan membersihkan seluruh tabel data."
+      icon="warning"
+      size="md"
+      @close="closeResetModal"
+    >
+      <div class="space-y-4 text-[#0F172A]">
+        <div class="rounded-xl bg-rose-50 p-4 border border-rose-200 flex items-start gap-3">
+          <span class="material-symbols-outlined text-rose-600 text-[22px] shrink-0 mt-0.5">error</span>
+          <div class="text-xs text-rose-900 space-y-1">
+            <p class="font-bold text-sm">Peringatan Keamanan Database</p>
+            <p class="leading-relaxed text-rose-800">
+              Tindakan ini <strong>TIDAK DAPAT DIBATALKAN</strong>. Seluruh data aset TI/GA/OPS, tiket bantuan, riwayat log audit, karyawan, dan sesi pengguna akan dihapus secara permanen.
+            </p>
+            <p class="text-[11px] text-rose-700">
+              Setelah reset, akun Superadmin (<code class="font-mono font-semibold">superadmin@admin.com</code> / <code class="font-mono font-semibold">admin123</code>) dan unit helpdesk default akan disiapkan kembali secara otomatis.
+            </p>
+          </div>
+        </div>
+
+        <div class="space-y-2 pt-1">
+          <label for="confirm-reset-input" class="block text-xs font-bold text-slate-800">
+            Ketik <span class="font-mono text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded font-bold">RESET</span> di bawah ini untuk mengonfirmasi:
+          </label>
+          <input
+            id="confirm-reset-input"
+            v-model="confirmResetInput"
+            type="text"
+            placeholder="RESET"
+            class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-xs text-slate-900 font-mono tracking-wider focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+            @keydown.enter="confirmResetInput.trim().toUpperCase() === 'RESET' && handleConfirmResetDatabase()"
+          />
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-[#F1F5F9]">
+          <button
+            type="button"
+            @click="closeResetModal"
+            class="rounded-xl border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-semibold text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-colors cursor-pointer"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            :disabled="confirmResetInput.trim().toUpperCase() !== 'RESET' || isResetting"
+            @click="handleConfirmResetDatabase"
+            class="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-bold transition-all shadow-xs disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+          >
+            <span v-if="isResetting" class="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+            <span v-else class="material-symbols-outlined text-[16px]">restart_alt</span>
+            <span>{{ isResetting ? 'Me-reset...' : 'Reset Database Sekarang' }}</span>
+          </button>
+        </div>
+      </div>
+    </AppModal>
   </div>
 </template>
 

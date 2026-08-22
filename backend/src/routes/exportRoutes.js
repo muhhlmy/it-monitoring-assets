@@ -5,7 +5,8 @@ import {
   exportAssetsHandler,
   exportUsersHandler,
   exportTicketsHandler,
-  exportTableData
+  exportTableData,
+  resetDatabaseHandler,
 } from '../controllers/exportController.js'
 import { authorizeRoles } from '../middleware/authMiddleware.js'
 import { exportRateLimiter } from '../middleware/rateLimitMiddleware.js'
@@ -35,3 +36,6 @@ exportRouter.get('/tickets', requireSuperadmin, exportTicketsHandler)
 
 // POST /api/export/data -> Mengambil data kustom dari tabel dengan filter & kolom tertentu
 exportRouter.post('/data', requireSuperadmin, exportTableData)
+
+// POST /api/export/reset-database -> Reset & kosongkan seluruh tabel database
+exportRouter.post('/reset-database', requireSuperadmin, resetDatabaseHandler)

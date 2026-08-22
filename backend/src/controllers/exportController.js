@@ -849,3 +849,66 @@ export async function exportTicketsHandler(req, res) {
   }
 }
 
+/**
+ * Resets and truncates all database tables, restoring clean initial state.
+ * Superadmin-only endpoint.
+ */
+export async function resetDatabaseHandler(req, res, next) {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    // Truncate all tables with CASCADE & RESTART IDENTITY
+    await client.query(`
+      TRUNCATE TABLE
+        ticket_casp_ratings,
+        komentar_tiket,
+        log_riwayat_tiket,
+        tickets,
+        user_ticket_queues,
+        ticket_queues,
+        log_riwayat_aset,
+        riwayat_pemakaian_aset,
+        aset_ti,
+        aset_ga,
+        aset_ops,
+        log_audit_login,
+        user_sessions,
+        account_security_state,
+        karyawan,
+        users
+      RESTART IDENTITY CASCADE
+    `)
+
+    // Re-seed default Superadmin, Admin, and User accounts
+    await client.query(`
+      INSERT INTO users (nama, email, password_hash, role, permissions, is_active)
+      VALUES 
+        ('Super Administrator', 'superadmin@admin.com', '$2b$10$KUuuaQWHvErN2WNcqrJOXeRC1Ym6GRyxcIzwpmRboOSkDpOPxE/Cu', 'superadmin', '{"dashboard":"full","assets":"full","tickets":"full"}'::jsonb, true),
+        ('Admin IT', 'admin@admin.com', '$2b$10$KUuuaQWHvErN2WNcqrJOXeRC1Ym6GRyxcIzwpmRboOSkDpOPxE/Cu', 'admin', '{"dashboard":"full","assets":"full","tickets":"full","karyawan":"full","users":"full"}'::jsonb, true),
+        ('User Karyawan', 'user@user.com', '$2b$10$S9GfD12n8/R1E840Wq0fOu102lY.761.34181.1', 'user', '{"my_assets":"read","tickets":"read"}'::jsonb, true)
+    `)
+
+    // Re-seed default ticket queues
+    await client.query(`
+      INSERT INTO ticket_queues (kode, nama, deskripsi) VALUES
+        ('IT-Help', 'IT Helpdesk', 'General IT support requests'),
+        ('IT-Network', 'Network Team', 'Network infrastructure issues'),
+        ('IT-Software', 'Software Support', 'Software licensing and installation'),
+        ('IT-Hardware', 'Hardware Support', 'Hardware repair and replacement')
+    `)
+
+    await client.query('COMMIT')
+
+    res.json({
+      success: true,
+      message: 'Database berhasil di-reset dan dikosongkan. Seluruh data aset, tiket, karyawan, dan log telah dibersihkan.',
+    })
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {})
+    next(error)
+  } finally {
+    client.release()
+  }
+}
+
